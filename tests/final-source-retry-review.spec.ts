@@ -24,10 +24,12 @@ describe('4.1 retryDecision numeric safety', () => {
       if (d.retry) { expect(Number.isFinite(d.delay)).toBe(true); expect(d.delay).toBeGreaterThanOrEqual(0) }
     }
   })
-  it('bounds a trusted server instruction (absurd Retry-After must not schedule years ahead)', async () => {
+  it('fails closed on an unrepresentable trusted embargo and never dispatches before a representable one', async () => {
     const { TransportFailure } = await import('../src/infra/transport-failure.ts')
     const d = retryDecision(new TransportFailure('x', { status: 429, retryAfter: '99999999999' }, NOW), 0, 1000, 60000, () => 0.5, NOW)
-    expect(d.retry && d.delay).toBeLessThanOrEqual(24 * 3600_000)
+    expect(d.retry).toBe(false)
+    const ok = retryDecision(new TransportFailure('x', { status: 429, retryAfter: '7200' }, NOW), 0, 1000, 60000, () => 0.5, NOW)
+    expect(ok.retry && ok.delay).toBeGreaterThanOrEqual(7200_000)
   })
 })
 describe('4.2 actual gh failure pathways', () => {

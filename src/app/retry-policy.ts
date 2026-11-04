@@ -21,7 +21,7 @@ export { TransportFailure, serverNotBefore } from '../infra/transport-failure.ts
 /** Error classes for retry decisions, in the order a classifier should consider them. */
 export type ErrorClass = 'cancelled' | 'unauthorized' | 'permanent' | 'programming_error' | 'rate_limited' | 'provider_temporary' | 'transient'
 /** Retryable classes; everything else parks instead of consuming attempts. */
-/** Upper bound on how far a trusted server instruction may defer a retry. */
+/** Longest server embargo Effects will schedule; longer ones fail closed (blocked) rather than being truncated. */
 export const MAX_SERVER_WAIT_MS = 24 * 3600_000
 const RETRYABLE: ReadonlySet<ErrorClass> = new Set(['rate_limited', 'provider_temporary', 'transient'])
 
@@ -60,7 +60,9 @@ export function retryDecision(error: unknown, attempt: number, base: number, max
   const u = rng()
   const jittered = 0.5 * a + (Number.isFinite(u) ? Math.min(1, Math.max(0, u)) : 1) * 0.5 * a
   const notBefore = transportOf(error)?.serverNotBeforeMs
-  const serverWait = notBefore !== undefined && Number.isFinite(now) ? Math.min(notBefore - now, MAX_SERVER_WAIT_MS) : 0
+  const serverWait = notBefore !== undefined && Number.isFinite(now) ? notBefore - now : 0
+  // A trusted not-before beyond the representable horizon must never be shortened (that would dispatch inside the embargo): park visibly instead.
+  if (serverWait > MAX_SERVER_WAIT_MS) return { retry: false, class: kind }
   return { retry: true, class: kind, delay: Math.max(jittered, serverWait, 0) }
 }
 
