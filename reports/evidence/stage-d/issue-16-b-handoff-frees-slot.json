@@ -1,0 +1,23 @@
+{
+  "scenario": "capacity 1; t1 hands off with a live job, t2 launches immediately; job end collected by injection; t2 left-job killed on stop",
+  "t2QueueWaitMs": 0,
+  "windowMs": 47,
+  "capacitySlotMs": 47,
+  "stateSlotMs": {
+    "starting": 23,
+    "turn": 9,
+    "background-wait": 0,
+    "handed-off": 30,
+    "idle": 9
+  },
+  "occupancyFraction": {
+    "starting": 0.48936170212765956,
+    "turn": 0.19148936170212766,
+    "background-wait": 0,
+    "handed-off": 0.6382978723404256,
+    "idle": 0.19148936170212766
+  },
+  "peakUsed": 1,
+  "peakPerson": 0,
+  "sampleCount": 19
+}

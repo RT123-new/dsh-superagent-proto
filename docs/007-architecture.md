@@ -431,6 +431,9 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/runtime.spec.ts` | The whole application on a simulated DeepSeek Harness host, through tools and HTTP |
 | `tests/tools.spec.ts` | The Sessions' tools: what `orchestrator_read` reads for each role, and the shapes and checks of the other main Session tools |
 | `tests/runtime-concurrency.spec.ts` | Work that overlaps: Triggers during a pass, Tickets that change during deliveries and launches |
+| `tests/stage-d/issue-16-slots.spec.ts` | Stage D Issue 16 measurement: per-state worker slot occupancy, background work holding slots, handoff freeing them, cancellation, crash backoff, person +1 slot, 30-minute background limit |
+| `tests/stage-d/issue-17-concurrency.spec.ts` | Stage D Issue 17 measurement: capacity 3/6/12 throughput and completion distributions, FIFO starvation, slot-refill latency with and without a relay kick, failure injection |
+| `tests/stage-d/issue-18-startup.spec.ts` | Stage D Issue 18 measurement: cold vs warm launches with real prepare, partial-preparation recovery, restart storms, prompt-decoration microbenchmarks |
 | `tests/issue-5-decoration-races.spec.ts` | Skill-scope cancellation, generation-scoped release and concurrent decoration readiness |
 | `tests/issue-5-session-creation-gates.spec.ts` | Cancellation checks across session resolution, workspace creation, create RPC and model initialization |
 | `tests/issue-4-5-adversarial.spec.ts` | Independent regressions for legacy/corrupt state, cancellation during verification, config-change races and descendant quiescence |

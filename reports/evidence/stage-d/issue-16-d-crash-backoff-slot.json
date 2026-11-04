@@ -1,0 +1,24 @@
+{
+  "scenario": "capacity 1; transient turn failure, 15s backoff (fake timers); slot free during backoff admits t2",
+  "backoffSlotFree": true,
+  "retried": true,
+  "windowMs": 38,
+  "capacitySlotMs": 38,
+  "stateSlotMs": {
+    "starting": 23,
+    "turn": 4,
+    "background-wait": 0,
+    "handed-off": 0,
+    "idle": 27
+  },
+  "occupancyFraction": {
+    "starting": 0.6052631578947368,
+    "turn": 0.10526315789473684,
+    "background-wait": 0,
+    "handed-off": 0,
+    "idle": 0.7105263157894737
+  },
+  "peakUsed": 1,
+  "peakPerson": 0,
+  "sampleCount": 20
+}
