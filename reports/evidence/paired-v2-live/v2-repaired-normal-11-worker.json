@@ -1,0 +1,198 @@
+{
+  "id": "v2-repaired-normal-11-worker",
+  "prompt": "{\"task\":\"Repair clamp by returning one JSON object only. Requirements: clamp below low to low, above high to high, preserve interior. Return no prose or code fences.\",\"output_schema\":{\"type\":\"object\",\"additionalProperties\":false,\"required\":[\"expression\"],\"properties\":{\"expression\":{\"$ref\":\"#/$defs/expression\"}},\"$defs\":{\"expression\":{\"oneOf\":[{\"type\":\"string\",\"enum\":[\"n\",\"low\",\"high\"]},{\"type\":\"object\",\"additionalProperties\":false,\"required\":[\"op\",\"args\"],\"properties\":{\"op\":{\"type\":\"string\",\"enum\":[\"min\",\"max\"]},\"args\":{\"type\":\"array\",\"minItems\":2,\"maxItems\":2,\"items\":{\"$ref\":\"#/$defs/expression\"}}}}]}}},\"grammar_notes\":\"A variable leaf is a JSON string: \\\"n\\\", \\\"low\\\", or \\\"high\\\". Never wrap leaves in objects. Each internal node has exactly op and args, op is min or max, args has exactly two expressions. Depth at most 5. Do not add other keys.\",\"syntax_example\":{\"expression\":{\"op\":\"max\",\"args\":[\"low\",\"high\"]}},\"example_note\":\"This example shows grammar only. It chooses the greater bound and never reads n. It is unrelated to the clamp solution. Derive the clamp solution independently.\",\"brokenCode\":\"export const clamp = (n, low, high) => Math.min(low, Math.max(n, high));\\n\",\"seed\":11}",
+  "chunks": [
+    {
+      "type": "block-start",
+      "index": 0,
+      "blockType": "text"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "{\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "expression"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\":{\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "op"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\":\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "max"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\",\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "args"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\":"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "[\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "low"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\","
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "{\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "op"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\":\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "min"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\",\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "args"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\":"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "[\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "high"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\",\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "n"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\"]"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "}]"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "}}"
+    },
+    {
+      "type": "block-end",
+      "index": 0,
+      "block": {
+        "type": "text",
+        "text": "{\"expression\":{\"op\":\"max\",\"args\":[\"low\",{\"op\":\"min\",\"args\":[\"high\",\"n\"]}]}}"
+      }
+    },
+    {
+      "type": "usage",
+      "usage": {
+        "inputTokens": 191,
+        "outputTokens": 26,
+        "cacheReadTokens": 128,
+        "cacheWriteTokens": 0,
+        "totalTokens": 345
+      }
+    },
+    {
+      "type": "finish",
+      "reason": {
+        "kind": "stop"
+      },
+      "replayState": {
+        "response": {
+          "kind": "deepseek-messages",
+          "version": 1,
+          "model": "deepseek-flash"
+        },
+        "blocks": [
+          {
+            "type": "text"
+          }
+        ]
+      }
+    }
+  ],
+  "text": "{\"expression\":{\"op\":\"max\",\"args\":[\"low\",{\"op\":\"min\",\"args\":[\"high\",\"n\"]}]}}",
+  "latencyMs": 765.4441450000002,
+  "usage": {
+    "inputTokens": 191,
+    "outputTokens": 26,
+    "cacheReadTokens": 128,
+    "cacheWriteTokens": 0,
+    "totalTokens": 345
+  },
+  "baselineTag": "8c32a9d",
+  "repairedTag": "5752c4c99778ba5a0abe59ace4988270e4612855",
+  "pricing": {
+    "url": "https://api-docs.deepseek.com/quick_start/pricing.md",
+    "verified": "2026-11-04",
+    "inputMiss": 0.3,
+    "inputHit": 0.006,
+    "output": 1.2,
+    "unit": 1000000,
+    "currency": "USD"
+  },
+  "cost": 0.000089268
+}
