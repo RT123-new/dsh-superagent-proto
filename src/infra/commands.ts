@@ -33,20 +33,20 @@ function splitResponseHeaders(output: string): { status?: number; retryAfter?: s
   let retryAfter: string | undefined
   let body = ''
   for (;;) {
-    if (rest.startsWith('HTTP/')) {
-      const end = rest.indexOf('\n\n')
-      if (end < 0) { body += rest; break }
-      const head = rest.slice(0, end)
-      status = Number(/^HTTP\/\S+ (\d{3})\b/.exec(head)?.[1]) || status
-      retryAfter = /^Retry-After:[ \t]*(.*?)[ \t]*$/im.exec(head)?.[1] ?? retryAfter
-      rest = rest.slice(end + 2)
-      continue
-    }
-    // A body chunk up to the next page's header block (blocks start at a line boundary; JSON strings hold no raw newlines).
-    const next = rest.indexOf('\nHTTP/')
-    if (next < 0) { body += rest; break }
-    body += rest.slice(0, next + 1)
-    rest = rest.slice(next + 1)
+    // A header block can start at position 0, after a line boundary, or - real gh --paginate --slurp --include
+    // (2.103.2) - INSIDE the slurp array text: after the opening `[` or a page-separating `,`. The slurp
+    // brackets and commas are body structure and stay; only the header text is stripped. JSON strings hold no
+    // raw newlines, and a block is only recognized at one of those boundaries.
+    const boundary = /(^|[\n[,])HTTP\//.exec(rest)
+    if (!boundary) { body += rest; break }
+    const start = boundary.index + boundary[1].length
+    const end = rest.indexOf('\n\n', start)
+    if (end < 0) { body += rest; break }
+    const head = rest.slice(start, end)
+    status = Number(/^HTTP\/\S+ (\d{3})\b/.exec(head)?.[1]) || status
+    retryAfter = /^Retry-After:[ \t]*(.*?)[ \t]*$/im.exec(head)?.[1] ?? retryAfter
+    body += rest.slice(0, start)
+    rest = rest.slice(end + 2)
   }
   return { status, retryAfter, body }
 }
