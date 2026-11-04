@@ -1,5 +1,6 @@
 /** Subprocess wrapper for running gh, lark-cli, and git commands under the deployment's configured accounts. */
 import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { basename } from 'node:path'
 import { promisify } from 'node:util'
 import { z } from 'zod'
@@ -61,8 +62,11 @@ export function validItems<T>(item: z.ZodType<T>, list: readonly unknown[], tall
       const rejected = tally.rejected ??= []
       if (rejected.length < MAX_REJECTED) {
         const id = value && typeof value === 'object' && 'id' in value ? (value as { id: unknown }).id : undefined
-        rejected.push({ ...typeof id === 'number' || (typeof id === 'string' && id.length <= 64) ? { id } : {},
-          fields: [...new Set(parsed.error.issues.map(issue => issue.path.map(String).join('.') || '(item)'))].slice(0, 5).map(name => name.slice(0, 64)) })
+        // Remote text is untrusted: keep only a numeric id, or a short hash of anything else, and only plain identifier-shaped field names.
+        const safeId = typeof id === 'number' && Number.isSafeInteger(id) ? id : typeof id === 'string' ? `sha256:${createHash('sha256').update(id).digest('hex').slice(0, 12)}` : undefined
+        const field = (segment: PropertyKey) => typeof segment === 'string' && /^[A-Za-z_][A-Za-z0-9_]{0,31}$/.test(segment) ? segment : typeof segment === 'number' ? '#' : '(field)'
+        rejected.push({ ...safeId !== undefined ? { id: safeId } : {},
+          fields: [...new Set(parsed.error.issues.map(issue => issue.path.map(field).join('.') || '(item)'))].slice(0, 5) })
       }
     }
     return []

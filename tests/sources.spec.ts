@@ -630,7 +630,7 @@ describe('github source', () => {
       'issues/12/comments': [comment, { body: 'no id' }] })
     await pollRound(h)
     expect(h.receive.mock.calls.map(([trigger]) => trigger.text)).toEqual(['@agent-bot please fix'])
-    expect(h.health.github).toMatchObject({ state: 'ready', detail: '1 notifications; next poll ≥ 60s; 2 unreadable items skipped (n-odd: repository, ?: id)' })
+    expect(h.health.github).toMatchObject({ state: 'ready', detail: '1 notifications; next poll ≥ 60s; 2 unreadable items skipped (sha256:7090638800bd: repository, ?: id)' })
     h.store.close()
   })
   it('reads every page of the notifications when GitHub says there are more, and waits as long as GitHub asks', async () => {

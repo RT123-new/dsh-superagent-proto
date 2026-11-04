@@ -107,6 +107,11 @@ describe('3.4 malformed remote items', () => {
     expect(tally.skipped).toBe(52)
     expect(tally.rejected!.length).toBe(20)
     expect(tally.rejected![0]).toEqual({ id: 2, fields: ['body'] })
+    const hostile = [{ id: 'ghp_SECRETSECRETSECRET\u001b[31m', body: { 'tok\nen=ghp_X': 1 }, user: 5 }]
+    const t2 = { skipped: 0 } as { skipped: number; rejected?: { id?: string | number; fields: string[] }[] }
+    validItems(CommentSchema, hostile, t2)
+    expect(JSON.stringify(t2)).not.toMatch(/ghp_|tok|\\u001b/)
+    expect(t2.rejected![0]!.id).toMatch(/^sha256:[0-9a-f]{12}$/)
     expect(JSON.stringify(tally)).not.toContain(secret)
     void z
   })
