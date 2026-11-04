@@ -1216,6 +1216,30 @@ describe('feishu event consumer', () => {
     expect(off.chats).toEqual(['oc_a', 'oc_b'])
     expect(off.cursors.oc_dm).toBe(hour)
   }, 20_000)
+  it('RESTART: the first-seen boundary and cursor survive a store reopen, and the new loop admits only what followed the boundary', async () => {
+    const chat = { chatId: 'oc_a', listen: 'mentions' }
+    const first = consumerSource(cli('ready'), { chats: [chat] })
+    const one = new AbortController()
+    const loopOne = runFeishu(first.ctx, AbortSignal.any([one.signal, controller.signal]))
+    await vi.waitFor(() => expect(first.store.get(KV.feishu.started('oc_a'))).toBeDefined(), until)
+    const boundary = first.store.get<string>(KV.feishu.started('oc_a'))!
+    one.abort(); await loopOne; first.store.close()
+    const at = (ms: number) => String(Date.parse(boundary) + ms)
+    const mention = (id: string, ms: number) => ({ message_id: id, chat_id: 'oc_a', create_time: at(ms), msg_type: 'text', sender: { id: 'ou_alice', id_type: 'open_id', sender_type: 'user' },
+      body: { content: '{"text":"@bot fix"}' }, mentions: [{ id: 'ou_bot', key: '@_user_1', name: 'Bot' }] })
+    const lark = vi.spyOn(Commands.prototype, 'lark').mockImplementation(async args =>
+      args[2] === '/open-apis/im/v1/messages'
+        ? { has_more: false, items: [mention('om_before_restart', -5000), mention('om_after_restart', 500)] }
+        : { chats: [] })
+    const second = consumerSource(cli('ready'), { chats: [chat] })
+    expect(second.store.get(KV.feishu.started('oc_a'))).toBe(boundary)
+    const two = new AbortController()
+    const loopTwo = runFeishu(second.ctx, AbortSignal.any([two.signal, controller.signal]))
+    await vi.waitFor(() => expect(second.store.triggers.get(feishuTriggerId('om_after_restart'))).toBeDefined(), until)
+    expect(second.store.triggers.get(feishuTriggerId('om_before_restart'))).toBeUndefined()
+    expect(second.store.get<string>(KV.feishu.started('oc_a'))).toBe(boundary)
+    two.abort(); await loopTwo; lark.mockRestore(); second.store.close()
+  }, 30_000)
   it('reports an error when the consumer is not ready within 45 seconds', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     const { ctx, health, store } = consumerSource(cli('never'))
