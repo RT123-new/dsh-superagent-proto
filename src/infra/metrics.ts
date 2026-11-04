@@ -14,6 +14,7 @@
 export const STAGES = [
   'source_to_eval_queue', 'eval_queue_wait', 'eval_run', 'decision_to_assignment', 'slot_wait', 'workspace_prepare',
   'delivery_to_worker', 'worker_turn', 'tool_run', 'report_to_response', 'effect_queue_wait', 'effect_run',
+  'trigger_intake', 'effect_schedule_lateness', 'effect_total_age',
 ] as const
 export type Stage = (typeof STAGES)[number]
 export const SOURCES = ['github', 'feishu', 'internal', 'other'] as const
@@ -175,6 +176,9 @@ export interface TokenUsage { inputCacheHit?: number | null; inputCacheMiss?: nu
 export interface Pricing { inputCacheHitPerM: number; inputCacheMissPerM: number; outputPerM: number; cacheWritePerM?: number }
 const CATS = ['inputCacheHit', 'inputCacheMiss', 'output'] as const
 const EXTRA = ['cacheWrite', 'reasoning'] as const
+/** Usage components. Anything else is 'other'; the sum over components equals the total report count. */
+export const COMPONENTS = ['coordinator', 'worker', 'subagent', 'unknown', 'other'] as const
+interface ComponentTokens { reports: number; sums: Record<(typeof CATS)[number], number>; known: Record<(typeof CATS)[number], number>; unknown: Record<(typeof CATS)[number], number> }
 const valid = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0
 
 export interface MetricsOptions { mono?: MonoClock; wall?: WallClock; window?: number }
@@ -188,6 +192,7 @@ export class Metrics {
   private readonly failedSeries = new Map<string, Series>()
   private readonly started: number
   private readonly counters = new Map<string, number>()
+  private readonly byComponent = new Map<string, ComponentTokens>()
   private readonly tokens = { sums: { inputCacheHit: 0, inputCacheMiss: 0, output: 0 }, known: { inputCacheHit: 0, inputCacheMiss: 0, output: 0 }, unknown: { inputCacheHit: 0, inputCacheMiss: 0, output: 0 }, reports: 0, costUsd: 0, costKnown: 0, costUnknown: 0, extra: { cacheWrite: 0, reasoning: 0 }, extraKnown: { cacheWrite: 0, reasoning: 0 } }
   readonly queues = new Map<string, QueueGauge>()
   readonly slots = new Map<string, SlotIntegrator>()
@@ -234,6 +239,11 @@ export class Metrics {
     return q
   }
 
+  private newComponent(name: string): ComponentTokens {
+    const c: ComponentTokens = { reports: 0, sums: { inputCacheHit: 0, inputCacheMiss: 0, output: 0 }, known: { inputCacheHit: 0, inputCacheMiss: 0, output: 0 }, unknown: { inputCacheHit: 0, inputCacheMiss: 0, output: 0 } }
+    this.byComponent.set(name, c); return c
+  }
+
   slotPool(name: string, capacity: number, states?: readonly string[]): SlotIntegrator {
     if (!/^[a-z][a-z0-9_]{0,47}$/.test(name)) throw new RangeError('pool name must be a bounded label')
     let p = this.slots.get(name); if (!p) { if (this.slots.size >= 8) throw new RangeError('too many slot pools'); p = new SlotIntegrator(this.mono, capacity, states); this.slots.set(name, p) }
@@ -245,7 +255,10 @@ export class Metrics {
    * any cache-write tokens reported (> 0) have a resolved rate; otherwise the report's cost is unknown and the running
    * total excludes it (counted in costUnknownReports) so a partial sum is never presented as complete.
    */
-  recordUsage(usage: TokenUsage, pricing?: Pricing): { costUsd: number | null } {
+  recordUsage(usage: TokenUsage, pricing?: Pricing, component?: string): { costUsd: number | null } {
+    const comp = this.byComponent.get(COMPONENTS.includes(component as never) ? component! : 'other') ?? this.newComponent(COMPONENTS.includes(component as never) ? component! : 'other')
+    comp.reports++
+    for (const c of CATS) { const v = usage[c]; if (valid(v)) { comp.sums[c] += v; comp.known[c]++ } else comp.unknown[c]++ }
     const t = this.tokens; t.reports++
     let allKnown = true
     for (const c of CATS) {
@@ -284,7 +297,7 @@ export class Metrics {
       tokens: {
         reports: t.reports,
         inputCacheHit: anyKnown[0] ? t.sums.inputCacheHit : null, inputCacheMiss: anyKnown[1] ? t.sums.inputCacheMiss : null, output: anyKnown[2] ? t.sums.output : null,
-        cacheWrite: t.extraKnown.cacheWrite ? t.extra.cacheWrite : null, reasoning: t.extraKnown.reasoning ? t.extra.reasoning : null, unknownReports: { ...t.unknown }, costUsd: t.costKnown ? t.costUsd : null, costKnownReports: t.costKnown, costUnknownReports: t.costUnknown,
+        cacheWrite: t.extraKnown.cacheWrite ? t.extra.cacheWrite : null, reasoning: t.extraKnown.reasoning ? t.extra.reasoning : null, byComponent: Object.fromEntries([...this.byComponent].map(([k, c]) => [k, { reports: c.reports, inputCacheHit: c.known.inputCacheHit ? c.sums.inputCacheHit : null, inputCacheMiss: c.known.inputCacheMiss ? c.sums.inputCacheMiss : null, output: c.known.output ? c.sums.output : null, unknownReports: { ...c.unknown } }])), unknownReports: { ...t.unknown }, costUsd: t.costKnown ? t.costUsd : null, costKnownReports: t.costKnown, costUnknownReports: t.costUnknown,
       },
     }
   }
@@ -303,5 +316,5 @@ export interface MetricsSnapshot {
   queues: Record<string, { depth: number; trackedDepth: number; depthComplete: boolean; oldestAgeMs: number | null; oldestAgeIsLowerBound: boolean; dropped: number }>
   slots: Record<string, { capacity: number; integrals: ReturnType<SlotIntegrator['integrals']>; utilization: number | null }>
   counters: Record<string, number>
-  tokens: { reports: number; inputCacheHit: number | null; inputCacheMiss: number | null; output: number | null; cacheWrite: number | null; reasoning: number | null; unknownReports: Record<string, number>; costUsd: number | null; costKnownReports: number; costUnknownReports: number }
+  tokens: { reports: number; inputCacheHit: number | null; inputCacheMiss: number | null; output: number | null; cacheWrite: number | null; reasoning: number | null; byComponent: Record<string, { reports: number; inputCacheHit: number | null; inputCacheMiss: number | null; output: number | null; unknownReports: Record<string, number> }>; unknownReports: Record<string, number>; costUsd: number | null; costKnownReports: number; costUnknownReports: number }
 }

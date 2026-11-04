@@ -361,6 +361,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/infra/paths.ts` | The package's root, where packaged files are |
 | `src/infra/text.ts` | Word counts and the chat message limit, `fill` and `sameName` |
 | `src/infra/health.ts` | The `HealthBoard`, every part's health entry, each claimed by its one writer |
+| `src/infra/metrics-probe.ts` | The failure-isolated optional `Probe` that production hooks record through, never changing effect control flow |
 | `src/infra/metrics.ts` | The bounded Stage C `Metrics` collector: stage durations with nearest-rank quantiles, slot-state integrals, queue depth and oldest age, token and cost categories (not yet hooked into production code) |
 | `src/sources/kind.ts` | The `SourceKind` protocol |
 | `src/sources/registry.ts` | `SourceRegistry` |
@@ -428,6 +429,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/followups.spec.ts` | A person's follow-up on a Ticket's Thread: its notice to the main Session, the tools that act on it, what a burst costs; a worker's hand-back and context follow, and the main Session's note |
 | `tests/health.spec.ts` | One health entry per part, each cleared by its own next success |
 | `tests/issue-9-adversarial.spec.ts` | Independent metric reconciliation, validation, bounds and snapshot tests. |
+| `tests/issue-9-hooks.spec.ts` | The metrics hooks: failure isolation, disjoint slot states, effect timings, intake timing and usage attribution |
 | `tests/issue-9-metrics.spec.ts` | The metrics collector's quantiles, bounded labels, monotonic timing, slot integrals, queue gauge and unknown-stays-unknown token accounting |
 | `tests/delivery.spec.ts` | `AgentDelivery` |
 | `tests/retry-health.spec.ts`, `tests/role-models.spec.ts` | Model budget retries, and the models of the two roles |

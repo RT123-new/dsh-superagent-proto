@@ -1804,3 +1804,16 @@ it('keeps the Policy the main Session judges by in its prompt, after admission a
   expect(policy()).toContain('No rule is enabled: a proactive candidate can only be ignored.')
   expect(policy()).toContain('The accept mode and the rules decide proactive candidates only')
 })
+
+it('serves the live metrics snapshot through the HTTP host: the real Runtime, not an adapter that omits it (Issue 9)', async () => {
+  const host = (runtime as unknown as { httpHost(): { metricsSnapshot?(): { version: number; counters: Record<string, number>; durations: Record<string, unknown> } | undefined } }).httpHost()
+  expect(typeof host.metricsSnapshot).toBe('function')
+  const before = host.metricsSnapshot!()!
+  expect(before.version).toBe(1)
+  expect(runtime.metricsSnapshot()).toBeDefined()
+  expect(runtime.receive(feishu('9001', 'hello metrics'))).toBe('stored')
+  const after = host.metricsSnapshot!()!
+  expect(after.counters.trigger_stored).toBe(1)
+  expect(Object.keys(after.durations)).toContain('trigger_intake|internal')
+  await runtime.idle()
+})
