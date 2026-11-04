@@ -30,7 +30,9 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
       - name: Test (full suite)
-        run: pnpm test 2>&1 | tee test-output.txt
+        # The pipe to tee would otherwise return tee's exit status and mask a test failure (observed live: a run
+        # with two failed files reported success). PIPESTATUS propagates the real pnpm test result.
+        run: pnpm test 2>&1 | tee test-output.txt; exit ${PIPESTATUS[0]}
       - name: Build
         run: pnpm build
       - name: Whitespace and conflict check
