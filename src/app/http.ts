@@ -1,4 +1,3 @@
-import type { MetricsSnapshot } from '../infra/metrics.ts'
 /** Loopback-only management HTTP routes with same-origin enforcement for the web panel. */
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
@@ -42,7 +41,6 @@ export interface HttpHost {
   readonly executor: Pick<DshExecutor, 'activeCount'>
   readonly health: Record<string, Health>
   readonly machine: Machine
-  metricsSnapshot?(): MetricsSnapshot
   readonly masterId: string
   /** Resolves once startup finishes or setup determines what is still missing. */
   readonly ready: Promise<void>

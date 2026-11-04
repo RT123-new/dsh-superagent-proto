@@ -9,7 +9,7 @@ it('composes an optional HttpHost snapshot in overview and keeps a legacy adapte
   try {
     const before = await h.api('GET', 'overview')
     expect(before.status).toBe(200)
-    expect(before.body.metrics).toBeUndefined()
+    expect(before.body.metrics).toMatchObject({ version: 1, tokens: { reports: 0 } })
     const collector = new Metrics()
     collector.observe('workspace_prepare', 'github', 42, 'failure')
     collector.recordUsage({ output: 3 })
