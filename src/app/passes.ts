@@ -2,6 +2,7 @@
 import type { Engine, ReceiveResult, Trigger } from '../core/index.ts'
 import type { HealthEntry } from '../infra/health.ts'
 import type { Effects } from './effects.ts'
+import type { Probe } from '../infra/metrics-probe.ts'
 
 export interface PassesHost {
   readonly engine: Pick<Engine, 'receive' | 'evaluateDue'>
@@ -10,6 +11,8 @@ export interface PassesHost {
   readonly lifetime: AbortSignal
   configured(): boolean
   closing(): boolean
+  /** Optional instrumentation; absent means none. */
+  readonly probe?: Probe
 }
 
 const now = (): string => new Date().toISOString()
@@ -33,7 +36,11 @@ export class Passes {
   }
   receive(trigger: Trigger): ReceiveResult {
     if (this.host.closing()) throw new Error('Orchestrator is stopping')
-    const result = this.host.engine.receive(trigger)
+    const stop = this.host.probe?.timer('trigger_intake', 'internal')
+    let result: ReceiveResult
+    try { result = this.host.engine.receive(trigger) } catch (error) { stop?.('failed'); throw error }
+    stop?.()
+    this.host.probe?.count(`trigger_${result}`)
     if (result === 'stored') this.request()
     return result
   }

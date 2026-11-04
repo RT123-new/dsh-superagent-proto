@@ -19,6 +19,7 @@ import { resultRelay } from '../app/notices.ts'
 import type { HealthEntry } from '../infra/health.ts'
 import { cancelled, collectJob, killJobs, runningJobs, stopBackground, stopSubagents, until, untilQuiet } from './background.ts'
 import { preparationIdentity, readPreparation, writePreparation, type PreparationRecord } from './workspace.ts'
+import { Probe as ProbeImpl, type Probe } from '../infra/metrics-probe.ts'
 import { PreparationQuiescenceUnknown, runPreparationCommand } from './preparation-command.ts'
 
 const now = (): string => new Date().toISOString()
@@ -83,6 +84,8 @@ export interface ExecutorHost {
   /** Prepare-command timeout override for tests; defaults to `PREPARE_TIMEOUT_MS`. */
   readonly prepareTimeoutMs?: number
   readonly lifetime: AbortSignal
+  /** Optional instrumentation; absent means none. */
+  readonly probe?: Probe
   /** Session manager for worker sessions and for relaying worker reports to the main Session. */
   readonly sessions: Pick<Sessions, 'ensure' | 'prompt' | 'promptedId' | 'relay' | 'holds'>
   closing(): boolean
@@ -192,6 +195,14 @@ export class WorkerSlots {
    * @param max - Returns the configured maximum number of concurrent worker slots.
    */
   constructor(private readonly running: () => string[], private readonly max: () => number) {}
+  /**
+   * Disjoint slot states: `busy` are tickets whose worker runs, `preparing` are starting reservations that do not (yet) run.
+   * A ticket in both sets counts once, as busy, so the states never double count; `capacity` is the configured maximum.
+   */
+  states(): { capacity: number; busy: number; preparing: number } {
+    const busy = new Set(this.running())
+    return { capacity: this.max(), busy: busy.size, preparing: [...this.starting.keys()].filter(id => !busy.has(id)).length }
+  }
   /** Number of slots currently in use across running workers and starting reservations. */
   used(): number { return new Set([...this.running(), ...this.starting.keys()]).size }
   /** How many launches may run concurrently: the slots not held by a running worker or a wake reservation. */
@@ -223,6 +234,7 @@ export class WorkerSlots {
 export class DshExecutor implements Executor {
   private readonly disposers: (() => void)[] = []
   private readonly slots: WorkerSlots
+  private readonly probe: Probe
   /** Transient failure counts tried so far: keyed by `assignment.id` for worker turns and `launch:<assignment.id>` for launches. */
   private readonly transient = new Map<string, number>()
   /** Assignment IDs currently waiting on a transient-failure backoff timer before resuming their worker turn. */
@@ -248,6 +260,7 @@ export class DshExecutor implements Executor {
   private readonly uncertainPreparations = new Set<string>()
   /** Registers the `launch` and `delivery` effect handlers; both are held (concurrency limit 0) while processing is paused. */
   constructor(private readonly host: ExecutorHost) {
+    this.probe = host.probe ?? new ProbeImpl(undefined)
     this.slots = new WorkerSlots(() => host.store.tickets.open().filter(ticket => this.running(ticket)).map(ticket => ticket.id),
       () => host.store.settings().executor.maxWorkers)
     // Each launch reserves a worker slot so launches run concurrently while slots are free.
@@ -349,7 +362,7 @@ export class DshExecutor implements Executor {
     const ticket = this.host.store.tickets.get(ticketId)
     const assignment = ticket && latestAssignment(ticket)
     if (!ticket || !liveTicket(ticket) || assignment?.id !== assignmentId || assignment.state !== 'pending') return
-    this.slots.reserve(ticketId, 'launch')
+    this.slots.reserve(ticketId, 'launch'); this.sampleSlots()
     try { await this.launch(ticket, assignment); this.transient.delete(`launch:${assignmentId}`) }
     catch (error) {
       // Shutdown or pause re-queues the launch for resume, and transient network/provider errors retry with backoff.
@@ -358,7 +371,7 @@ export class DshExecutor implements Executor {
       if (this.host.closing() || error instanceof Later) throw error
       if (!(error instanceof PrepareFailed) && this.retries(`launch:${assignmentId}`, error)) throw error
       this.launchFailed(ticketId, assignmentId, error)
-    } finally { this.slots.free(ticketId) }
+    } finally { this.slots.free(ticketId); this.sampleSlots() }
   }
   /**
    * Delivers queued inputs to a running assignment one by one, re-reading ticket state before each delivery so delivery
@@ -382,7 +395,7 @@ export class DshExecutor implements Executor {
         if (!woken && !this.running(ticket)) {
           // A person's message wakes its worker ahead of new launches, in the slot kept for it.
           const person = ticket.undelivered.some(id => fromPerson(ticket.inputs.find(item => item.id === id)))
-          this.slots.reserve(ticketId, person ? 'person' : 'wake')
+          this.slots.reserve(ticketId, person ? 'person' : 'wake'); this.sampleSlots()
           woken = true
         }
         const input = ticket.inputs.find(item => item.id === inputId)
@@ -401,7 +414,7 @@ export class DshExecutor implements Executor {
         }
         this.host.engine.inputsDelivered(ticketId, assignment.id, [inputId])
       }
-    } finally { if (woken) this.slots.free(ticketId) }
+    } finally { if (woken) { this.slots.free(ticketId); this.sampleSlots() } }
   }
   private async deliverInput(ticket: Ticket, assignment: Assignment, input: TicketInput): Promise<void> {
     // Re-check right before session delivery because the ticket may have ended while awaiting `sourceLink`.
@@ -486,6 +499,11 @@ export class DshExecutor implements Executor {
     if (!runningAssignment(ticket)) return false
     return this.host.context.agents.get(workerSessionId(ticket.id) as SessionId)?.status === 'running' || this.settling.has(ticket.id)
   }
+  /** Records the disjoint slot states and configured capacity; called wherever a reservation or a worker's running state changes. */
+  private sampleSlots(): void {
+    if (!this.probe.enabled) return
+    try { const { capacity, busy, preparing } = this.slots.states(); this.probe.slots('worker', capacity, { busy, preparing }) } catch { this.probe.count('metrics_error') }
+  }
   /** Marks a ticket failed after its launch fails; the ticket waits until new human input or an explicit retry arrives. */
   private launchFailed(ticketId: string, assignmentId: string, error: unknown): void {
     const ticket = this.host.store.tickets.get(ticketId)
@@ -526,13 +544,15 @@ export class DshExecutor implements Executor {
     // Prepare the workspace unless it verifiably prepared under the current configuration (see `prepared`).
     if (!await this.prepared(ticket)) {
       if (!current()) return
+      const stopPrepare = this.probe.timer('workspace_prepare', 'internal')
       const settle = this.prepareDirectory(ticket, controller.signal)
       this.preparing.set(ticket.id, settle)
-      try { await settle }
+      let outcome: 'ok' | 'failed' | 'cancelled' = 'failed'
+      try { await settle; outcome = 'ok' }
       catch (error) {
-        if (error instanceof PreparationCancelled) return
+        if (error instanceof PreparationCancelled) { outcome = 'cancelled'; this.probe.count('prepare_cancelled'); return }
         throw error
-      } finally { if (this.preparing.get(ticket.id) === settle) this.preparing.delete(ticket.id) }
+      } finally { if (outcome !== 'cancelled') stopPrepare(outcome === 'ok' ? 'ok' : 'failed'); if (this.preparing.get(ticket.id) === settle) this.preparing.delete(ticket.id) }
       if (!current()) return
     }
     if (!current()) return
@@ -580,6 +600,7 @@ export class DshExecutor implements Executor {
   install(): void {
     const ctx = this.host.context
     this.disposers.push(ctx.on('agent/status', ({ agent, status }) => {
+      this.sampleSlots()
       // A turn that starts ends the look at its worker's background work; the turn's own idle looks afresh.
       if (status === 'running') { this.settling.get(ticketOfSession(agent.id) ?? '')?.abort(); return }
       // The turn a stop of the worker's subagents woke and cancelled is no turn of the worker's.
@@ -677,7 +698,7 @@ export class DshExecutor implements Executor {
       if (this.host.paused()) { this.after(SLOT_WAIT_MS, go); return }
       const sessionId = workerSessionId(ticketId)
       const waking = !this.running(ticket)
-      try { if (waking) this.slots.reserve(ticketId, 'wake') } catch (failure) {
+      try { if (waking) { this.slots.reserve(ticketId, 'wake'); this.sampleSlots() } } catch (failure) {
         if (!(failure instanceof Later)) throw failure
         this.after(SLOT_WAIT_MS, go); return
       }
@@ -693,7 +714,7 @@ export class DshExecutor implements Executor {
         this.resuming.delete(assignmentId)
         if (failure instanceof StaleRetry || !current()) return
         this.failed(ticketId, String(failure))
-      }).finally(() => { if (waking) this.slots.free(ticketId) }))
+      }).finally(() => { if (waking) { this.slots.free(ticketId); this.sampleSlots() } }))
     }
     this.after(TRANSIENT_BACKOFF_MS * 2 ** (tries - 1), go)
   }
