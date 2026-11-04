@@ -1153,13 +1153,15 @@ it('shows a failed reply as a problem with its attempts, an error of the reply e
     try { await runtime.sendReplies() } finally { vi.useRealTimers() }
   }
   await runtime.sendReplies()
-  expect(outgoing()).toEqual([{ kind: 'outgoing', outgoing: expect.objectContaining({ id: 'stuck', attempts: 1, error: expect.stringContaining('2200') }) }])
+  // Section 10: the overview problem renders the typed class only - the stored record keeps its bounded prose privately.
+  expect(outgoing()).toEqual([{ kind: 'outgoing', outgoing: expect.objectContaining({ id: 'stuck', attempts: 1, error: expect.stringContaining('transient') }) }])
+  expect(outgoing()[0]!.kind === 'outgoing' ? outgoing()[0]!.outgoing.error : '').not.toContain('2200')
   expect(runtime.health.reply).toMatchObject({ state: 'ready', detail: expect.stringContaining('1 waiting') })
   // Its retries come after 5 and then 10 more seconds.
   await at(5000); await at(15_000)
   // Section 10: the operator health detail carries the typed class only - arbitrary error prose ('2200') never renders.
   expect(runtime.health.reply).toMatchObject({ state: 'error', detail: expect.stringContaining('transient') })
-  expect(runtime.health.reply.detail).not.toContain('2200')
+  expect(runtime.health.reply?.detail ?? '').not.toContain('2200')
   expect(runtime.health.runtime).toMatchObject({ state: 'ready' })
   // A withdrawn reply takes its effect with it, which clears the error at once.
   runtime.outbox.withdraw('stuck')

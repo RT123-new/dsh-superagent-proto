@@ -194,8 +194,8 @@ export class Engine {
     this.repo.atomic(() => { this.assignments.turnEnded(ticketId, assignmentId) })
   }
   /** The Executor's fact that delivering Inputs to the Assignment that runs the ticket failed; the ticket shows it until a delivery succeeds. */
-  deliveryFailed(ticketId: string, assignmentId: string, error: string): void {
-    this.repo.atomic(() => { this.assignments.deliveryFailed(ticketId, assignmentId, error) })
+  deliveryFailed(ticketId: string, assignmentId: string, error: string, detail?: string): void {
+    this.repo.atomic(() => { this.assignments.deliveryFailed(ticketId, assignmentId, error, detail) })
   }
   /**
    * A worker's request, through its Executor, to mark a Thread attached to its ticket unrelated, for `reason`: only that

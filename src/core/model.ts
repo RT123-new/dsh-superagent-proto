@@ -304,7 +304,7 @@ export interface Ticket {
   /** What its Executor chose: its short name, directory and assignment text. */
   execution?: Execution
   /** The latest failed delivery of an Input to its worker, until a delivery succeeds. */
-  delivery?: { error: string; at: string }
+  delivery?: { error: string; at: string; detail?: string }
 }
 /**
  * A Thread a ticket follows, by its key: `own` when the ticket opened it, such as its own pull request, and when and how it

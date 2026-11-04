@@ -69,10 +69,11 @@ export class Assignments extends EnginePart {
     runningAssignment(ticket)!.idleAt = this.now()
     this.repo.tickets.save(ticket)
   }
-  deliveryFailed(ticketId: string, assignmentId: string, error: string): void {
+  deliveryFailed(ticketId: string, assignmentId: string, error: string, detail?: string): void {
     const ticket = this.running(ticketId, assignmentId)
     if (!ticket) return
-    ticket.delivery = { error: error.slice(0, 300), at: this.now() }
+    // error stays the private bounded failure record; detail is the operator-safe typed rendering (mandate section 10).
+    ticket.delivery = { error: error.slice(0, 300), at: this.now(), ...(detail ? { detail } : {}) }
     this.repo.tickets.save(ticket)
   }
   /**

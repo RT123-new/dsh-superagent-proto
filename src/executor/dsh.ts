@@ -1,4 +1,5 @@
 /** DSH executor: manages one persistent worker session and workspace directory per ticket. */
+import { healthErrorDetail } from '../app/retry-policy.ts'
 import type { Context } from '@deepseek-ai/cordis'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import type { Agent } from '@deepseek-ai/dsh-agent'
@@ -467,7 +468,8 @@ export class DshExecutor implements Executor {
           if (this.host.closing() || error instanceof Later) throw error
           const current = this.host.store.tickets.get(ticketId)
           if (!current || !liveTicket(current) || runningAssignment(current)?.id !== assignment.id) return
-          this.host.engine.deliveryFailed(ticketId, assignment.id, String(error))
+          // The private record keeps bounded prose; the operator fields render only the typed class/status (section 10).
+          this.host.engine.deliveryFailed(ticketId, assignment.id, String(error), healthErrorDetail(error))
           throw error
         }
         this.host.engine.inputsDelivered(ticketId, assignment.id, [inputId])
