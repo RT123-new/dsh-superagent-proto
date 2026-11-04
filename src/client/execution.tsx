@@ -44,6 +44,7 @@ export function ExecutionStatus({ filter: current, state, reload }: {
       const page = await call('GET effects/blocked', { query: { limit: 200, cursor: Number(blockedNext) } })
       setOlderBlocked(rows => [...rows, ...page.items])
       setOlderCursor(page.nextCursor)
+      olderPages.current += 1
       setBlockedPage({})
     } catch (failure) {
       // Keep the rows already shown and surface the page failure in place; Load More stays available as the retry.
@@ -54,8 +55,10 @@ export function ExecutionStatus({ filter: current, state, reload }: {
   }
   // Refetch every loaded blocked page (first page plus appended ones) so a refused rearm keeps the row visible with
   // the generation the server actually holds - a retried approval then carries a current expectedGeneration.
+  const olderPages = useRef(0)                                                          // counts successful page appends (merge epoch)
   const reloadBlockedPages = async () => {
     const wanted = Math.ceil(olderCount.current / 200)
+    const pagesAtStart = olderPages.current
     const first = await call('GET effects/blocked', { query: { limit: 200 } })
     const fresh: BlockedEffect[] = []
     let cursor = first.nextCursor
@@ -64,8 +67,10 @@ export function ExecutionStatus({ filter: current, state, reload }: {
       fresh.push(...next.items)
       cursor = next.nextCursor
     }
-    setOlderBlocked(fresh)
-    setOlderCursor(cursor)
+    // Merge against the live collection: a page that settled while the refetch ran is newer than this extent - keep
+    // it and its cursor instead of regressing to the snapshot taken at refetch start.
+    setOlderBlocked(rows => [...fresh, ...rows.slice(wanted * 200)])
+    if (olderPages.current === pagesAtStart) setOlderCursor(cursor)
     await blocked.reload()
   }
   const { paused, load: { maxWorkers } } = state

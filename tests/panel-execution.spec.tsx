@@ -375,6 +375,36 @@ it('same-tick Load More double clicks dispatch one request', async () => {
   expect(count).toBe(1)
 })
 
+it('does not discard a page that settles during a refused-rearm refetch', async () => {
+  server.blockedEffects = Array.from({ length: 250 }, (_, index) => ({ kind: 'relay', key: `r${index}`, class: 'permanent', attempts: 1, since: '2026-09-22T00:00:00Z', attemptUnknown: false, generation: 1 }))
+  let releasePage!: () => void
+  let releaseRefresh!: () => void
+  const pageHold = new Promise<void>(resolve => { releasePage = resolve })
+  const refreshHold = new Promise<void>(resolve => { releaseRefresh = resolve })
+  let refusing = false
+  let refreshStarted = false
+  const realFetch = globalThis.fetch
+  vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+    const address = String(url)
+    if (address.includes('effects/relay/rearm')) { refusing = true; return new Response(JSON.stringify({ rearmed: false }), { status: 200 }) }
+    if (address.includes('effects/blocked') && address.includes('cursor=')) await pageHold
+    else if (address.includes('effects/blocked') && refusing && !refreshStarted) { refreshStarted = true; await refreshHold }
+    return realFetch(url, init)
+  }))
+  await mount()
+  await click(zh['tab.execution'])
+  await act(async () => { find(zh.loadMore).click() })
+  await click(all('.dt-blocked-effects li')[0]!.querySelector('button')!)
+  await act(async () => { find(zh.confirm).click() })
+  expect(refreshStarted).toBe(true)
+  await act(async () => { releasePage() })
+  await settle()
+  expect(all('.dt-blocked-effects li')).toHaveLength(250)
+  await act(async () => { releaseRefresh() })
+  await settle()
+  expect(all('.dt-blocked-effects li')).toHaveLength(250)
+})
+
 it('sends one stop for a double click on Confirm', async () => {
   at({ page: 'execution', id: 't1' })
   await mount()
