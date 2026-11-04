@@ -74,9 +74,9 @@ export interface ExecutorHost {
   /** Session manager for worker sessions and for relaying worker reports to the main Session. */
   readonly sessions: Pick<Sessions, 'ensure' | 'prompt' | 'promptedId' | 'relay' | 'holds'>
   closing(): boolean
-  /** Whether processing is paused, which holds launches and input deliveries. */
   /** Current policy permission for a new automated retry; does not revoke already active work. */
   authorized(ticket: Ticket): boolean
+  /** Whether processing is paused, which holds launches and input deliveries. */
   paused(): boolean
   /** Execution environment variables for `ticket`, passed to its workspace prepare command. */
   environment(ticket: Ticket): Variable[]
