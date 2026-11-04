@@ -758,6 +758,41 @@ describe('github source', () => {
     expect(h.health.github).toMatchObject({ state: 'ready', detail: expect.stringContaining('deleted on GitHub: #5, #7, #8') })
     h.store.close()
   })
+  it('parked reads survive a restart and are rearmed only when the owner switches the Source off and on', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      let settings = SettingsSchema.parse({ sources: { github: { enabled: true, config: {} } } })
+      const begin = (parked: boolean) => {
+        const board = new HealthBoard()
+        const sources = new SourceRegistry(() => settings, board)
+        healthOf.set(sources, board)
+        const value = host({ sources })
+        value.store.set('github-retry', { 16: { since: '2026-09-01T00:00:00.000Z', pr: false, failedAt: '2026-09-01T00:00:00.000Z', attempts: 9, ...parked ? { parked: true } : {} } })
+        const disposers: (() => unknown)[] = []
+        applyGithub({ orchestrator: value, effect: (effect: () => () => unknown) => { disposers.push(effect()) } } as never)
+        return { value, stop: async () => { for (const dispose of disposers) await dispose() } }
+      }
+      const calls: string[] = []
+      vi.spyOn(Commands.prototype, 'run').mockImplementation(async (...args: unknown[]) => {
+        calls.push(JSON.stringify(args))
+        return 'HTTP/2.0 200 OK\r\n\r\n[]'
+      })
+      // Startup with a parked record: it stays parked, is not read, and the health is an error.
+      const run = begin(true)
+      await vi.waitFor(() => expect(run.value.health.github).toMatchObject({ state: 'error', detail: expect.stringContaining('parked') }))
+      expect(calls.filter(call => call.includes('issues/16'))).toHaveLength(0)
+      expect(run.value.store.get<Record<string, { parked?: boolean }>>('github-retry')![16]?.parked).toBe(true)
+      // Owner switches the Source off, then on: the record is rearmed with its original since.
+      settings = SettingsSchema.parse({ sources: { github: { enabled: false, config: {} } } })
+      await vi.advanceTimersByTimeAsync(60_000)
+      await vi.waitFor(() => expect(run.value.health.github).toMatchObject({ code: 'sourceOff' }))
+      settings = SettingsSchema.parse({ sources: { github: { enabled: true, config: {} } } })
+      await vi.advanceTimersByTimeAsync(60_000)
+      await vi.waitFor(() => expect(calls.some(call => call.includes('issues/16'))).toBe(true))
+      expect(run.value.store.get<Record<string, { since: string; parked?: boolean }>>('github-retry')?.[16]?.parked).toBeUndefined()
+      await run.stop(); run.value.store.close()
+    } finally { vi.useRealTimers() }
+  })
   it('waits for setup, pauses while the Source is off, and counts only consecutive failed polls towards an error', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     try {

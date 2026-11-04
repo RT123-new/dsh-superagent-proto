@@ -145,7 +145,7 @@ export function pollPauseSeconds(configured: number, failures: number, error: un
   const backoff = decision.retry ? Math.ceil(decision.delay / 1000) : 0
   return Math.max(base, backoff, server)
 }
-/** Rearm: reconnecting (watch restart) or switching the Source back on makes every parked read eligible again, keeping its original `since`. */
+/** Rearm: switching the Source back on makes every parked read eligible again, keeping its original `since`. A restart does not. */
 export function rearmParked(ctx: SourceContext): number {
   const retries = { ...ctx.state.get(KV.github.retries) }
   let count = 0
@@ -160,7 +160,7 @@ async function watch(ctx: SourceContext, signal: AbortSignal): Promise<void> {
   await ctx.ready
   // Setup restarts dsh-superagent once it resolves the accounts; until then nothing is polled.
   if (!ctx.configured()) { ctx.report('github', health('paused', 'setupPending')); return }
-  rearmParked(ctx)
+  // A plain start or restart never rearms: a parked read stays blocked until the owner switches the Source off and on.
   let wasOn = true
   while (!signal.aborted) {
     const config = ctx.config<GithubConfig>(SOURCE)
