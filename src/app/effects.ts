@@ -41,13 +41,13 @@ type Options<K extends EffectKind> = Partial<Pick<Handler<K>, 'limit' | 'retry' 
 interface Row { key: string; value: string; seq: number; generation: number; attempts: number; due: number; since?: string }
 type Task = { kind: EffectKind; key: string; generation: number; done: Promise<void> }
 
+/** How often a parked (blocked) row is rechecked; it is never discarded, and re-enqueueing its key rearms it. */
+export const BLOCKED_RECHECK_MS = 3600_000
+
 /**
  * Durable SQLite-backed queue that persists side effects inside command transactions and dispatches them after commit.
  * Coordinates per-kind handlers, concurrency limits, exponential backoff, and health reporting for MasterAssessor, DshExecutor, Sessions, and Outbox.
  */
-/** How often a parked (blocked) row is rechecked; it is never discarded, and re-enqueueing its key rearms it. */
-export const BLOCKED_RECHECK_MS = 3600_000
-
 export class Effects {
   private readonly handlers = new Map<EffectKind, Handler<never>>()
   private readonly health = new Map<EffectKind, HealthEntry>()
