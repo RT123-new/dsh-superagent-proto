@@ -158,7 +158,8 @@ Legend for workstream ownership: W13 = ingestion (1-3), W45 = workspace/cancella
 | 3 | Existing page checkpoint behavior retained; late indexing and first-seen floor repaired | First/middle/final page failure replay; exact-time floor and restart evidence | Legacy first-seen floor adopted from cursor can exclude older missed messages |
 | 4 | Repaired within filesystem limitations | Author17 +reviewer12 +integration full check | No power-loss/fsync proof; prepared record cannot certify arbitrary later manual edits |
 | 5 | Partially repaired | Assignment cancellation, owned-range probe, four ensure-boundary regressions | In-flight framework create cannot be interrupted; provider observability + failed disk persistence +crash compound gap; ensure follow-up independent review pending |
-| 6–8 | Repair under independent review, not integrated | Original branch checks reproduced separately | Await reviewer changes and integrated validation |
+| 6–7 | Repaired at3938e19 | Author failing-first10red/7green; reviewer6red; final1315/1315 integrated | Required-permission checks apply to new automated retry boundaries, not blanket active-work revocation |
+| 8 | Repaired for observed managed lineage; universal coverage unproven | Depth/cycle/unknown unrelated/persisted lineage tests integrated | Never-observed or pre-upgrade missing-parent ancestry cannot be classified without framework gating |
 | 9 | Collector implementation under way separately | No optimization adopted | Production hooks pending correctness stabilization |
 | 10–24 | Not yet evaluated beyond issue register/source leads | No benchmark or improvement claims | Later staged work remains |
 

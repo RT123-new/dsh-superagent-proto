@@ -25,3 +25,5 @@ Classifications: CONFIRMED / SOURCE-SUPPORTED / HYPOTHESIS / REFUTED / NOT TESTE
 - f32c506: typecheck +1271/1271 tests +build PASS after ensure gates and ingestion review repair.
 - Independent local-provider experiment rerun: SIGTERM-resistant child stopped, heartbeat stopped, managed range empty, unrelated sleep alive. Raw result: reports/evidence/integration/provider45-result.json.
 - No additional paid calls. Conservative cumulative live spend $0.0001 /$5; direct probe only, not end-to-end model validation.
+
+- 3938e19: all original correctness +independent review repairs integrated. `pnpm check` PASS1315/1315 tests72files +typecheck/build. Ensure-decoration independent review still pending; scoped Issue5/8 gaps remain. Raw log: reports/evidence/integration/all-safety-check.log.
