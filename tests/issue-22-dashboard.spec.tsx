@@ -80,3 +80,21 @@ it('separates failed attempts from success quantiles (upstream invariant)', () =
   expect(node.querySelector('table')?.textContent).not.toContain('500')
   expect(node.querySelectorAll('table')[1]?.textContent).toContain('500')
 })
+
+it('labels committed lifecycle boundaries and optional process resources without stronger provider claims in either locale', () => {
+  for (const dict of [en, zh]) {
+    const metrics = new Metrics()
+    for (const stage of ['launch_slot_wait','decision_to_ticket','step_to_settlement','receipt_to_response','worker_history_receipt','command_run','assessment_card_delivery']) metrics.observe(stage, 'internal', 50)
+    const snapshot = metrics.snapshot()
+    snapshot.process = { scope: 'process', uptimeSeconds: 10, cpuUserMicros: 100, cpuSystemMicros: 20, rssBytes: 5000, heapUsedBytes: 1000, eventLoopUtilization: .02 }
+    const node = document.createElement('div'); document.body.append(node)
+    const root = createRoot(node); roots.push(root)
+    act(() => root.render(<MetricsPanel metrics={snapshot} t={translate(dict)} />))
+    expect(node.textContent).not.toContain('metricsStage.')
+    expect(node.textContent).toContain(dict['metricsStage.step_to_settlement'])
+    expect(node.textContent).toContain(dict['metricsStage.launch_slot_wait'])
+    expect(node.textContent).toContain(dict.metricsProcess)
+    expect(node.textContent).toContain(dict.metricsPartialProgram)
+    expect(node.textContent).toContain(dict.metricsCpuUser)
+  }
+})
