@@ -27,3 +27,12 @@ Probe evidence: reports/evidence/probe-001-deepseek-flash.json (HTTP 200, 1265 m
 - Conditional live-integration worker allocation: $1.00 TOTAL, including retries/failures. Activation requires exact rates/context reservation verification, affordable workload confirmation, and reviewed correctness baseline. All other paid calls frozen.
 - Unallocated conservative reserve: $3.9999. Allocation is not spend and may be released when the worker closes its ledger.
 - Unknown usage preserves the full pre-call reservation and stops the worker. No automatic retry after unknown usage. Per-call reservations and actual usage must be reconciled into this ledger before expanding the allocation.
+
+## Exploratory provider-adapter integration v1 (stopped)
+
+| # | Date UTC | Purpose | Input miss/hit | Output | Cost USD | Conservative programme cumulative |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2 | 2026-11-04 ~06:53 | Repaired normal/seed11 coordinator | 105 /0 | 102 | 0.0001539 | 0.0002539 |
+| 3 | 2026-11-04 ~06:53 | Repaired normal/seed11 arithmetic AST worker | 110 /0 | 34 | 0.0000738 | 0.0003277 |
+
+Independently inspected raw successful terminal usage and stopped ledger. Known worker charge0.0002277; pending reservation0; stopped=true. Initial$1 allocation remains reserved for this worker; unused allocation0.9997723, programme unallocated reserve3.9999. All other paid calls frozen. Failed model grammar task0/1, no result effect. Nine repaired and all baseline scenarios NOT TESTED live. No paired live improvement claim. See reports/paired-real-model-validation.md and evidence/paired-live/. Offline adapter seam and13-test harness independently rerun by integration; these are synthetic-output tests, not live success.
