@@ -339,6 +339,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/app/links.ts` | `sourceLink`, the page of a Trigger's message, and `candidateCard` |
 | `src/app/cards.ts` | Compact cards of Triggers, Tickets, Threads and Decisions for models, the closed set of ticket card states `TICKET_STATES`, and `textPage` |
 | `src/app/resources.ts` | `RESOURCES` and `readResource`: what `orchestrator_read` reads, for each role |
+| `src/app/resume-snapshot.ts` | Versioned, bounded recovery hint validation and safe hint formatting; the hint cannot grant authority |
 | `src/app/tools/tool.ts` | The `Tool` type, `readTool`, the `orchestrator_read` of both roles, and `AcknowledgementSchema` |
 | `src/app/tools/main.ts` | The main Session's tools |
 | `src/app/tools/executor.ts` | An Executor Session's tools |
@@ -403,7 +404,8 @@ Some generic modules still refer directly to GitHub or Feishu:
 
 | Test | Covers |
 | --- | --- |
-| `tests/core-engine.spec.ts` | Domain rules on in-memory repositories: receiving, Eval, fan-out, resume and stop, interrupted Assignments, the pause, Policy changes, reports and outcomes, attaching, replies, failed deliveries and dismissed problems |
+| `tests/core-engine.spec.ts` | Domain rules on in-memory repositories: receiving, Eval, fan-out, resume and stop, interrupted Assignments, the pause, Policy changes, reports and outcomes, attaching, replies, failed deliveries, snapshot persistence and dismissed problems |
+| `tests/resume-snapshot.spec.ts` | Snapshot payload validation, size limits, secret detection, bounded hint formatting, stale-input and assignment detection |
 | `tests/stage.spec.ts` | The Ticket stages, row by row |
 | `tests/policy.spec.ts` | Source scope, the gate, the admission table, Mandate revalidation, the Policy version, settings migrations and assessment outcomes |
 | `tests/registry.spec.ts` | `SourceRegistry`: instances, validation, Policy parts, Channels and Thread context |
@@ -615,3 +617,7 @@ Point `DSH_HOME` at a temporary directory and create a new profile there. Copy t
 
 - Trust: which Trigger fields are trusted, such as the Source's actor and Thread membership, and which are not, such as the body and quotes.
 - Deployment isolation: the agent's profile on its own pinned DeepSeek Harness installation, so upgrading DeepSeek Harness elsewhere does not break it.
+
+## Experimental resume snapshots
+
+The optional `executor.resumeSnapshotsEnabled` setting defaults to false. When enabled, a worker may include a bounded `resume_snapshot` payload in an existing `orchestrator_report`. The Engine persists this hint on the Ticket within the report's transaction, with a host-owned revision, Ticket and Assignment identifiers, and capture time. Duplicate payloads from the same Assignment do not advance the revision. Recovery of a later Assignment includes a short, explicitly untrusted hint and a pointer to `ticket/<id>/resume-snapshot`. Waking workers may also receive the hint when their message fits. The original user request, current repository and PR state, active permissions, and newer input take precedence. No separate summarisation agent, storage service or database migration is required. These snapshots have not yet been shown to improve resumption performance; run controlled benchmarks before enabling by default.
