@@ -35,5 +35,5 @@ it('keeps only the latest settings notice while the main Session cannot take one
   inject.mockReset()
   vi.useFakeTimers({ toFake: ['Date'], now: Date.now() + 2000 })
   try { await h.runtime.pump(); await h.runtime.idle() } finally { vi.useRealTimers() }
-  expect(notices(h)).toEqual([{ settings_saved: 'pause', changed: ['paused'], read: 'settings/pause' }])
+  expect(notices(h)).toEqual([{ settings_saved: 'pause', revision: 2, changed: ['paused'], read: 'settings/pause' }])
 })

@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { key, liveTicket, type Ticket } from '../core/index.ts'
 import { mandateInstructions, ticketOfSession } from '../executor/dsh.ts'
 import type { HealthEntry } from '../infra/health.ts'
+import { resolveWorkerAncestry } from './ancestry.ts'
 import { AgentDelivery, messageId } from './delivery.ts'
 import type { Effects } from './effects.ts'
 import type { Variable } from './execution-environment.ts'
@@ -296,19 +297,37 @@ export class Sessions {
     })]
   }
   /**
-   * A subagent of an Executor Session, or of one of its subagents, which runs under DSH's `standard` preset with the worker's
-   * permissions, gets the same work tools as the worker, and none once the worker's ticket ended. Any other agent is left as
-   * it is.
+   * A subagent of an Executor Session, or of one of its subagents at any nesting depth, which runs under DSH's
+   * `standard` preset with the worker's permissions, gets the same work tools as the worker, and none once the worker's
+   * ticket ended: permission inheritance follows the originating authorized Ticket, resolved by validated ancestry
+   * rather than a bounded parent walk. A descendant whose ancestry cannot be trusted fails closed (no tools, every
+   * execution refused), as does a worker Session whose ticket is gone. Independently created user Sessions and their
+   * subagents are left as they are.
    */
   private limitSubagent(agent: Agent): void {
-    let parent = agent.session.header.parentSession
-    // Up the subagents' parents to the worker, which are loaded while their subagents run.
-    for (let depth = 0; parent !== undefined && ticketOfSession(parent) === undefined && depth < 8; depth++) {
-      parent = this.ctx.agents.get(parent)?.session.header.parentSession
+    // A worker Session whose ticket is gone stays restricted as its ticket's worker was: workOnly's guard refuses
+    // every execution while no live ticket holds it, and recovers by itself if the ticket ever resolves again.
+    const ownTicket = ticketOfSession(agent.id)
+    if (ownTicket !== undefined) {
+      this.ctx.logger.warn('dsh-superagent found worker Session %s without its ticket; it stays restricted', agent.id)
+      this.bindings.set(agent, { disposers: this.workOnly(agent, ownTicket), subagent: true })
+      return
     }
-    const ticketId = parent === undefined ? undefined : ticketOfSession(parent)
-    if (ticketId === undefined || !this.host.store.tickets.get(ticketId)) return
-    this.bindings.set(agent, { disposers: this.workOnly(agent, ticketId), subagent: true })
+    const ancestry = resolveWorkerAncestry({ id: agent.id, parentSession: agent.session.header.parentSession },
+      sessionId => this.ctx.agents.get(sessionId as SessionId)?.session.header, ticketOfSession, this.host.masterId)
+    if (ancestry.kind === 'unmanaged') return
+    if (ancestry.kind === 'worker') {
+      this.bindings.set(agent, { disposers: this.workOnly(agent, ancestry.ticketId), subagent: true })
+      return
+    }
+    // Unresolved ancestry must not silently run unrestricted: fail closed and say so.
+    this.ctx.logger.warn('dsh-superagent could not resolve the ancestry of Session %s (%s); it stays restricted', agent.id, ancestry.reason)
+    this.bindings.set(agent, { disposers: this.denyWork(agent), subagent: true })
+  }
+  /** Restricts `agent` to no tools and refuses every execution: the fail-closed binding for ancestry that cannot be trusted. */
+  private denyWork(agent: Agent): (() => void)[] {
+    return [agent.ctx.tools.restrict({ allow: [] }),
+      agent.ctx.tools.guard(() => 'This Session\'s ancestry did not resolve to an authorized ticket; managed work stays restricted')]
   }
   /** Register the skills of a prompt version in the agent's skill scope, in place of an earlier version's. */
   private bindSkills(binding: SessionBinding, version: PromptVersion): void {

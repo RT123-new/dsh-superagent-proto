@@ -422,7 +422,7 @@ it('tells the main Session of the settings, prompts, requeues and unsubscription
   const evaluation = h.runtime.store.settings().eval
   await h.runtime.settings.save('eval', { ...evaluation, mode: 'observe' }, h.runtime.store.blockRevision('eval'), 'panel')
   await h.runtime.idle()
-  expect(notices().at(-1)).toEqual({ settings_saved: 'eval', changed: ['eval.mode'], read: 'settings/eval' })
+  expect(notices().at(-1)).toEqual({ settings_saved: 'eval', revision: 1, changed: ['eval.mode'], read: 'settings/eval' })
   const before = notices().length
   expect(await save({ block: 'eval', value: { ...evaluation, mode: 'auto' }, revision: h.runtime.store.blockRevision('eval') })).not.toHaveProperty('context_delivery')
   const config = { ...h.runtime.prompts.current().config, scope: 'Finish what was asked.' }

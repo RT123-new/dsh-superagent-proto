@@ -181,7 +181,7 @@ export class Settings {
     const notified = [...effects.keys()]
     store.atomic(() => {
       store.saveSettings(SettingsSchema.parse(settings), { source: origin, block, policyVersion: after, policyChanged: before !== after, notified })
-      if (origin !== 'tool') sessions.notify(...settingsNotice(block, changedPaths(old, settings)))
+      if (origin !== 'tool') sessions.notify(...settingsNotice(block, changedPaths(old, settings), store.blockRevision(block)))
       if (before !== after) engine.policyChanged(before, after, effects)
     })
     // Rewrite worker command shims immediately when `blockedCommands` changes.
@@ -206,7 +206,7 @@ export class Settings {
     store.atomic(() => {
       const record = { source: origin, block: 'pause' as const, policyVersion: policyVersion(old), policyChanged: false, notified: [] }
       store.saveSettings({ ...old, paused }, record)
-      if (origin !== 'tool') sessions.notify(...settingsNotice('pause', ['paused']))
+      if (origin !== 'tool') sessions.notify(...settingsNotice('pause', ['paused'], store.blockRevision('pause')))
     })
     await sessions.delivery('settings:pause')
     this.host.requestPass()

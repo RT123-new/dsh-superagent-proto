@@ -331,6 +331,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/app/skill-files.ts` | Packaged text: `promptFile`, which joins a file's one-sentence lines into paragraphs, and the bundled skills |
 | `src/app/sessions.ts` | Sessions |
 | `src/app/delivery.ts` | `AgentDelivery`: delivers a message to a DeepSeek Harness agent once per request id, also across a restored Session |
+| `src/app/ancestry.ts` | `resolveWorkerAncestry` and `WorkerAncestry`: validated worker-ancestry resolution for managed subagents, with terminal conditions, cycle detection and a defensive bound, never failing open |
 | `src/app/retry-health.ts` | `RetryHealth`: which Sessions wait on a model budget retry, for the `models` health entry |
 | `src/app/role-models.ts` | Resolves the Eval and Executor models, and seeds a new Session with its role's model |
 | `src/app/assessment.ts` | The MasterAssessor, the assessment schema and the window `orchestrator_eval` answers |
@@ -442,6 +443,9 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/panel-settings.spec.tsx`, `panel-prompts.spec.tsx`, `panel-deployment.spec.tsx`, `panel-panel.spec.tsx` | The settings groups, drafts and history, the prompts, the Deployment page, and the panel's search, glossary and route memory |
 | `tests/draft.spec.ts`, `tests/prompt-config.spec.ts`, `tests/markdown.spec.ts`, `tests/marks.spec.ts` | Draft states, merges and the save bar's line; the prompt configuration by section and the line diff; the Markdown subset and its links; the mark of every state the views classify |
 | `tests/locales.spec.ts`, `tests/styles.spec.ts` | The copy in both languages, the stylesheet |
+| `tests/issue-6-stale-retries.spec.ts` | Issue 6: transient-failure retries revalidated as their message commits; stale retries discarded, a mid-delivery pause rescheduled |
+| `tests/issue-7-settings-notices.spec.ts` | Issue 7: settings notifications versioned by block revision; A→B→A→B all delivered, a redelivered revision injected once |
+| `tests/issue-8-subagent-ancestry.spec.ts`, `tests/issue-8-ancestry-resolution.spec.ts` | Issue 8: worker restrictions at any subagent nesting depth, fail-closed unresolved ancestry, unrelated Sessions untouched |
 | `tests/class-docs.spec.ts` | Every class in `src` has a JSDoc block before it |
 | `tests/docs.spec.ts` | Numbered documents link only to earlier ones, every local link resolves, no document has merge conflict markers, and this document's tables list every module and every test |
 
