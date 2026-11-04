@@ -17,7 +17,7 @@ None. This round's changes are correctness, operator-safety, transport-contract,
 | Throughput | null |
 | Correct completion rate | null |
 | Missed/duplicate work | null |
-| Model/API cost | null (no paid model or API calls this round; cumulative programme spend unchanged at the previously reported $0.001021636 of $5 approved, all historical) |
+| Model/API cost | null. Zero paid model or API calls this round. The earlier spend figure ($0.001021636 against a $5 authorization) is a historical record of a prior checkpoint only; it is not current paid permission, and this round holds no paid-call authority |
 | CPU/memory/storage overhead | null |
 | Confidence interval | null |
 | Adoption rationale | No candidate was adopted; nothing to accept or reject |
