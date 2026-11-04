@@ -38,16 +38,16 @@ interface Handler<K extends EffectKind> {
 }
 type Options<K extends EffectKind> = Partial<Pick<Handler<K>, 'limit' | 'retry' | 'ordered' | 'quiet'>>
 /** `seq` preserves the row's queue position; `generation` increments on payload updates so a running attempt does not delete a newer payload. */
-interface Row { key: string; value: string; seq: number; generation: number; attempts: number; due: number; since?: string }
+interface Row { error: string; key: string; value: string; seq: number; generation: number; attempts: number; due: number; since?: string }
 type Task = { kind: EffectKind; key: string; generation: number; done: Promise<void> }
 
-/**
- * Durable SQLite-backed queue that persists side effects inside command transactions and dispatches them after commit.
- * Coordinates per-kind handlers, concurrency limits, exponential backoff, and health reporting for MasterAssessor, DshExecutor, Sessions, and Outbox.
- */
-/** How often a parked (blocked) row is rechecked; it is never discarded, and re-enqueueing its key rearms it. */
+/** Legacy timestamp interval on parked rows; blocked rows never dispatch until explicitly re-enqueued. */
 export const BLOCKED_RECHECK_MS = 3600_000
 
+/**
+ * Durable SQLite-backed side-effect queue: ordered dispatch, coalescing, bounded retry jitter, visible blocked rows,
+ * health reporting and transaction-safe generation guards. Explicit re-enqueue is the only blocked-row rearm.
+ */
 export class Effects {
   private readonly handlers = new Map<EffectKind, Handler<never>>()
   private readonly health = new Map<EffectKind, HealthEntry>()
@@ -124,10 +124,10 @@ export class Effects {
         const running = new Set([...this.tasks].filter(task => task.kind === kind).map(task => task.key))
         // Ordered kinds block behind their oldest row even when it is not yet due; limit() is queried only after ready rows exist.
         const rows = (handler.ordered
-          ? this.store.db.prepare('SELECT key, value, seq, generation, attempts, due, since FROM effect WHERE kind = ? ORDER BY seq LIMIT 1').all(kind)
-          : this.store.db.prepare('SELECT key, value, seq, generation, attempts, due, since FROM effect WHERE kind = ? AND due <= ? ORDER BY seq LIMIT ?')
+          ? this.store.db.prepare('SELECT key, value, seq, generation, attempts, due, since, error FROM effect WHERE kind = ? ORDER BY seq LIMIT 1').all(kind)
+          : this.store.db.prepare("SELECT key, value, seq, generation, attempts, due, since, error FROM effect WHERE kind = ? AND due <= ? AND error NOT LIKE 'blocked:%' ORDER BY seq LIMIT ?")
             .all(kind, this.now(), 16 + running.size)) as unknown as Row[]
-        const ready = handler.ordered && running.size ? [] : rows.filter(row => row.due <= this.now() && !running.has(row.key))
+        const ready = handler.ordered && running.size ? [] : rows.filter(row => !row.error.startsWith('blocked:') && row.due <= this.now() && !running.has(row.key))
         let room = ready.length ? handler.limit() - running.size : 0
         for (const row of ready) {
           if (room-- <= 0) break
@@ -170,7 +170,7 @@ export class Effects {
           .run(errorRecord(failure.error, decision.class), this.now() + decision.delay, ...ownRow)
       } else {
         // Permanent/unauthorised/cancelled/programming failures are never silently dropped: park the row visibly
-        // (`blocked:<class>` surfaces in health at once), recheck hourly, and rearm only on explicit re-enqueue,
+        // (`blocked:<class>` surfaces in health at once), never dispatch them again until explicit re-enqueue,
         // whose upsert resets attempts and due. Policy-transition effects reach here only via real handler failures.
         this.store.db.prepare(`UPDATE effect SET attempts = attempts + 1, error = ?, due = ? WHERE ${own}`)
           .run(`blocked:${decision.class}: ${errorRecord(failure.error, decision.class)}`, this.now() + BLOCKED_RECHECK_MS, ...ownRow)
@@ -184,10 +184,11 @@ export class Effects {
   }
   private report(kind: EffectKind): void {
     const row = this.store.db.prepare(`SELECT COUNT(*) AS waiting, MIN(since) AS since, MAX(attempts) AS attempts,
-      (SELECT error FROM effect WHERE kind = ? AND attempts > 0 ORDER BY seq DESC LIMIT 1) AS error FROM effect WHERE kind = ?`).get(kind, kind)
+      (SELECT error FROM effect WHERE kind = ? AND attempts > 0 ORDER BY (error LIKE 'blocked:%') DESC, seq DESC LIMIT 1) AS error,
+      SUM(CASE WHEN error LIKE 'blocked:%' THEN 1 ELSE 0 END) AS blocked FROM effect WHERE kind = ?`).get(kind, kind)
     const waiting = Number(row?.waiting ?? 0)
-    const blocked = typeof row?.error === 'string' && row.error.startsWith('blocked:')
-    const failing = (Number(row?.attempts ?? 0) >= FAILURES_BEFORE_ERROR || blocked) && !this.handlers.get(kind)?.quiet
+    const blocked = Number(row?.blocked ?? 0) > 0
+    const failing = (Number(row?.attempts ?? 0) >= FAILURES_BEFORE_ERROR || blocked) && (!this.handlers.get(kind)?.quiet || blocked)
     const detail = waiting ? `${waiting} waiting since ${String(row?.since)}` : 'Nothing waiting'
     this.health.get(kind)?.set(failing
       ? { state: 'error', detail: `${detail}; the last failure: ${String(row?.error)}`, at: new Date(this.now()).toISOString() }
