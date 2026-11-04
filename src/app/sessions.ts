@@ -20,6 +20,7 @@ import { SKILL_PREFIX, type PromptVersion, type Prompts } from './prompts.ts'
 import type { Store } from './store.ts'
 import { KV } from '../kv.ts'
 import type { RegisterTool, Tool } from './tools/tool.ts'
+import type { Probe } from '../infra/metrics-probe.ts'
 
 /** Host dependencies used by `Sessions`. */
 export interface SessionsHost {
@@ -33,6 +34,8 @@ export interface SessionsHost {
   readonly masterId: string
   readonly lifetime: AbortSignal
   closing(): boolean
+  /** Optional instrumentation; absent means none. */
+  readonly probe?: Probe
   /** Execution environment variables for `ticket`, rendered into its worker's system prompt. */
   environment(ticket: Ticket): Variable[]
   /** Tools to register on the main Session (`ticket === undefined`) or on `ticket`'s worker Session. */
@@ -112,7 +115,18 @@ export class Sessions {
       this.release(agent)
       this.retryHealth.clear(agent.id); this.updateModelHealth()
     })
+    // Provider-reported usage of each committed assistant message, by component. Only this terminal event carries usage (no stream
+    // deltas), and each message object is counted once; a message missing usage is counted as an unknown report.
+    const counted = new WeakSet<object>()
     ctx.on('session/event', (session, event) => {
+      if (event.type === 'assistant/message' && this.host.probe?.enabled && !counted.has(event.data.message)) {
+        counted.add(event.data.message)
+        const known = ctx.agents.get(session.id)
+        const bound = known ? this.bindings.get(known) : undefined
+        const component = session.id === this.host.masterId ? 'coordinator' : !bound ? 'unknown' : bound.subagent ? 'subagent' : 'worker'
+        const usage = event.data.usage
+        this.host.probe.usage(component, usage && { inputCacheMiss: usage.inputTokens, inputCacheHit: usage.cacheReadTokens, output: usage.outputTokens, cacheWrite: usage.cacheWriteTokens, reasoning: usage.reasoningTokens })
+      }
       const agent = ctx.agents.get(session.id)
       const binding = agent && agent.session === session ? this.bindings.get(agent) : undefined
       if (!agent || !binding || binding.subagent) return
