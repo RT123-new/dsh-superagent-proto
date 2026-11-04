@@ -1,0 +1,21 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/superagent-context[39m
+
+ [32m✓[39m tests/issue-24-repository-scope.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/docs.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+(node:3728) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/sources.spec.ts [2m([22m[2m72 tests[22m[2m)[22m[33m 3848[2mms[22m[39m
+     [33m[2m✓[22m[39m drops the events it reads once the Source is off [33m 1361[2mms[22m[39m
+     [33m[2m✓[22m[39m starts the consumer again after it exits, and is ready once the next run listens [33m 1061[2mms[22m[39m
+(node:3780) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/issue-23-review-handoff.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 121[2mms[22m[39m
+ [32m✓[39m tests/issue-21-context.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32m✓[39m tests/registry.spec.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m6 passed[39m[22m[90m (6)[39m
+[2m      Tests [22m [1m[32m104 passed[39m[22m[90m (104)[39m
+[2m   Start at [22m 06:54:41
+[2m   Duration [22m 5.78s[2m (transform 573ms, setup 0ms, import 1.22s, tests 4.04s, environment 0ms)[22m
+

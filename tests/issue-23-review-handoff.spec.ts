@@ -32,7 +32,7 @@ it('ready remains review, not completed or merged, and questions outrank review'
   const ready = { ...ticket, assignments: ticket.assignments.map(item => ({ ...item,
     report: { state: 'ready' as const, summary: 'Ready for review, not merged.', at: '' } })) }
   expect(ticketCard(ready)).toMatchObject({ state: 'person/review' })
-  expect(ticketCard({ ...ready, attention: { question: 'Approve the visible change?' } })).toMatchObject({ state: 'person/answer' })
+  expect(ticketCard({ ...ready, attention: { id: 'question', question: 'Approve the visible change?' } })).toMatchObject({ state: 'person/answer' })
   expect(ticketCard({ ...ready, assignments: ready.assignments.map(item => ({ ...item, report: { ...item.report, state: 'blocked' as const } })) })).toMatchObject({ state: 'person/blocked' })
 })
 

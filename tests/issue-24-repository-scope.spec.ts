@@ -69,3 +69,30 @@ it('actual candidateCard never recommends a local ticket for a foreign same-numb
   expect(await card('https://github.com/acme/widgets/pull/12')).toMatchObject({ referenced_tickets: [{ ticket_id: ticket.id }] })
   expect(await card('#12')).toMatchObject({ referenced_tickets: [{ ticket_id: ticket.id }] })
 })
+
+
+it('fails closed for qualified links without repository identity and accepts canonical case and API URLs', () => {
+  const sources = new SourceRegistry(() => SettingsSchema.parse({}))
+  sources.register(githubKind)
+  expect(sources.find('https://github.com/acme/widgets/pull/12').threads).toEqual([])
+  expect(sources.find('#12').threads).toEqual(['github:12'])
+  expect(registry().find('https://github.com/ACME/WIDGETS/pull/12#discussion_r4').threads).toEqual(['github:12'])
+  expect(registry().find('https://api.github.com/repos/acme/widgets/pulls/12').threads).toEqual(['github:12'])
+  for (const value of ['https://evil.invalid/github.com/acme/widgets/pull/12', 'https://github.com/acme/widgets-other/pull/12',
+    'https://github.com/acme/widgets/pull/12/extra', 'https://github.com/acme/widgets/pull/12?other=repo'])
+    expect(registry().find(value).threads).toEqual([])
+})
+
+it('uses current repository configuration on every lookup and supports one-argument source plugins', () => {
+  let repository = 'acme/widgets'
+  const sources = new SourceRegistry(() => SettingsSchema.parse({ sources: { github: { enabled: true, config: { repository } } } }))
+  sources.register(githubKind)
+  expect(sources.find('https://github.com/acme/widgets/pull/12').threads).toEqual(['github:12'])
+  repository = 'other/project'
+  expect(sources.find('https://github.com/acme/widgets/pull/12').threads).toEqual([])
+  expect(sources.find('https://github.com/other/project/pull/12').threads).toEqual(['github:12'])
+  const seen: string[] = []
+  sources.register({ ...githubKind, kind: 'legacy', health: [], find: (query: string) => { seen.push(query); return { threads: [], terms: ['legacy'] } } })
+  expect(sources.find('word').terms).toContain('legacy')
+  expect(seen).toEqual(['word'])
+})

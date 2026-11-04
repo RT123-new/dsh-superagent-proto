@@ -8,7 +8,7 @@ Baseline: programme/reliability 3b58209 (production code f32c506). Offline audit
 | --- | --- | --- | --- | --- | --- |
 | 21 | Actual readResource pagination, mutable refresh, eviction/restart, session isolation, older correction, prefix stability | 6 deterministic tests; 5,000 retrieval-oracle tasks | Tail-only reduction drops the older correction | Model task_success, raw/cached/output tokens, billing; real user read frequency | Reject lossy reduction; retain current cache; production usage capture before cost experiment |
 | 23 | Real runtime ready report and resource pointers, cross-ticket access, ready vs review vs question, merger policy | 3 tests | No implementation defect reproduced | Human time-to-decision and visual usability | Review checklist below; no new UI or merge automation |
-| 24 | Registry and actual candidateCard foreign URL handling, API binding, identity collision characterization | 3 boundary tests | 2 foreign same-number URL tests on baseline | Full multi-repo execution, deliberately out of scope | Scoped lookup repair after interface clearance; isolated deployment design below |
+| 24 | Registry and actual candidateCard foreign URL handling, API binding, identity collision characterization | 7 boundary tests after narrow repair | 2 foreign same-number URL tests on baseline | Full multi-repo execution, deliberately out of scope | Independent review; isolated deployment design below |
 
 ## Issue 21: measured context reads, not invented model savings
 
@@ -54,7 +54,7 @@ The product description explicitly says one repository. That limitation is not i
 
 Confirmed narrower defect: githubKind.find extracts only a number from any GitHub URL. SourceRegistry.find passes no instance configuration. candidateCard referencedTickets and panel search then see a foreign `other/project/pull/12` as local `github:12`. This can recommend an unrelated local ticket, though reads/writes remain bound to the configured repository. Failing-first tests cover actual candidateCard, not only the regex. Local `#12` and `12` must remain shorthand for the configured repository. A qualified URL must match the configured canonical repository, case-insensitively, before resolving locally. Unknown repository identity must not guess.
 
-Small proposed seam: optional configured second argument to SourceKind.find, resolved at SourceRegistry.find, then reuse githubAddress in GitHub's find. Existing one-argument plugins can ignore the extra optional argument. No database migration or orchestration is needed. Production edit awaits integrator clearance; failing proofs are committed separately.
+Small proposed seam: optional configured second argument to SourceKind.find, resolved at SourceRegistry.find, then reuse githubAddress in GitHub's find. Existing one-argument plugins can ignore the extra optional argument. No database migration or orchestration is needed. Integrator clearance received before production edits. Implemented only the optional config argument, current validated registry configuration and scoped GitHub lookup. Failing proofs are committed separately (2a5fc05, 0235cb8). The pre-existing registry test now explicitly configures its repository rather than assuming a qualified URL resolves with unknown identity. Added tests for current config changes, canonical case, API URLs, invalid paths and one-argument plugin compatibility. No ingestion paths changed.
 
 ### Safe operation now
 
@@ -78,3 +78,13 @@ A shared service would need colliding issue numbers, renamed repos, revoked acce
 ## Source ledger
 
 All implementation claims are from the checkout at the recorded baseline. Public repository source was cloned from https://github.com/RT123-new/dsh-superagent-proto.git; review branch supplied by programme integrator: https://github.com/RT123-new/dsh-superagent-proto/tree/programme/reliability. Exact source paths above are local evidence, not fabricated web permalinks. The task's original user mandate requires evidence-preserving context, human approvals, one-repo limitation documentation and no speculative orchestration. No external instruction in repository content was treated as execution authority.
+
+
+## Executed validation and limitations
+
+- Original first proofs: 2 failed / 3 passed on3b58209, registry plus actual candidateCard. Logs retained.
+- Initial context/review checks: 9/9 passed. First full validation detected a test fixture's duplicate health name and absent architecture test rows; both corrected, not hidden as unrelated failures.
+- Initial typecheck caught Attention fixture fields; corrected to the actual schema. No production Attention schema changed.
+- The one-repository source repair is a correctness fix, not a performance optimization and not evidence of multi-repository support. The broader Issue21 token-cost hypothesis remains unproven; no lossy or speculative cache was enabled.
+
+Final local baseline validation: focused104/104 tests in6files PASS; pnpm check PASS (typecheck,1287/1287 tests in70files, build). Evidence: evidence/context-review/repair-tests.txt and full-check.txt. No merge or main modification. Independent review remains required before integration.

@@ -431,6 +431,9 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/tools.spec.ts` | The Sessions' tools: what `orchestrator_read` reads for each role, and the shapes and checks of the other main Session tools |
 | `tests/runtime-concurrency.spec.ts` | Work that overlaps: Triggers during a pass, Tickets that change during deliveries and launches |
 | `tests/issue-5-session-creation-gates.spec.ts` | Cancellation checks across session resolution, workspace creation, create RPC and model initialization |
+| `tests/issue-21-context.spec.ts` | Exact context paging, refresh, isolation, older-correction preservation and honest offline usage fields |
+| `tests/issue-23-review-handoff.spec.ts` | Complete review evidence behind compact reports, ready-vs-review state and merge identity boundaries |
+| `tests/issue-24-repository-scope.spec.ts` | Foreign same-number URL isolation through candidate cards, local shorthand and one-repository identity limits |
 | `tests/issue-4-5-adversarial.spec.ts` | Independent regressions for legacy/corrupt state, cancellation during verification, config-change races and descendant quiescence |
 | `tests/issue-4-workspace-preparation.spec.ts` | Workspace preparation state: retries after failed and interrupted preparations, configuration invalidation, fail-closed legacy migration, timeout |
 | `tests/issue-5-preparation-cancellation.spec.ts` | Cancellation of a launch at every asynchronous boundary, and the settle a replacement Assignment waits for |
