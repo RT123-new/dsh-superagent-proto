@@ -1,0 +1,10 @@
+pairs=200 seeds=5 result-mismatches=0
+
+| query | stat | baseline ms | repaired ms | paired ratio base/rep | 95% bootstrap CI of ratio (10k) |
+|---|---|---|---|---|---|
+| triggerStats | P50 | 146.50 | 7.00 | 20.9x | 18.6x - 24.7x |
+| triggerStats | P95 | 152.43 | 13.70 | 11.1x | 10.9x - 11.8x |
+| stats | per-pair ratio min/median/max | | | 9.9 / 20.7 / 257.4 | pairs where repaired slower: 0 |
+| flow | P50 | 109.20 | 15.13 | 7.2x | 6.4x - 8.0x |
+| flow | P95 | 119.16 | 27.51 | 4.3x | 4.3x - 4.5x |
+| flow | per-pair ratio min/median/max | | | 3.0 / 6.6 / 77.0 | pairs where repaired slower: 0 |
