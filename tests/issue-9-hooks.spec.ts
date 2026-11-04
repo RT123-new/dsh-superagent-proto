@@ -130,3 +130,17 @@ it('Commands records whole-subprocess latency under a fixed label, failures sepa
   expect(s.failedDurations['command_run|internal']?.count).toBe(1)
   expect(JSON.stringify(s)).not.toContain('false')
 })
+
+it('Passes notes receipt at entry and drops it unless a stored trigger follows, never letting the hook change the result', () => {
+  const health = new HealthBoard().claim('runtime', { state: 'starting', detail: '' })
+  const engine = { receive: vi.fn((): 'stored' | 'duplicate' | 'filtered' => 'stored'), evaluateDue: vi.fn() }
+  const effects = { kick: vi.fn(), idle: vi.fn(async () => {}) }
+  const log: string[] = []
+  const arrival = { note: (id: string) => { log.push(`note:${id}`) }, drop: (id: string) => { log.push(`drop:${id}`) } }
+  const passes = new Passes({ engine, effects, health, lifetime: new AbortController().signal, configured: () => true, closing: () => false, probe: new Probe(metrics), arrival })
+  passes.receive({ id: 's' } as Trigger)
+  engine.receive.mockReturnValueOnce('duplicate'); passes.receive({ id: 'd' } as Trigger)
+  engine.receive.mockReturnValueOnce('filtered'); passes.receive({ id: 'f' } as Trigger)
+  engine.receive.mockImplementationOnce(() => { throw new Error('db') }); expect(() => passes.receive({ id: 'x' } as Trigger)).toThrow('db')
+  expect(log).toEqual(['note:s', 'note:d', 'drop:d', 'note:f', 'drop:f', 'note:x', 'drop:x'])
+})

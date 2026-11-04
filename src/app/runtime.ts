@@ -167,7 +167,7 @@ export class Runtime extends Service implements SourceHost {
       const evals = board.claim('evals', { state: 'ready', detail: 'No unavailable Eval in the last hour' })
       const evaluateDue = () => { engine.evaluateDue(); evals.set(evalsHealth(store)) }
       const passes = this.passes = new Passes({ engine: { receive: trigger => engine.receive(trigger), evaluateDue }, effects,
-        health: this.runtimeHealth, lifetime: this.lifetime, probe, configured: () => setup.configured(), closing: () => this.closing() })
+        health: this.runtimeHealth, lifetime: this.lifetime, probe, arrival: { note: id => timeline.arrived(id), drop: id => timeline.abandoned(id) }, configured: () => setup.configured(), closing: () => this.closing() })
       this.sourceDeps = { store, engine, outbox, commands, sources, get ready() { return runtime.ready },
         get deployment() { return setup.deployment }, configured: () => setup.configured(),
         get setupProblem() { return setup.problem }, get feishuProblem() { return setup.feishuProblem }, receive: trigger => passes.receive(trigger) }
