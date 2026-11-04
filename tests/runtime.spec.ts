@@ -1722,11 +1722,20 @@ it('gives a subagent of a worker only the worker\'s work tools, and none once th
   runtime.engine.stopTicket(ticket.id)
   expect(guards.get('child-1')!()).toBe('Ticket ended; new work needs a new authorized ticket')
   // Another Session's subagent is left as it is.
+  await (controller.create as (options: { sessionId: string }) => Promise<void>)({ sessionId: 'someone-else' })
+  ;(agents.get('someone-else')! as unknown as { session: { header: object } }).session.header = {}
   await (controller.create as (options: { sessionId: string }) => Promise<void>)({ sessionId: 'child-2' })
   const other = agents.get('child-2')! as unknown as { session: { header: { parentSession?: string } } }
   other.session.header = { parentSession: 'someone-else' }
   await (runtime as unknown as { ctx: Context }).ctx.parallel('agent/created', { agent: other } as never)
   expect(restricts.get('child-2')).toBeUndefined()
+  // A subagent whose ancestry cannot be resolved to an authorized ticket fails closed instead of running unrestricted.
+  await (controller.create as (options: { sessionId: string }) => Promise<void>)({ sessionId: 'child-3' })
+  const stranded = agents.get('child-3')! as unknown as { session: { header: { parentSession?: string } } }
+  stranded.session.header = { parentSession: 'ghost' }
+  await (runtime as unknown as { ctx: Context }).ctx.parallel('agent/created', { agent: stranded } as never)
+  expect(restricts.get('child-3')).toEqual([{ allow: [] }])
+  expect(guards.get('child-3')!()).toContain('ancestry')
 })
 
 it('gives a subagent of a worker\'s subagent the same work tools and guard', async () => {

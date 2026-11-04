@@ -49,6 +49,8 @@ class PrepareFailed extends Error {}
  * The launch returns silently: the ticket's end or its replacement assignment drives what happens next.
  */
 class PreparationCancelled extends Error {}
+/** Internal marker: a transient-failure retry discarded because its ticket's authorization lapsed before its message committed. */
+class StaleRetry extends Error {}
 const PASSING = new RegExp(['ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'EAI_AGAIN', 'ENOTFOUND', 'EPIPE', 'UND_ERR', 'socket hang up', 'fetch failed',
   'network error', 'overloaded', 'rate limit', '\\b(?:408|429|50[0-4])\\b'].join('|'), 'i')
 /**
@@ -657,8 +659,16 @@ export class DshExecutor implements Executor {
     const tries = this.transient.get(assignmentId)!
     const text = `Your last turn failed for a passing reason (${String(error).slice(0, 200)}). Continue the assignment where it stopped.`
     this.resuming.add(assignmentId)
+    // The retry's authorization: the ticket exists, is live and is still run by this Assignment. Checked when the wait
+    // ends and again by the commit-time `authorize` below, since delivery waits asynchronously (Issue 6): checks made
+    // only before that wait would let a stale retry reach a Session its Assignment no longer owns.
+    const current = () => {
+      if (this.host.closing()) return false
+      const ticket = this.host.store.tickets.get(ticketId)
+      return !!ticket && liveTicket(ticket) && runningAssignment(ticket)?.id === assignmentId
+    }
     const go = () => {
-      if (this.host.closing()) return
+      if (this.host.closing()) { this.resuming.delete(assignmentId); return }
       const ticket = this.host.store.tickets.get(ticketId)
       if (!ticket || !liveTicket(ticket) || runningAssignment(ticket)?.id !== assignmentId) { this.resuming.delete(assignmentId); return }
       // Wait while processing is paused or no wake slot is free.
@@ -669,9 +679,19 @@ export class DshExecutor implements Executor {
         if (!(failure instanceof Later)) throw failure
         this.after(SLOT_WAIT_MS, go); return
       }
-      const sent = this.host.sessions.prompt(sessionId, `retry:${assignmentId}:${tries}`, text, 'queue')
-      void this.background(sent.finally(() => { if (waking) this.slots.free(ticketId); this.resuming.delete(assignmentId) })
-        .catch(failure => { this.failed(ticketId, String(failure)) }))
+      // The stable idempotency id keeps re-attempts of this retry to one delivered message.
+      const sent = this.host.sessions.prompt(sessionId, `retry:${assignmentId}:${tries}`, text, 'queue',
+        () => {
+          if (!current()) throw new StaleRetry()
+          if (this.host.paused()) throw new Later('Processing is paused')
+        })
+      void this.background(sent.then(() => { this.resuming.delete(assignmentId) }, (failure: unknown) => {
+        // A pause that engaged during delivery reschedules the retry rather than dropping it; a stale one is discarded.
+        if (failure instanceof Later) { this.after(SLOT_WAIT_MS, go); return }
+        this.resuming.delete(assignmentId)
+        if (failure instanceof StaleRetry || !current()) return
+        this.failed(ticketId, String(failure))
+      }).finally(() => { if (waking) this.slots.free(ticketId) }))
     }
     this.after(TRANSIENT_BACKOFF_MS * 2 ** (tries - 1), go)
   }

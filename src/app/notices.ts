@@ -16,11 +16,15 @@ export type Notice = readonly [name: string, value: Record<string, unknown>, sum
 export const promptsNotice = (revision: number): Notice =>
   ['prompts', { prompt_config_saved: revision, effect: 'next-request', read: `prompts/${revision}` }, `Prompt configuration saved (revision ${revision})`]
 /**
- * Builds a notice for a saved settings block with the changed dot-separated paths (coalescing per block under
- * `settings:<block>`), or for the whole settings on legacy saves that recorded no block.
+ * Builds a notice for a saved settings block with the changed dot-separated paths and the block's committed revision
+ * (coalescing per block under `settings:<block>`). The revision versions the notification: its delivery identity is
+ * `settings:<block>:<revision>` once serialized, so redelivery of one revision stays idempotent while a newer revision
+ * is never suppressed because its contents resemble an older one. Omits the revision only on legacy saves that
+ * recorded no block.
  */
-export const settingsNotice = (block?: string, changed: string[] = []): Notice => block
-  ? [`settings:${block}`, { settings_saved: block, changed, read: `settings/${block}` }, `Settings saved: ${block}`]
+export const settingsNotice = (block?: string, changed: string[] = [], revision?: number): Notice => block
+  ? [`settings:${block}`, { settings_saved: block, ...revision === undefined ? {} : { revision }, changed, read: `settings/${block}` },
+    `Settings saved: ${block}`]
   : ['settings', { settings_saved: true, read: 'settings' }, 'Settings saved']
 /** Returns up to 20 dot-separated paths where two values differ (e.g. `eval.mode` or `policy.rules.1.enabled`). */
 export function changedPaths(before: unknown, after: unknown, path = ''): string[] {
