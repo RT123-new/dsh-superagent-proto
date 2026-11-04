@@ -48,6 +48,7 @@
     "build": "tsdown",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "bench": "vitest run --config vitest.bench.config.ts",
     "check": "pnpm typecheck && pnpm test && pnpm build"
   },
   "engines": {
