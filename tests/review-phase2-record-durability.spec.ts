@@ -26,8 +26,8 @@ describe('review phase 2.1: record durability', () => {
       expect(seen.kind === 'record' && seen.record.state).toBe('failed')
     } finally { failing.code = ''; rmSync(dir, { recursive: true, force: true }) }
   })
-  it.skipIf(process.platform === 'win32')('POSIX: EPERM and EBADF on directory sync are real failures, not "unsupported"', async () => {
-    for (const code of ['EPERM', 'EBADF']) {
+  it.skipIf(process.platform === 'win32')('POSIX: EPERM, EBADF and EISDIR on directory sync are real failures, not "unsupported"', async () => {
+    for (const code of ['EPERM', 'EBADF', 'EISDIR']) {
       const dir = mkdtempSync(join(tmpdir(), 'prep-'))
       failing.code = code
       try { await expect(writePreparation(dir, 'w', record)).rejects.toThrow(`injected ${code}`) }

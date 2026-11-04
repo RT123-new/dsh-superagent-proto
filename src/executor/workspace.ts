@@ -48,8 +48,14 @@ export function foreignOwnerMayBeLive(record: PreparationRecord): boolean {
   return !(owner && owner.pid === process.pid && owner.host === hostname() && owner.nonce === PROCESS_NONCE)
 }
 
-/** Directory fsync is unsupported on some platforms; only these platform-specific codes are tolerated (on POSIX EPERM/EBADF/EISDIR are real failures), any other failure is a durability failure. */
-const DIR_SYNC_UNSUPPORTED = new Set(process.platform === 'win32' ? ['EPERM', 'EISDIR', 'EBADF', 'EINVAL', 'ENOTSUP'] : ['EINVAL', 'ENOTSUP', 'ENOSYS'])
+/**
+ * Directory fsync support. On POSIX only EINVAL/ENOTSUP/ENOSYS mean "this filesystem cannot sync a directory"; every other
+ * error is a real failure. On win32 no platform evidence was gathered here, so the directory sync is skipped there and the
+ * directory-entry durability guarantee is explicitly WITHHELD (file contents are still fsynced before the rename).
+ * Where unsupported the record is atomic against process crashes but not proven against power loss.
+ */
+const DIR_SYNC_UNSUPPORTED = new Set(['EINVAL', 'ENOTSUP', 'ENOSYS'])
+export const DIRECTORY_DURABILITY_WITHHELD = process.platform === 'win32'
 
 /** Bumped when what "prepared" means changes, so records written under other semantics never count. */
 export const PREPARATION_CONFIG_VERSION = 1
@@ -105,7 +111,7 @@ export async function writePreparation(stateDir: string, name: string, record: P
   try { await handle.writeFile(JSON.stringify({ version: 1, ...record }, null, 2) + '\n'); await handle.sync() }
   finally { await handle.close() }
   await rename(temporary, file)
-  if (options.directorySync === false) return
+  if (options.directorySync === false || DIRECTORY_DURABILITY_WITHHELD) return
   // Synchronise the directory entry. Only "unsupported" errors are tolerated; a real failure means durability was not
   // established, so a `prepared` record must not stand: replace it with a `failed` one (without another sync) and throw.
   try { const dir = await open(join(stateDir, 'workspaces'), 'r'); try { await dir.sync() } finally { await dir.close() } }

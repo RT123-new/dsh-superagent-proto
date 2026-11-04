@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import { hostname } from 'node:os'
 /** Final adversarial review, phase 2.1: preparation record durability and fail-closed reads. */
-import { chmodSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { accessSync, constants } from 'node:fs'
@@ -140,5 +140,33 @@ describe('review phase 2.1: descendants and same-process concurrency', () => {
     expect(f.prepareCommands()).toHaveLength(1)
     controlled!.finish(0)
     await Promise.all([first, second])
+  })
+  it('a lost failed+quiescence:unknown record write still blocks in-process retry; a restart (new nonce) blocks on the stale preparing record', async () => {
+    f = new ExecutorFixture({ prepare: 'setup' })
+    const { ticket, assignment } = f.mkTicket('lost-unknown')
+    const records = join(f.stateDir, 'workspaces')
+    f.intercept = spec => {
+      if (spec.argv[0] !== 'sh') return undefined
+      chmodSync(records, 0o555)   // the preparing record is already written; later record writes now fail
+      requireDenied(records, constants.W_OK)
+      return { ...immediate(0), waitForExit: async () => { throw new Error('provider lost range') } }
+    }
+    try { await f.launch(ticket, assignment) } finally { chmodSync(records, 0o755) }
+    const file = join(records, `${ticket.execution!.name}.json`)
+    expect(JSON.parse(readFileSync(file, 'utf8')).state).toBe('preparing')   // the unknown marker was lost
+    f.intercept = undefined
+    await f.launch(ticket, f.newAssignment(ticket))
+    expect(f.prepareCommands()).toHaveLength(1)               // in-process: blocked by the in-memory unresolved set
+    expect(f.sessions.prompt).not.toHaveBeenCalled()
+    // Simulated restart: a new process incarnation has a different nonce.
+    const record = JSON.parse(readFileSync(file, 'utf8')); record.owner = { ...record.owner, nonce: 'dead-incarnation' }
+    writeFileSync(file, JSON.stringify(record))
+    const restarted = new ExecutorFixture({ prepare: 'setup', paths: { stateDir: f.stateDir, work: f.work } })
+    restarted.tickets.set(ticket.id, ticket)
+    try {
+      await restarted.launch(ticket, restarted.newAssignment(ticket))
+      expect(restarted.prepareCommands()).toHaveLength(0)
+      expect(restarted.sessions.prompt).not.toHaveBeenCalled()
+    } finally { restarted.dispose() }
   })
 })
