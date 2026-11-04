@@ -1,0 +1,20 @@
+{
+  "v2": [
+    {
+      "file": "v2-baseline-normal-11-worker.json",
+      "cases": 206,
+      "passed": 206
+    },
+    {
+      "file": "v2-repaired-late-30s-11-worker.json",
+      "cases": 206,
+      "passed": 206
+    },
+    {
+      "file": "v2-repaired-normal-11-worker.json",
+      "cases": 206,
+      "passed": 206
+    }
+  ],
+  "v1Rejected": true
+}
