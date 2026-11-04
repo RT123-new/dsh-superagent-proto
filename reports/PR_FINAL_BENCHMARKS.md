@@ -1,4 +1,4 @@
-# PR final benchmarks (DRAFT)
+# PR final benchmarks (FINAL)
 
 All numbers synthetic/local/exploratory. Computations independently reproduced - this is NOT production acceptance. No paid calls were made.
 
@@ -10,4 +10,4 @@ All numbers synthetic/local/exploratory. Computations independently reproduced -
 - Unfavourable load costs recorded; strict rejection criteria (mandate 8.5) applied. No optimisation adopted without passing its stated gate; pool/retention/slotwake remain HELD.
 
 ## Delivered candidate micro-benchmarks
-See reports/BENCHMARK_REPORT.md and reports/evidence/db-review/ (raw evidence, paired stats scripts). Final numbers re-verified on the frozen tree at freeze if any perf-touching patch lands after this draft.
+See reports/BENCHMARK_REPORT.md and reports/evidence/db-review/ (raw evidence, paired stats scripts). Finality note: no perf-touching patch landed after these numbers - the freeze series (b9e39aa..85b5358) touches the executor stop path, tests/fixtures, and build/dependency config only - so they stand as final for this review without re-measurement.

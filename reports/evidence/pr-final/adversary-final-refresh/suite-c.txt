@@ -1,0 +1,69 @@
+ ✓ tests/runtime.spec.ts (108 tests) 12803ms
+   ✓ final review 2.2: a pause that lands while the worker Session is being created leaves no danger-full-access (real launch path)  338ms
+   ✓ final review 2.2: the ticket is stopped (replacement/ended assignment) while the worker Session is being created leaves no danger-full-access (real launch path)  336ms
+   ✓ final review 2.2: the host shuts down while the worker Session is being created leaves no danger-full-access (real launch path)  331ms
+   ✓ final review 2.2: a requester removed from the allowed list cannot get a recreated worker Session granted danger-full-access  553ms
+   ✓ final review 2.2: while the ticket's Source kind is not installed, a recreated worker Session gets no grant (fail closed), and it is granted once installed  357ms
+   ✓ final review 2.2: a disabled Source (plugin installed) denies a recreated worker Session grant  450ms
+   ✓ final review 2.2: with the Source plugin really unregistered and the stored Source enabled, a recreated worker Session gets no grant while waiting, and is granted only once the plugin registers (real registry, no spy)  1446ms
+   ✓ final review 2.2: with the Source plugin really unregistered and the stored Source disabled, a recreated worker Session gets no grant while waiting, and is granted only once the plugin registers (real registry, no spy)  1445ms
+   ✓ final review 2.2: a chat removed from the Source configuration denies a recreated worker Session grant (real runtime)  552ms
+   ✓ final review 2.2: an inferred (auto mode) Mandate gets no recreated worker grant once auto mode is off (real runtime)  559ms
+   ✓ final review 2.2: a requester removed while the grant waits for the plugin gets no grant when the plugin registers (revocation during wait)  1248ms
+ ✓ tests/sources.spec.ts (79 tests) 4333ms
+     ✓ drops the events it reads once the Source is off  1362ms
+     ✓ starts the consumer again after it exits, and is ready once the next run listens  1058ms
+ ✓ tests/runtime-concurrency.spec.ts (58 tests) 8954ms
+     ✓ holds a delivery that reached a worker while a hand-off stopped its subagents until the stop ended  4030ms
+ ✓ tests/tools.spec.ts (26 tests) 1299ms
+ ✓ tests/views.spec.ts (15 tests) 134ms
+ ✓ tests/store.spec.ts (17 tests) 136ms
+ ✓ tests/service-script.spec.ts (15 tests) 5316ms
+   ✓ restarts the service, and a restart whose graceful stop timed out does not keep recovery off  1149ms
+   ✓ exits 1 when the started service does not answer in time, and leaves its process running  2058ms
+   ✓ does not signal a process that took the recorded service PID, and keeps a stop that timed out  1096ms
+ ✓ tests/review-phase2-late-tools.spec.ts (13 tests) 699ms
+ ✓ tests/review-phase2-workspace.spec.ts (11 tests) 140ms
+ ✓ tests/review-phase2-session-gates.spec.ts (8 tests) 388ms
+ ✓ tests/review-phase2-agent-loop-kill.spec.ts (4 tests) 4062ms
+   ✓ real SIGKILL after the loop consumed the message: restart holds it and delivery does not append a second copy  567ms
+   ✓ prefix sweep over the real loop log: after every event-boundary prefix the restart leaves the message in the log at most once and never parked  3218ms
+ ✓ tests/review-phase2-effects-marker.spec.ts (6 tests) 296ms
+ ✓ tests/review-phase2-jsonl-kill.spec.ts (4 tests) 575ms
+ ✓ tests/review-phase2-effects-routes.spec.ts (5 tests) 527ms
+ ✓ tests/settings.spec.ts (4 tests) 191ms
+ ✓ tests/stage.spec.ts (31 tests) 5ms
+ ✓ tests/review-db-migrate-links.spec.ts (6 tests) 97ms
+ ✓ tests/review-phase9-containment-falsifiers.spec.ts (12 tests) 39ms
+ ✓ tests/review-phase2-outbox-crash.spec.ts (4 tests) 129ms
+ ✓ tests/review-phase2-delivery-requeue.spec.ts (6 tests) 6ms
+ ✓ tests/role-models.spec.ts (5 tests) 20ms
+ ✓ tests/review-phase9-boundaries.spec.ts (5 tests) 14ms
+ ✓ tests/timeline.spec.ts (4 tests) 42ms
+ ✓ tests/review-phase2-ensure-matrix.spec.ts (6 tests) 180ms
+ ✓ tests/review-phase2-effects-rearm.spec.ts (3 tests) 386ms
+ ✓ tests/review-phase2-record-durability.spec.ts (4 tests) 1722ms
+     ✓ SIGKILL of a process rewriting the record never leaves a corrupt authoritative record  1707ms
+ ✓ tests/review-db-link-shapes.spec.ts (7 tests) 48ms
+ ✓ tests/review-phase2-delivery.spec.ts (2 tests) 8ms
+ ✓ tests/review-phase2-outbox-kill.spec.ts (2 tests) 627ms
+   ✓ markAttempt=true: kill during an in-flight send  320ms
+   ✓ markAttempt=false: kill during an in-flight send  306ms
+ ✓ tests/review-phase9-symlink-containment.spec.ts (3 tests) 20ms
+ ✓ tests/review-ordered-blocked-head.spec.ts (1 test) 22ms
+ ✓ tests/review-poll-failure-recovery.spec.ts (1 test) 1129ms
+   ✓ events whose read failed in one round are stored by the next round, none lost  1128ms
+ ✓ tests/review-integration-lock-dispatch.spec.ts (2 tests) 668ms
+   ✓ after the state lock is reported compromised, queued effects do not dispatch  345ms
+   ✓ after the state lock is reported compromised, the real outbox reply effect does not send  322ms
+ ✓ tests/review-phase2-markunrelated-ended.spec.ts (2 tests) 196ms
+ ✓ tests/review-lock-compromised.spec.ts (2 tests) 78ms
+ ✓ tests/review-phase2-ancestry.spec.ts (4 tests) 3ms
+ ✓ tests/review-db-flow-snapshot.spec.ts (1 test) 9ms
+ ✓ tests/styles.spec.ts (2 tests) 29ms
+ ✓ tests/review-adv-owner.spec.ts (2 tests) 105ms
+ ✓ tests/review-db-malformed-reads.spec.ts (2 tests) 15ms
+ ✓ tests/review-phase2-effects-bench.spec.ts (1 test) 595ms
+   ✓ marker overhead per attempt is measured  594ms
+ Test Files  41 passed (41)
+      Tests  493 passed (493)

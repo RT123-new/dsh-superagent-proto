@@ -1,0 +1,189 @@
+
+ RUN  v4.1.8 /tmp/rev/f59
+
+ ✓ tests/policy.spec.ts (328 tests) 66ms
+(node:36157) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/migration.spec.ts (19 tests) 264ms
+(node:36164) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/model-surface.spec.ts (7 tests) 306ms
+(node:36177) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/prompts.spec.ts (18 tests) 99ms
+ ✓ tests/registry.spec.ts (10 tests) 16ms
+(node:36191) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-3-feishu-history-recovery.spec.ts (10 tests) 904ms
+ ✓ tests/issue-9-metrics.spec.ts (20 tests) 23ms
+ ✓ tests/issue-4-workspace-preparation.spec.ts (10 tests) 105ms
+(node:36217) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-6-stale-retries.spec.ts (10 tests) 104ms
+ ✓ tests/retry-health.spec.ts (29 tests) 10ms
+(node:36235) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-9-hooks.spec.ts (9 tests) 70ms
+(node:36244) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-8-subagent-ancestry.spec.ts (14 tests) 156ms
+ ❯ tests/issue-5-preparation-cancellation.spec.ts (7 tests | 4 failed) 360ms
+     × cancelling an assignment aborts its running prepare command 61ms
+     × a cancelled assignment whose command exits successfully anyway still does not launch 52ms
+     ✓ a replacement assignment waits for the cancelled preparation to settle before reusing the workspace 132ms
+     × a ticket that ended before its launch ran does not prepare or launch 1ms
+     × cancellation during session creation prevents delivery 51ms
+     ✓ cancellation immediately before worker delivery prevents the launch 4ms
+     ✓ a cancelled partial preparation is not silently accepted, and its retry prepares again 56ms
+ ❯ tests/issue-4-5-adversarial.spec.ts (12 tests | 1 failed) 281ms
+     ✓ does not promote an unrecorded partial legacy directory on credential-config verification alone 7ms
+     ✓ does not promote a partial workspace when the atomic marker is corrupted 2ms
+     × propagates assignment cancellation into post-command directory verification 57ms
+     ✓ revalidates preparation configuration after asynchronous session creation 52ms
+     ✓ waits for managed-range quiescence, not only direct shell exit, before replacement reuse 83ms
+     ✓ legacy matrix: empty directory with no command 6ms
+     ✓ legacy matrix: empty directory with configured command 4ms
+     ✓ legacy matrix: non-empty directory with no command 4ms
+     ✓ legacy matrix: non-empty directory with configured command 3ms
+     ✓ persists failed quiescence proof across retries and executor restart 6ms
+     ✓ invalidates launch if preparation changes while the delivery resolver waits 4ms
+     ✓ does not launch an ended assignment even if its ticket stays live with no replacement yet 51ms
+ ✓ tests/issue-9-lifecycle.spec.ts (9 tests) 9ms
+ ✓ tests/issue-24-repository-scope.spec.ts (7 tests) 12ms
+(node:36287) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-9-lifecycle-adversarial.spec.ts (7 tests) 210ms
+(node:36298) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-7-settings-notices.spec.ts (6 tests) 236ms
+ ✓ tests/issue-9-slot-wait.spec.ts (5 tests) 23ms
+ ✓ tests/navigation.spec.ts (7 tests) 7ms
+(node:36324) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-5-session-creation-gates.spec.ts (4 tests) 113ms
+(node:36335) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-7-durable-notices.spec.ts (3 tests) 36ms
+(node:36342) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-9-source-queue-review.spec.ts (3 tests) 99ms
+(node:36353) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-5-decoration-races.spec.ts (4 tests) 253ms
+ ✓ tests/issue-9-adversarial.spec.ts (13 tests) 8ms
+(node:36371) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-9-hooks-adversarial.spec.ts (7 tests) 176ms
+ ✓ tests/marks.spec.ts (2 tests) 3ms
+(node:36390) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-23-review-handoff.spec.ts (3 tests) 141ms
+ ✓ tests/prompt-config.spec.ts (3 tests) 4ms
+ ✓ tests/locales.spec.ts (6 tests) 5ms
+ ✓ tests/issue-8-ancestry-resolution.spec.ts (11 tests) 4ms
+ ✓ tests/passes.spec.ts (4 tests) 7ms
+(node:36429) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/queue.spec.ts (2 tests) 88ms
+(node:36440) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/outbox.spec.ts (2 tests) 86ms
+(node:36451) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-22-runtime-proof.spec.ts (2 tests) 82ms
+ ✓ tests/markdown.spec.ts (3 tests) 4ms
+(node:36469) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-9-slot-wait-review.spec.ts (3 tests) 127ms
+ ✓ tests/issue-9-coverage-review.spec.ts (2 tests) 17ms
+ ✓ tests/issue-9-slot-atomic.spec.ts (3 tests) 4ms
+ ✓ tests/review-adv-exec.spec.ts (2 tests) 11ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/issue-4-5-adversarial.spec.ts > independent adversarial review: Issues 4-5 > propagates assignment cancellation into post-command directory verification
+TypeError: Cannot read properties of undefined (reading 'warn')
+ ❯ src/executor/dsh.ts:554:36
+    552|         catch {
+    553|           this.probe.count('session_revoke_failed')
+    554|           this.host.context.logger.warn('dsh-superagent: could not dro…
+       |                                    ^
+    555|         }
+    556|       }
+ ❯ Object.afterCommit tests/fixtures/executor.ts:123:43
+ ❯ DshExecutor.stop src/executor/dsh.ts:541:21
+ ❯ ExecutorFixture.cancelAssignment tests/fixtures/executor.ts:173:19
+ ❯ tests/issue-4-5-adversarial.spec.ts:42:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/issue-5-preparation-cancellation.spec.ts > issue 5: cancellation stops preparation at every asynchronous boundary > cancelling an assignment aborts its running prepare command
+TypeError: Cannot read properties of undefined (reading 'warn')
+ ❯ src/executor/dsh.ts:554:36
+    552|         catch {
+    553|           this.probe.count('session_revoke_failed')
+    554|           this.host.context.logger.warn('dsh-superagent: could not dro…
+       |                                    ^
+    555|         }
+    556|       }
+ ❯ Object.afterCommit tests/fixtures/executor.ts:123:43
+ ❯ DshExecutor.stop src/executor/dsh.ts:541:21
+ ❯ ExecutorFixture.cancelAssignment tests/fixtures/executor.ts:173:19
+ ❯ tests/issue-5-preparation-cancellation.spec.ts:27:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  tests/issue-5-preparation-cancellation.spec.ts > issue 5: cancellation stops preparation at every asynchronous boundary > a cancelled assignment whose command exits successfully anyway still does not launch
+TypeError: Cannot read properties of undefined (reading 'warn')
+ ❯ src/executor/dsh.ts:554:36
+    552|         catch {
+    553|           this.probe.count('session_revoke_failed')
+    554|           this.host.context.logger.warn('dsh-superagent: could not dro…
+       |                                    ^
+    555|         }
+    556|       }
+ ❯ Object.afterCommit tests/fixtures/executor.ts:123:43
+ ❯ DshExecutor.stop src/executor/dsh.ts:541:21
+ ❯ ExecutorFixture.cancelAssignment tests/fixtures/executor.ts:173:19
+ ❯ tests/issue-5-preparation-cancellation.spec.ts:46:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  tests/issue-5-preparation-cancellation.spec.ts > issue 5: cancellation stops preparation at every asynchronous boundary > a ticket that ended before its launch ran does not prepare or launch
+TypeError: Cannot read properties of undefined (reading 'warn')
+ ❯ src/executor/dsh.ts:554:36
+    552|         catch {
+    553|           this.probe.count('session_revoke_failed')
+    554|           this.host.context.logger.warn('dsh-superagent: could not dro…
+       |                                    ^
+    555|         }
+    556|       }
+ ❯ Object.afterCommit tests/fixtures/executor.ts:123:43
+ ❯ DshExecutor.stop src/executor/dsh.ts:541:21
+ ❯ ExecutorFixture.cancelAssignment tests/fixtures/executor.ts:173:19
+ ❯ tests/issue-5-preparation-cancellation.spec.ts:96:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  tests/issue-5-preparation-cancellation.spec.ts > issue 5: cancellation stops preparation at every asynchronous boundary > cancellation during session creation prevents delivery
+TypeError: Cannot read properties of undefined (reading 'warn')
+ ❯ src/executor/dsh.ts:554:36
+    552|         catch {
+    553|           this.probe.count('session_revoke_failed')
+    554|           this.host.context.logger.warn('dsh-superagent: could not dro…
+       |                                    ^
+    555|         }
+    556|       }
+ ❯ Object.afterCommit tests/fixtures/executor.ts:123:43
+ ❯ DshExecutor.stop src/executor/dsh.ts:541:21
+ ❯ ExecutorFixture.cancelAssignment tests/fixtures/executor.ts:173:19
+ ❯ tests/issue-5-preparation-cancellation.spec.ts:114:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  2 failed | 38 passed (40)
+      Tests  5 failed | 621 passed (626)
+   Start at  11:20:00
+   Duration  13.82s (transform 1.14s, setup 0ms, import 5.59s, tests 4.53s, environment 423ms)
+

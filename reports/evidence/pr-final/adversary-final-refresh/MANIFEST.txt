@@ -1,0 +1,11 @@
+Candidate: integ/scratch 85b5358e731de59e82df875f1a8c34f5c588f680 (bundle combined-candidate-85b5358-21b0941a). Local runs, not GitHub CI.
+Env: fresh git worktree, pnpm@11.7.0 default `install --frozen-lockfile` (exit 0), `pnpm build` (exit 0), `tsc --noEmit` (exit 0).
+Suite (vitest include tests/**/*.spec.{ts,tsx}):
+ 121 .spec.ts in 3 batches: 450 + 627 + 493 = 1570 passed, 0 failed
+ 14 .spec.tsx: 125 passed (my 59104e1 and earlier counts omitted these)
+ tests/stage-d (4 files): 15 passed, 2 skipped (suite's own skips)
+ Total 1710 passed, 2 skipped, 0 failed.
+Registry integrity (npm view dist.integrity) equals lockfile for tsx@4.23.15, esbuild@0.28.2, @esbuild/linux-x64@0.28.2. Other platform optionals not compared.
+Secret spot-check (main..85b5358 added lines, excluding lockfile; regex + manual): only synthetic canaries in redaction tests (ghp_SECRET..., sk-live-SECRET..., AKIAIOSFODNN7EXAMPLE). Not gitleaks. History scan owned by lead.
+Neuter: removing the nested logger isolation in dsh.ts -> 'a failing revoke warning cannot block the rest of the stop cleanup' RED.
+NOT accepted / open: B2, kill inside create write, orchestrator session grant on ended tickets, registered-but-refusing tool bindings, Source gates, DB/perf computational only. Not production-ready. No merge/deploy.

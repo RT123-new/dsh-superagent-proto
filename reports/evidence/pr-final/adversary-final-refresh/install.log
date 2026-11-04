@@ -1,0 +1,56 @@
+? Verifying lockfile against supply-chain policies (340 entries)...
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +243
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 243, reused 240, downloaded 3, added 69
+✓ Lockfile passes supply-chain policies (340 entries in 1.2s)
+Progress: resolved 243, reused 240, downloaded 3, added 243, done
+
+dependencies:
++ proper-lockfile 4.1.2
++ zod 4.4.3
+
+devDependencies:
++ @deepseek-ai/cordis 4.0.5-alpha.1
++ @deepseek-ai/dsh-agent 0.2.1-alpha.2
++ @deepseek-ai/dsh-agent-loop 0.2.1-alpha.2
++ @deepseek-ai/dsh-api-session-controller 0.2.1-alpha.2
++ @deepseek-ai/dsh-attachment 0.2.1-alpha.2
++ @deepseek-ai/dsh-client-locale 0.2.1-alpha.2
++ @deepseek-ai/dsh-client-ui-layout 0.2.1-alpha.2
++ @deepseek-ai/dsh-client-ui-plugin-manager 0.2.1-alpha.2
++ @deepseek-ai/dsh-client-ui-renderer 0.2.1-alpha.2
++ @deepseek-ai/dsh-client-ui-settings 0.2.1-alpha.2
++ @deepseek-ai/dsh-client-ui-sidebar 0.2.1-alpha.2
++ @deepseek-ai/dsh-client-ui-slots 0.2.1-alpha.2
++ @deepseek-ai/dsh-client-ui-workspace 0.2.1-alpha.2
++ @deepseek-ai/dsh-host-webserver 0.2.1-alpha.2
++ @deepseek-ai/dsh-llm 0.2.1-alpha.2
++ @deepseek-ai/dsh-permission-presets 0.2.1-alpha.2
++ @deepseek-ai/dsh-scope 0.2.1-alpha.2
++ @deepseek-ai/dsh-session 0.2.1-alpha.2
++ @deepseek-ai/dsh-session-persistence 0.2.1-alpha.2
++ @deepseek-ai/dsh-session-persistence-jsonl 0.2.1-alpha.2
++ @deepseek-ai/dsh-session-projection 0.2.1-alpha.2
++ @deepseek-ai/dsh-settings 0.2.1-alpha.2
++ @deepseek-ai/dsh-skill 0.2.1-alpha.2
++ @deepseek-ai/dsh-subprocess 0.2.1-alpha.2
++ @deepseek-ai/dsh-system-prompt 0.2.1-alpha.2
++ @deepseek-ai/dsh-tools 0.2.1-alpha.2
++ @deepseek-ai/dsh-workspace 0.2.1-alpha.2
++ @deepseek-ai/schemastery 3.18.5-alpha.1
++ @types/jsdom 28.0.3
++ @types/node 22.20.0
++ @types/proper-lockfile 4.1.4
++ @types/react 18.3.28
++ @types/react-dom 18.3.7
++ jsdom 29.1.1
++ react 18.3.1
++ react-dom 18.3.1
++ tsdown 0.22.14
++ tsx 4.23.15
++ typescript 6.0.3
++ vitest 4.1.8
+
+Done in 1.7s using pnpm v11.7.0

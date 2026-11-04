@@ -1,0 +1,1 @@
+59104e1 default pnpm@11.7.0 frozen install exit0, build exit0, tsc exit0. batch1 447p/3f, batch2 621p/5f, batch3 493p, stage-d 15p/2s. Fails: issue-5-preparation-cancellation x4, issue-4-5-adversarial x1 (revoke fixture/logger undefined), issue-20-adversarial x3 (pnpm exec stdout noise).

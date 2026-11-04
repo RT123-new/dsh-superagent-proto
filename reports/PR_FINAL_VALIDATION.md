@@ -1,4 +1,4 @@
-# PR final validation (DRAFT - pending rows preserved)
+# PR final validation (FINAL - frozen tree 85b5358)
 
 Local runs only: this repository has NO GitHub CI. Every result below is a local/sandbox run.
 
@@ -6,22 +6,36 @@ Local runs only: this repository has NO GitHub CI. Every result below is a local
 - main = 8c32a9d (= merge-base), PR HEAD de50174 at baseline time, PR #1 open/unmerged.
 - Baseline suite 1498/1498 local. Baseline lockfile sha256 ba6b997c...0405c39 (historical evidence, preserved).
 
-## Combined candidate verification (current, NOT the frozen final)
-Tree: integ/scratch @6b31f05 (215fc4c + persisted falsifiers + late2 handback/ensure-release + late3 in-flight-race stamp + late4 null-assignment refusal + NF-5 Engine-stop preset revocation + restart-ordering guard). Landed after 727f9eb: 1a43643, b6fe842, 597480f/db92158 context, late2 9c70978..847a49b, late3 65eca38..761706b, late4 c0c4982/5ec35c6, lead series b9e39aa/04aeecb/6b31f05 (b9e39aa red by design; 403edc8 in late2 red by design - bisect notes in REVIEW).
-- Latest focused run on 6b31f05 (lead, local): runtime 106/106, core-engine + ensure-matrix + late-tools + docs with runtime = 245/245 across the 5 files, tsc clean.
-- Real-host evidence (offline, no paid calls, adversary-replayed): final + final2 hook + final3 hook3 persisted sanitized under reports/evidence/pr-final/real-host-harness-final/ plus the adversary's own replay logs under reports/evidence/pr-final/adversary-realhost-replay/. Covers: disabled-Source Later gate (stored), register->policy->grant->llm ordering on multiple processes, adoption sha question (content identical, compressed bytes differ; mechanism unread), ended-ticket no-grant, in-flight-model stop-cancel, executing-tool stop-abort, kill-after-create open/ended. All one-fixture observations, scoped in REVIEW.
-- Frozen install: `pnpm install --frozen-lockfile` (plain, the standard user/CI command) exits 0 on the fixed tree (59104e1); an earlier `--ignore-scripts` variant bypassed the koffi build-script gate and is NOT counted. pnpm 11.7.0 and 12.16.1 both reproduced the pre-fix failure. Supply-chain policy pass; koffi's build script is explicitly DENIED via committed pnpm-workspace.yaml allowBuilds (see REVIEW).
-- Dependency deltas vs baseline (both test-only devDeps, exact pins, verified against the live npm registry): dsh-session-persistence-jsonl 0.2.1-alpha.2 (+238 lock lines, integrity sha512-BS9FkO3O...zeg==); dsh-agent-loop + dsh-session-projection 0.2.1-alpha.2 (+35 lock lines, one new integrity sha512-bw5s6A/w...mcg==; projection already locked transitively). Native prebuilt transitives (koffi, node-addon-system) accepted as test-only within the exact pins.
-- tsc: clean on the combined tree.
-- Focused suites per merged patch: recorded per finding in PR_FINAL_REVIEW.md (each repair has failing-first evidence + narrow adversary acceptance with independent runs).
-- Adversary independent run on 215fc4c (unfrozen): 1538 top-level (118 files) + stage-d 15/2 suite-skipped = 1553 passed, 2 skipped, 0 failed. NOT the final number.
+## Frozen final verification (85b5358, pushed to programme/reliability)
+Tree: integ/scratch @85b5358 = de50174 + the accepted review series, pushed as a fast-forward (de50174..85b5358) to the existing PR branch programme/reliability. PR #1 remains OPEN and UNMERGED; main unchanged at 8c32a9d. Tail of the series: b9e39aa (NF5 RED, red by design - bisect note), 04aeecb (NF5 revoke), 6b31f05 (restart-ordering guard), e2d97c7 (NF5 throw regression), 59104e1 (koffi build-gate explicit deny), 47bc140 (revoke diagnostics isolation + accurate issue-4/5 fixtures), 1c375fe (failed-revoke visibility assertions), 85b5358 (tsx declared local devDependency). 403edc8 (late2) also red by design - bisect notes in REVIEW.
 
-## Secret scan PRE-CHECK (lead-owned; final frozen scan still owed)
-Scope: net diff 8c32a9d..727f9eb (535 files, 84,823 added lines) AND full added history (210 commits, all patches). Method: pattern grep for GitHub token shapes (ghp_/gho_/ghs_/github_pat_), sk-*, AWS AKIA, Slack xox*, private-key blocks, plus a generic password/secret/token assignment grep with manual review of every hit. LIMITS: regex grep, NOT gitleaks or entropy scanning; no claim beyond the listed patterns. Result: no real secrets. All hits are test canaries/fixtures (redaction-test canaries 'ghp_SECRET...'/'sk-live-SECRET-...', AWS documentation example AKIAIOSFODNN7EXAMPLE, fixture token 'p1'). Evidence redacted: no secret-shaped values copied here beyond the documented canaries. Independent adversary spot-check concurs: their pattern set (additionally URLs with embedded credentials, Feishu cli_/oc_/ou_ ids, Bearer literals, 24+ char assignments, ?token= URLs, Authorization/GH_TOKEN/app_secret literals, 40+ char random strings, .env/.pem/.key filenames, local paths, emails) on 215fc4c (534 files, +84,768) found the same synthetic canaries and no real secret; their stated limits: added lines not all manually read, binary/base64 not decoded, no-pattern-miss guarantee absent. Their scan predates 727f9eb (object not available to them at the time). FINAL scan on the frozen tree at freeze remains owed, with the full bundle (all commits + reports) sent to the adversary first.
+### Lead frozen run (fresh worktree of 85b5358, default commands only - no flag variants)
+- pnpm@11.7.0 install --frozen-lockfile: exit 0. pnpm build: exit 0 (11 ESM files). tsc --noEmit: exit 0. git diff --check: exit 0. Tree clean after install.
+- Full sharded suite (vitest include tests/**/*.spec.{ts,tsx}, 4 shards incl. tests/stage-d): 1710 passed, 0 failed, 2 skipped (shards: 262 / 281 / 729 / 438+2skip). The 2 skips are the suite's own.
 
-## Owed at freeze (do not read any row above as covering these)
-1. Freeze combined tree; frozen pnpm install immediately before the run (stale-install lesson recorded).
-2. Full combined suite (all files incl. tests/stage-d), sharded; build; git diff --check.
-3. Final full-diff + history secret scan on the frozen tree (same method, adversary spot-check).
-4. Adversary final-tree refresh.
-5. Reconcile any new patches landed after 6b31f05 (B2 old-turn-starts-after-replacement proof and any further executor/adversary output). Adversary acceptance of the lead NF-5 series and the ordering guard is pending at this draft.
+### Adversary independent final refresh (own fresh worktree of the 85b5358 bundle, pnpm@11.7.0 default install)
+- install exit 0, build exit 0, tsc exit 0, git status clean. Evidence persisted at reports/evidence/pr-final/adversary-final-refresh/ (MANIFEST, batch lists, install log, build tail; sanitized).
+- Suite: 121 .spec.ts in 3 batches 450+627+493 = 1570 passed; 14 .spec.tsx 125 passed; stage-d 15 passed / 2 skipped. Total 1710 passed, 2 skipped, 0 failed - matches the lead exactly.
+- Count reconciliation: the adversary's earlier totals (1553 on 215fc4c, 1576 on 59104e1) covered only .spec.ts files and omitted the 14 .spec.tsx specs, so they were not comparable to lead counts; the frozen number 1710 is now collected on the same include on both sides.
+- Neuter check on the new throwing-logger test: removing the nested logger isolation in dsh.ts turns 'a failing revoke warning cannot block the rest of the stop cleanup' RED; discriminating.
+
+### Historical failed checkpoint (preserved, not rewritten)
+Frozen refresh on the previous candidate 59104e1 found 8 failures in two classes (evidence: reports/evidence/pr-final/adversary-frozen-59104e1-failures/, sanitized):
+- Class A (5): the issue-4/5 hand-built ExecutorFixture predated the ExecutorHost contract (sessions.revoke required since NF5) and had no context.logger, so the revoke warn itself threw inside the catch and skipped the rest of the stop - the ADV NF5-a class one level down. Repair 47bc140: accurate fixtures (revoke + logger stub) AND production hardening - the warn is nested-exception-isolated so a missing OR throwing logger can never block stopWork/abort/personal-state cleanup; probe counter session_revoke_failed remains the durable surface; new bounded RED-first test in the existing issue-5 spec. Visibility assertions added in 1c375fe.
+- Class B (3-4): issue-20 resolved the tsx binary by parsing 'pnpm exec which tsx' stdout; tsx was never a declared dependency (it resolved to the machine-global /usr/bin/tsx) and a default frozen install pollutes that stdout with deps-status lines. Repair 85b5358: tsx pinned devDependency 4.23.15 (identical to the global previously used), resolved from the local dependency graph via createRequire.resolve('tsx/package.json') -> dist/cli.mjs, realpath, loud failure when absent; the helper's own failure mode is preserved. An intermediate stdout-line-filter approach was rejected and withdrawn (not source-backed). No assertion changed.
+
+### Dependency and supply-chain deltas vs baseline
+- Test-only devDeps, exact pins, verified against the live npm registry: dsh-session-persistence-jsonl 0.2.1-alpha.2 (+238 lock lines), dsh-agent-loop + dsh-session-projection 0.2.1-alpha.2 (+35 lock lines), tsx 4.23.15 (+303 lock lines incl. its esbuild transitive).
+- Registry integrity (npm view dist.integrity vs pnpm-lock.yaml, lead AND adversary independent): tsx@4.23.15, esbuild@0.28.2 and @esbuild/linux-x64@0.28.2 MATCH exactly. The other ~50 @esbuild platform optionals were not compared; platform scope is Linux-only (prebuilts arrive via optional platform packages).
+- Build-script policy: koffi AND esbuild install scripts explicitly DENIED via the committed pnpm-workspace.yaml allowBuilds; no install script is enabled anywhere; plain default install and build pass. Other platforms untested.
+- package.json carries pnpm's pure re-sorting from 'pnpm add' (verified: every +/- pair matches an existing entry; the only content addition is tsx). Left as-is deliberately: reformatting would invalidate the frozen SHA for a cosmetic change.
+
+## Secret scan (FINAL, lead-owned; adversary spot-check concurs)
+Scope: full added history main..85b5358 (87,506 added lines across the PR series) AND a tree grep at 85b5358. Method: pattern grep for GitHub token shapes (ghp_/gho_/ghs_/github_pat_), sk-*, AWS AKIA, Bearer literals, private-key blocks, plus password/secret/token assignment grep with manual review of every hit. LIMITS: regex grep, NOT gitleaks or entropy scanning; no claim beyond the listed patterns. Result: no real secrets. The only match class is synthetic adversarial canaries in redaction-test fixtures (tests/review-db-migrate-links.spec.ts:61: ghp_${'A'.repeat(80)}, 'ghp_'+'B'.repeat(36), 'sk-short1234', AWS's documentation example AKIAIOSFODNN7EXAMPLE). Adversary independent spot-check (MANIFEST, main..85b5358 added lines excluding lockfile) found the same canaries and nothing else. Evidence archives carry no secret-shaped values (both scanned before persisting).
+
+## Freeze checklist (all complete)
+1. Frozen tree 85b5358; fresh default frozen install immediately before the run - DONE.
+2. Full combined suite (all files incl. tests/stage-d), sharded; build; git diff --check; tsc - DONE (above).
+3. Final full-diff + history secret scan on the frozen tree - DONE (above).
+4. Adversary final-tree refresh - DONE, GREEN (above).
+5. Post-6b31f05 patches reconciled - DONE: e2d97c7, 59104e1, 47bc140, 1c375fe, 85b5358 each failing-first where they repair behavior, each independently adversary-verified on the frozen tree. B2 remains NOT independently verified (see REVIEW; not closed capability).

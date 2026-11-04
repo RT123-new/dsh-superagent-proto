@@ -1,0 +1,140 @@
+
+ RUN  v4.1.8 /tmp/rev/f59
+
+(node:36546) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/runtime.spec.ts (108 tests) 12753ms
+   ✓ final review 2.2: a pause that lands while the worker Session is being created leaves no danger-full-access (real launch path)  341ms
+   ✓ final review 2.2: the ticket is stopped (replacement/ended assignment) while the worker Session is being created leaves no danger-full-access (real launch path)  340ms
+   ✓ final review 2.2: the host shuts down while the worker Session is being created leaves no danger-full-access (real launch path)  330ms
+   ✓ final review 2.2: a requester removed from the allowed list cannot get a recreated worker Session granted danger-full-access  552ms
+   ✓ final review 2.2: while the ticket's Source kind is not installed, a recreated worker Session gets no grant (fail closed), and it is granted once installed  364ms
+   ✓ final review 2.2: a disabled Source (plugin installed) denies a recreated worker Session grant  453ms
+   ✓ final review 2.2: with the Source plugin really unregistered and the stored Source enabled, a recreated worker Session gets no grant while waiting, and is granted only once the plugin registers (real registry, no spy)  1457ms
+   ✓ final review 2.2: with the Source plugin really unregistered and the stored Source disabled, a recreated worker Session gets no grant while waiting, and is granted only once the plugin registers (real registry, no spy)  1448ms
+   ✓ final review 2.2: a chat removed from the Source configuration denies a recreated worker Session grant (real runtime)  548ms
+   ✓ final review 2.2: an inferred (auto mode) Mandate gets no recreated worker grant once auto mode is off (real runtime)  556ms
+   ✓ final review 2.2: a requester removed while the grant waits for the plugin gets no grant when the plugin registers (revocation during wait)  1245ms
+(node:36557) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/sources.spec.ts (79 tests) 4316ms
+     ✓ drops the events it reads once the Source is off  1360ms
+     ✓ starts the consumer again after it exits, and is ready once the next run listens  1058ms
+(node:36616) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/runtime-concurrency.spec.ts (58 tests) 8969ms
+     ✓ holds a delivery that reached a worker while a hand-off stopped its subagents until the stop ended  4029ms
+(node:36627) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/tools.spec.ts (26 tests) 1258ms
+(node:36638) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/views.spec.ts (15 tests) 134ms
+(node:36645) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/store.spec.ts (17 tests) 136ms
+ ✓ tests/service-script.spec.ts (15 tests) 5309ms
+   ✓ restarts the service, and a restart whose graceful stop timed out does not keep recovery off  1146ms
+   ✓ exits 1 when the started service does not answer in time, and leaves its process running  2059ms
+   ✓ does not signal a process that took the recorded service PID, and keeps a stop that timed out  1094ms
+(node:36782) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/review-phase2-late-tools.spec.ts (13 tests) 717ms
+ ✓ tests/review-phase2-workspace.spec.ts (11 tests) 142ms
+(node:36808) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/review-phase2-session-gates.spec.ts (8 tests) 369ms
+stdout | tests/review-phase2-agent-loop-kill.spec.ts > characterization: the model request starts before the log file exists, so a SIGKILL at that moment (no flush) leaves no session on disk
+LOG EXISTS AFTER UNFLUSHED KILL: false
+
+stdout | tests/review-phase2-agent-loop-kill.spec.ts > real SIGKILL immediately after steer(): whatever prefix reached disk, the restart ends with the message in the log exactly once
+NOTHING PERSISTED before the kill: the agent session itself is absent after restart
+
+stdout | tests/review-phase2-agent-loop-kill.spec.ts > prefix sweep over the real loop log: after every event-boundary prefix the restart leaves the message in the log at most once and never parked
+PREFIX OUTCOMES 1:sent:1:model1:phase[object Object] 2:held:1:model1:phase[object Object] 3:held:1:model1:phase[object Object] 4:sent:1:model1:phase[object Object] 5:sent:1:model1:phase[object Object] 6:sent:1:model1:phase[object Object] 7:held:1:model0:phase[object Object] 8:held:1:model0:phase[object Object] 9:held:1:model0:phase[object Object]
+
+ ✓ tests/review-phase2-agent-loop-kill.spec.ts (4 tests) 4068ms
+   ✓ real SIGKILL after the loop consumed the message: restart holds it and delivery does not append a second copy  595ms
+   ✓ prefix sweep over the real loop log: after every event-boundary prefix the restart leaves the message in the log at most once and never parked  3186ms
+(node:36874) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/review-phase2-effects-marker.spec.ts (6 tests) 287ms
+ ✓ tests/review-phase2-jsonl-kill.spec.ts (4 tests) 548ms
+(node:36936) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/review-phase2-effects-routes.spec.ts (5 tests) 523ms
+(node:36943) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/settings.spec.ts (4 tests) 171ms
+ ✓ tests/stage.spec.ts (31 tests) 5ms
+(node:36961) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/review-db-migrate-links.spec.ts (6 tests) 94ms
+ ✓ tests/review-phase9-containment-falsifiers.spec.ts (12 tests) 40ms
+(node:36979) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/review-phase2-outbox-crash.spec.ts (4 tests) 125ms
+ ✓ tests/review-phase2-delivery-requeue.spec.ts (6 tests) 6ms
+ ✓ tests/role-models.spec.ts (5 tests) 20ms
+ ✓ tests/review-phase9-boundaries.spec.ts (5 tests) 14ms
+(node:37015) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/timeline.spec.ts (4 tests) 39ms
+(node:37022) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/review-phase2-ensure-matrix.spec.ts (6 tests) 173ms
+(node:37033) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/review-phase2-effects-rearm.spec.ts (3 tests) 391ms
+ ✓ tests/review-phase2-record-durability.spec.ts (4 tests) 1719ms
+     ✓ SIGKILL of a process rewriting the record never leaves a corrupt authoritative record  1706ms
+(node:37139) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/review-db-link-shapes.spec.ts (7 tests) 48ms
+ ✓ tests/review-phase2-delivery.spec.ts (2 tests) 7ms
+(node:37153) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/review-phase2-outbox-kill.spec.ts (2 tests) 642ms
+   ✓ markAttempt=true: kill during an in-flight send  327ms
+   ✓ markAttempt=false: kill during an in-flight send  314ms
+ ✓ tests/review-phase9-symlink-containment.spec.ts (3 tests) 20ms
+(node:37185) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/review-ordered-blocked-head.spec.ts (1 test) 22ms
+(node:37192) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/review-poll-failure-recovery.spec.ts (1 test) 1089ms
+   ✓ events whose read failed in one round are stored by the next round, none lost  1088ms
+(node:37199) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/review-integration-lock-dispatch.spec.ts (2 tests) 668ms
+   ✓ after the state lock is reported compromised, queued effects do not dispatch  344ms
+   ✓ after the state lock is reported compromised, the real outbox reply effect does not send  324ms
+(node:37210) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/review-phase2-markunrelated-ended.spec.ts (2 tests) 190ms
+(node:37221) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/review-lock-compromised.spec.ts (2 tests) 77ms
+ ✓ tests/review-phase2-ancestry.spec.ts (4 tests) 3ms
+(node:37239) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/review-db-flow-snapshot.spec.ts (1 test) 9ms
+ ✓ tests/styles.spec.ts (2 tests) 29ms
+ ✓ tests/review-adv-owner.spec.ts (2 tests) 105ms
+(node:37262) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/review-db-malformed-reads.spec.ts (2 tests) 15ms
+(node:37269) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+stdout | tests/review-phase2-effects-bench.spec.ts > marker overhead per attempt is measured
+BENCH ms/attempt off=0.254 on=0.348 extra=0.095
+
+ ✓ tests/review-phase2-effects-bench.spec.ts (1 test) 585ms
+   ✓ marker overhead per attempt is measured  585ms
+
+ Test Files  41 passed (41)
+      Tests  493 passed (493)
+   Start at  11:20:15
+   Duration  54.58s (transform 1.06s, setup 0ms, import 5.35s, tests 45.84s, environment 2ms)
+
