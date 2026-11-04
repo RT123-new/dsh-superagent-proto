@@ -83,8 +83,10 @@ function github(h: ReturnType<typeof host>, routes: Record<string, unknown>): st
     const route = routes[path] ?? (path.endsWith('/check-runs') ? { check_runs: [] } : list)
     const value: unknown = typeof route === 'function' ? (route as () => unknown)() : route
     if (value instanceof Error) throw value
-    if (args.includes('--include')) return `HTTP/2.0 200 OK\r\nX-Poll-Interval: 60\r\n\r\n${JSON.stringify(value)}`
-    return JSON.stringify(args.includes('--slurp') ? [value] : value)
+    // Paginated calls carry --include too: gh prints the header block, then exactly the body it would print without --include.
+    const body = JSON.stringify(args.includes('--slurp') ? [value] : value)
+    if (args.includes('--include')) return `HTTP/2.0 200 OK\r\nX-Poll-Interval: 60\r\n\r\n${body}`
+    return body
   })
   return reads
 }
@@ -658,6 +660,11 @@ describe('github source', () => {
     vi.spyOn(h.commands, 'run').mockImplementation(async (_program, args) => {
       calls.push(args)
       const path = args[1]!.replace(/^repos\/acme\/widgets\//, '').split('?')[0]!
+      if (path === 'notifications' && args.includes('--paginate')) {
+        // Real gh --include --paginate --slurp: one header block per page, interleaved between the outer-array parts (cli/cli processResponse + jsonArrayWriter).
+        return 'HTTP/2.0 200 OK\r\nLink: <https://api.github.com/notifications?page=2>; rel="next"\r\nX-Poll-Interval: 120\r\n\r\n[\n' + JSON.stringify([notification(12)])
+          + '\nHTTP/2.0 200 OK\r\nX-Poll-Interval: 120\r\n\r\n,\n' + JSON.stringify([notification(13)]) + '\n]'
+      }
       if (path === 'notifications' && args.includes('--include')) {
         return 'HTTP/2.0 200 OK\r\nLink: <https://api.github.com/notifications?page=2>; rel="next"\r\nX-Poll-Interval: 120\r\n\r\n[]'
       }
