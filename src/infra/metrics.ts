@@ -237,11 +237,18 @@ export class Metrics {
     return (outcome = 'success') => { if (done === undefined) { done = Math.max(0, this.mono() - t0); this.observe(stage, source, done, outcome) } return done }
   }
 
+  /** Counters stop at MAX_SAFE_INTEGER (and record `counter_saturated`) rather than silently losing integer precision. */
+  private saturatingAdd(current: number, by: number): number {
+    if (current <= Number.MAX_SAFE_INTEGER - by) return current + by
+    if (this.counters.has('counter_saturated') || this.counters.size < 64) this.counters.set('counter_saturated', Math.min(Number.MAX_SAFE_INTEGER, (this.counters.get('counter_saturated') ?? 0) + 1))
+    return Number.MAX_SAFE_INTEGER
+  }
+
   count(name: string, by = 1): void {
     if (!Number.isSafeInteger(by) || by < 0) throw new RangeError('counter increment must be a non-negative safe integer')
     const key = /^[a-z][a-z0-9_]{0,47}$/.test(name) ? name : 'other'
-    if (!this.counters.has(key) && this.counters.size >= 64) { this.counters.set('other', (this.counters.get('other') ?? 0) + by); return }
-    this.counters.set(key, (this.counters.get(key) ?? 0) + by)
+    if (!this.counters.has(key) && this.counters.size >= 64) { this.counters.set('other', this.saturatingAdd(this.counters.get('other') ?? 0, by)); return }
+    this.counters.set(key, this.saturatingAdd(this.counters.get(key) ?? 0, by))
   }
 
   queue(name: 'eval' | 'assignment' | 'effect' | string, cap?: number): QueueGauge {

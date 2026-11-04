@@ -38,7 +38,7 @@ export class DomainTimeline {
   private since(map: Pending<string, number>, key: string, stage: string): void {
     const start = map.take(key)
     if (start === undefined) { this.probe.count('lifecycle_unmatched'); return }
-    this.probe.observe(stage, 'internal', Math.max(0, this.mono() - start))
+    this.probe.observe(stage, 'internal', this.mono() - start)
   }
   /** The application received a Trigger (entry of `Passes.receive`); never throws. Pair with `abandoned` when no `trigger.received` event follows. */
   arrived(triggerId: string): void { try { this.arrivals.set(triggerId, this.mono()) } catch { this.probe.count('metrics_error') } }
@@ -56,11 +56,11 @@ export class DomainTimeline {
           if (!event.data.queued) { this.probe.count('trigger_not_queued'); break }
           this.received.set(event.data.triggerId, now)
           if (arrival === undefined) this.probe.count('lifecycle_unmatched')
-          else this.probe.observe('source_to_eval_queue', 'internal', Math.max(0, now - arrival))
+          else this.probe.observe('source_to_eval_queue', 'internal', now - arrival)
           break
         }
         case 'eval.started':
-          for (const id of event.data.triggerIds) { const at = this.received.take(id); if (at !== undefined) this.probe.observe('trigger_to_eval_start', 'internal', Math.max(0, now - at)) }
+          for (const id of event.data.triggerIds) { const at = this.received.take(id); if (at !== undefined) this.probe.observe('trigger_to_eval_start', 'internal', now - at) }
           this.evaluating.set(event.data.evalId, now); break
         case 'decision.recorded':
           const evalId = this.evalOfDecision?.(event.data.decisionId)
@@ -98,7 +98,7 @@ export class SessionTimeline {
       const finish = (map: Pending<string, number>, key: string, stage: string, outcome: 'success' | 'failure') => {
         const start = map.take(key)
         if (start === undefined) { this.probe.count('lifecycle_unmatched'); return }
-        this.probe.observe(stage, 'internal', Math.max(0, now - start), outcome)
+        this.probe.observe(stage, 'internal', now - start, outcome)
       }
       switch (event.type) {
         case 'turn/start': this.turns.set(`${session}:${data.turn}`, now); break

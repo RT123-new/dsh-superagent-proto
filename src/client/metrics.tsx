@@ -7,6 +7,11 @@ const STAGES = ['source_to_eval_queue', 'eval_queue_wait', 'eval_run', 'decision
   'delivery_to_worker', 'worker_turn', 'tool_run', 'report_to_response', 'effect_queue_wait', 'effect_run']
 const number = (v: number | null | undefined, unknown: string, suffix = '') => v === null || v === undefined || !Number.isFinite(v)
   ? unknown : `${Number(v.toFixed(2))}${suffix}`
+/** Wall-clock bounds are display-only; an invalid value renders as unknown instead of throwing and blanking the dashboard. */
+const wall = (ms: number | null | undefined, unknown: string) => {
+  const date = typeof ms === 'number' ? new Date(ms) : undefined
+  return date && Number.isFinite(date.getTime()) ? <time dateTime={date.toISOString()}>{date.toISOString()}</time> : <span>{unknown}</span>
+}
 export function MetricsPanel({ metrics: m, t }: { metrics: MetricsSnapshot; t: T }) {
   const unknown = t('metricsUnknown')
   const rowsFor = (durations: MetricsSnapshot['durations'], placeholders: boolean) => {
@@ -20,8 +25,7 @@ export function MetricsPanel({ metrics: m, t }: { metrics: MetricsSnapshot; t: T
   const label = (stage: string) => { const key = `metricsStage.${stage}` as DshSuperagentKey; const value = t(key); return value === key ? stage : value }
   return <Section title={t('metricsTitle')}>
     <Hint>{t('metricsScope', { window: m.window })}</Hint><Hint>{t('metricsPartialProgram')}</Hint>
-    <p className="dt-hint"><time dateTime={new Date(m.sinceWallMs).toISOString()}>{new Date(m.sinceWallMs).toISOString()}</time>
-      {' → '}<time dateTime={new Date(m.atWallMs).toISOString()}>{new Date(m.atWallMs).toISOString()}</time></p>
+    <p className="dt-hint">{wall(m.sinceWallMs, unknown)}{' → '}{wall(m.atWallMs, unknown)}</p>
     {([[t('metricsSuccess'), rowsFor(m.durations, true)], [t('metricsFailure'), rowsFor(m.failedDurations ?? {}, false)]] as const).map(([title, rows]) => <div key={title}>
       <h3>{title}</h3>
       {rows.length ? <div className="dt-metrics-scroll" tabIndex={0} role="region" aria-label={`${title}: ${t('metricsStage')}`}><table className="dt-metrics-table">
