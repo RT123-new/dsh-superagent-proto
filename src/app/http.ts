@@ -28,6 +28,7 @@ import { settingsView } from './views/settings.ts'
 import { sourcesStatus, type SetupState } from './views/sources.ts'
 import { decisionList, search, threadDetail, threadList } from './views/threads.ts'
 import { executorLoad, ticketDetail, ticketList } from './views/tickets.ts'
+import type { MetricsSnapshot } from '../infra/metrics.ts'
 
 export interface HttpHost {
   readonly store: Store
@@ -54,6 +55,8 @@ export interface HttpHost {
   ticketEnvironment(ticket: Ticket): Variable[]
   checkSetup(): void
   requestPass(): void
+  /** A point-in-time metrics snapshot, or undefined when instrumentation is off or not wired. */
+  metricsSnapshot?(): MetricsSnapshot | undefined
   models(): Promise<ModelCatalog>
 }
 /**
