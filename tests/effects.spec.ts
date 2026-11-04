@@ -99,7 +99,7 @@ it('retries a failed effect with bounded-jitter backoff up to its configured max
     clock += 1; await effects.idle()
     expect(run).toHaveBeenCalledTimes(calls + 1)
     if (attempt === 2) expect(health.notice).toMatchObject({ state: 'error', detail: expect.stringContaining('1 waiting since 2026-09-09T00:00:00.000Z; the last failure:') })
-    if (attempt === 2) expect(health.notice).toMatchObject({ state: 'error', detail: expect.stringContaining('session busy') })
+    if (attempt === 2) expect(health.notice).toMatchObject({ state: 'error', detail: expect.stringContaining('transient') })
   }
   // Bounded jitter: each delay lands in [0.5 * a_n, a_n] with a_n = min(3000, 1000 * 2^n).
   const a = (n: number) => Math.min(3000, 1000 * 2 ** n)

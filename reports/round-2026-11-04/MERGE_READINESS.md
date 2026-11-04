@@ -1,6 +1,6 @@
 # Merge-readiness report: mandate review round of 2026-11-04
 
-> Round scope `6027b6e..4955cf6` on `programme/reliability`, PR #1 (open, unmerged): https://github.com/RT123-new/dsh-superagent-proto/pull/1. Main is untouched; no merge, no deploy, no upstream changes. The earlier `fd3b7a6` freeze candidate was superseded after three confirmed findings (T_i stamp retention, sources mock wire emulation, pre-send classification); its canonical run went RED (9 github poll failures), which the repair commits address.
+> Round scope `6027b6e..3144dde` on `programme/reliability`, PR #1 (open, unmerged): https://github.com/RT123-new/dsh-superagent-proto/pull/1. Main is untouched; no merge, no deploy, no upstream changes. The earlier `fd3b7a6` freeze candidate was superseded after three confirmed findings (T_i stamp retention, sources mock wire emulation, pre-send classification); its canonical run went RED (9 github poll failures), which the repair commits address.
 
 ## Current verdict: NOT READY TO CERTIFY
 
@@ -21,13 +21,13 @@ Three independent gates are still open, by design:
 
 ## What is verified at this head
 
-- All 25 ledger entries carry exact statuses: 9 VERIFIED FIXED, 2 VERIFIED UNCHANGED, 8 PARTIALLY VERIFIED (including the author-green repairs R2-10/R2-21/R2-22/R2-24 awaiting independent replay or a fresh final-head canonical), 1 REPRODUCED FAILURE (R2-25 health-feed prose, open pending scope decision), 4 DEFERRED WITH REASON, 1 UNPROVEN, plus the CI/canonical sub-gates above.
+- All 25 ledger entries carry exact statuses: 11 VERIFIED FIXED (R2-22/R2-24 verified by byte-identical replays against the real-bundle SHA `4955cf6`), 2 VERIFIED UNCHANGED, 7 PARTIALLY VERIFIED (including the author-green repairs R2-10/R2-21/R2-25 awaiting independent replay or a fresh final-head canonical), 4 DEFERRED WITH REASON, 1 UNPROVEN, plus the CI/canonical sub-gates above.
 - Failing-first discipline held for every new repair this round (RED captured before GREEN), including the reviewer's wire probe reproduced unmodified.
-- Diff basis stated exactly: full `6027b6e..4955cf6` = 64 files, +3488/-83; excluding `reports/` = 44 files, +1677/-83 (20 code/test commits + 7 docs-only report commits = 27 total, measured). The earlier '46 files, +2751/-74' figure was the full diff at the `fd3b7a6` freeze candidate. Every commit surgical (sweep-commit risk noted and avoided after `a5a8a41`).
+- Diff basis stated exactly: full `6027b6e..3144dde` = 72 files, +3679/-92; excluding `reports/` = 50 files, +1784/-92 (21 code/test commits + 8 docs-only report commits = 29 total, measured). The earlier '46 files, +2751/-74' figure was the full diff at the `fd3b7a6` freeze candidate. Every commit surgical (sweep-commit risk noted and avoided after `a5a8a41`).
 
 ## Conditions to certify
 
-1. Independent reviewer verdicts bound to the REAL bundle identity on `592f76f` (T_i retention), `2dccb20` (sources mocks), `d7e6cc3` (pre-send classification) and `4955cf6` (pre-send retry counter). Backend B reviewed all three frozen-SHA repairs SOUND/EQUIVALENT from the reconstructed tree and replayed the 401/429 probe GREEN there, but acceptance awaits the real git bundle (the mbox format-patch could not certify commit identity); the phase-3 503 probe awaits unmodified replay against `4955cf6`. The client + allowlist portion landed at `fd3b7a6` (scoped).
+1. Independent reviewer verdicts bound to the REAL bundle identity. LANDED (scoped): pre-send classification + retry-counter repairs VERIFIED FIXED at real-bundle `4955cf6` (tree `157887d5`; byte-identical 401/429/503 probe replays GREEN; local Later semantics preserved) per `INDEPENDENT_REVIEW_REMAINING_BACKEND_STATUS_4955.md`; client + allowlist at `fd3b7a6`; backend B's statics SOUND/EQUIVALENT on the frozen-SHA repairs. STILL PENDING: verdicts on `592f76f` (T_i retention) and `2dccb20` (sources mocks) against the real bundle, replay of the §10 health-redaction probes against `3144dde`, and the metrics/backend verdict from the original adversary.
 2. Adversary-run canonical `pnpm test` green at the frozen final head.
 3. Authorized push of the accepted freeze; fixed CI workflow executes green on GitHub.
 4. Only then: merge readiness can be asserted, and merge itself remains the user's explicit decision.
