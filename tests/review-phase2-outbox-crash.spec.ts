@@ -56,19 +56,17 @@ it('a failed attempt leaves a durable attempted-with-error marker on the effect 
   expect(row?.error).toContain('connection reset')
 })
 
-it('KNOWN GAP (characterization): the attempt count only advances after a failure is observed, so a host crash between provider acceptance and settlement is indistinguishable from never attempted', async () => {
-  let seen = 0
+it('while a send is in flight the effect row durably carries an attempt-start marker', async () => {
+  let inflight: { attempts: number; error: string } | undefined
   const kind: SourceKind<Record<string, never>> = { kind: 'inflight', title: { zh: 'x', en: 'x' }, description: { zh: '', en: '' }, health: [],
     schema: z.object({}).strict(), fields: [],
     channel: { send: async () => {
-      seen++
-      const row = h.runtime.store.db.prepare("SELECT attempts, error FROM effect WHERE kind = 'reply' AND key = ?").get('inflight-1') as { attempts: number; error: string }
-      // While the send is in flight (where a crash would land) the durable row shows no attempt.
-      expect(row.attempts).toBe(0); expect(row.error).toBe('')
+      inflight = h.runtime.store.db.prepare("SELECT attempts, error FROM effect WHERE kind = 'reply' AND key = ?").get('inflight-1') as typeof inflight
       return 'sent'
     }, link: () => ({ url: '', label: { zh: 'x', en: 'x' } }) } }
   h.runtime.sources.register(kind)
   h.runtime.outbox.send({ id: 'inflight-1', channel: { source: 'inflight', thread: 'i:1', address: {} }, text: 'Done', kind: 'reply' })
   await h.runtime.sendReplies()
-  expect(seen).toBe(1)
+  expect(inflight).toEqual({ attempts: 0, error: 'attempt-started' })
+  expect(h.runtime.outbox.outcome('inflight-1')).toBe('sent')
 })

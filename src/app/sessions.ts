@@ -166,10 +166,20 @@ export class Sessions {
     catch (error) {
       // The framework cannot cancel or dispose a started create, so a session may now exist for an assignment that no longer
       // holds authority. Surface it (log, counter, bounded list) instead of leaving it silent; delivery to it stays refused.
+      // Upstream error text is untrusted and may carry secrets: record and log only the error class, never its message.
+      const kind = error instanceof Error ? error.constructor.name : typeof error
       if (createIssued && !this.unresolved.has(id)) {
-        if (this.unresolved.size >= 256) this.unresolved.delete(this.unresolved.keys().next().value!)
-        this.unresolved.set(id, String(error)); this.host.probe?.count('session_create_unresolved')
-        this.ctx.logger.warn('dsh-superagent: session %s may exist after its assignment was cancelled during creation (%s); the framework offers no disposal', id, String(error))
+        // Past the bound the oldest entry is evicted; the counter keeps counting every occurrence, so it is the complete signal.
+        if (this.unresolved.size >= 256) { this.unresolved.delete(this.unresolved.keys().next().value!); this.host.probe?.count('session_create_unresolved_evicted') }
+        this.unresolved.set(id, kind); this.host.probe?.count('session_create_unresolved')
+        this.ctx.logger.warn('dsh-superagent: session %s may exist after its assignment stopped during creation (%s); the framework offers no disposal', id, kind)
+      }
+      // A privilege granted earlier to a reused session must not outlive its ticket: drop to the default preset once the ticket ended.
+      const existing = this.ctx.agents.get(id as SessionId)
+      const ticketId = ticketOfSession(id)
+      if (existing && ticketId !== undefined) {
+        const stored = this.host.store.tickets.get(ticketId)
+        if (!stored || !liveTicket(stored)) this.ctx.permissionPresets.set(existing.session, this.ctx.permissionPresets.defaultPreset)
       }
       throw error
     }

@@ -35,8 +35,13 @@ interface Handler<K extends EffectKind> {
   ordered: boolean
   /** When true, repeated failures do not mark the effect kind's health entry as `error` (used when failures are already surfaced on a ticket). */
   quiet: boolean
+  /** Write a durable attempt-start marker on the row before `run`, for handlers whose remote effect may happen before local settlement. */
+  markAttempt: boolean
 }
-type Options<K extends EffectKind> = Partial<Pick<Handler<K>, 'limit' | 'retry' | 'ordered' | 'quiet'>>
+type Options<K extends EffectKind> = Partial<Pick<Handler<K>, 'limit' | 'retry' | 'ordered' | 'quiet' | 'markAttempt'>>
+/** Durable markers kept in the existing `error` column of a row that has not failed (attempts = 0). */
+export const ATTEMPT_STARTED = 'attempt-started'
+export const ATTEMPT_UNKNOWN = 'attempt-unknown: the host stopped after the attempt started and before its outcome was recorded; the remote effect may have happened'
 /** `seq` preserves the row's queue position; `generation` increments on payload updates so a running attempt does not delete a newer payload. */
 interface Row { error: string; key: string; value: string; seq: number; generation: number; attempts: number; due: number; since?: string }
 type Task = { kind: EffectKind; key: string; generation: number; done: Promise<void> }
@@ -74,8 +79,8 @@ export class Effects {
   handle<K extends EffectKind>(kind: K, run: Handler<K>['run'], options: Options<K> = {}): void {
     if (this.handlers.has(kind)) throw new Error(`The ${kind} effects already have a handler`)
     this.health.set(kind, this.board.claim(kind))
-    const { limit = () => 1, retry = [2000, 60_000], ordered = false, quiet = false } = options
-    this.handlers.set(kind, { run, limit: ordered ? () => Math.min(1, limit()) : limit, retry, ordered, quiet } as unknown as Handler<never>)
+    const { limit = () => 1, retry = [2000, 60_000], ordered = false, quiet = false, markAttempt = false } = options
+    this.handlers.set(kind, { run, limit: ordered ? () => Math.min(1, limit()) : limit, retry, ordered, quiet, markAttempt } as unknown as Handler<never>)
     this.report(kind)
     this.kick()
   }
@@ -97,7 +102,17 @@ export class Effects {
     this.store.db.prepare('DELETE FROM effect WHERE kind = ? AND key = ?').run(kind, key)
     this.store.afterCommit(() => { this.report(kind) })
   }
-  start(): void { this.started = true; this.kick() }
+  start(): void {
+    // An attempt-start marker that survived to a start was interrupted before its outcome was recorded: say so durably, once.
+    const interrupted = this.store.db.prepare(`UPDATE effect SET error = ? WHERE error = ?`).run(ATTEMPT_UNKNOWN, ATTEMPT_STARTED)
+    if (Number(interrupted.changes) > 0) this.probe.count('effect_attempt_unknown', Number(interrupted.changes))
+    this.started = true; this.kick()
+  }
+  /** Whether the row's last attempt was interrupted before its outcome was recorded (duplicate remote effect possible on retry). */
+  attemptUnknown(kind: EffectKind, key: string): boolean {
+    const row = this.store.db.prepare('SELECT error FROM effect WHERE kind = ? AND key = ?').get(kind, key)
+    return typeof row?.error === 'string' && row.error.startsWith('attempt-unknown')
+  }
   kick(): void {
     if (this.scheduled) return
     this.scheduled = true
@@ -152,6 +167,11 @@ export class Effects {
     this.probe.observe('effect_schedule_lateness', 'internal', Math.max(0, startedAt - row.due))
     if (Number.isFinite(since)) this.probe.observe('effect_total_age', 'internal', Math.max(0, startedAt - since))
     const stop = this.probe.timer('effect_run', 'internal')
+    if (handler.markAttempt) {
+      // Written before the remote effect so a crash after provider acceptance is not durably identical to "never attempted".
+      this.store.db.prepare(`UPDATE effect SET error = ? WHERE kind = ? AND key = ? AND seq = ? AND generation = ? AND attempts = 0 AND error = ''`)
+        .run(ATTEMPT_STARTED, kind, row.key, row.seq, row.generation)
+    }
     try { await handler.run(JSON.parse(row.value) as never, row.key) } catch (error) { failure = { error } }
     stop(failure ? 'failed' : 'ok')
     if (failure) this.probe.count(failure.error instanceof Later ? 'effect_later' : 'effect_retry')

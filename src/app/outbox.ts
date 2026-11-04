@@ -9,7 +9,7 @@ import type { Probe } from '../infra/metrics-probe.ts'
 
 export interface OutboxHost {
   readonly store: Pick<Store, 'atomic' | 'afterCommit' | 'receipts'>
-  readonly effects: Pick<Effects, 'enqueue' | 'cancel' | 'handle' | 'idle'>
+  readonly effects: Pick<Effects, 'enqueue' | 'cancel' | 'handle' | 'idle'> & Partial<Pick<Effects, 'attemptUnknown'>>
   readonly sources: Pick<SourceRegistry, 'instance' | 'channelAllowed' | 'send'>
   readonly commands: Commands
   paused(): boolean
@@ -26,7 +26,7 @@ export class Outbox implements OutboxPort {
   /** Local monotonic stamps of receipts queued by this process, until sent; receipts queued before a restart are not timed. */
   private readonly queued = new Map<string, number>()
   constructor(private readonly host: OutboxHost) {
-    host.effects.handle('reply', (_payload, id) => this.deliver(id), { limit: () => host.paused() ? 0 : 1, retry: [5000, 300_000] })
+    host.effects.handle('reply', (_payload, id) => this.deliver(id), { limit: () => host.paused() ? 0 : 1, retry: [5000, 300_000], markAttempt: true })
   }
   /** Record a message receipt and enqueue its delivery effect atomically; duplicate message IDs are ignored. */
   send(message: OutboundMessage): void {
@@ -44,6 +44,14 @@ export class Outbox implements OutboxPort {
     } })
   }
   status(id: string): ReplyStatus | undefined { return this.host.store.receipts.get(id)?.status }
+  /** `attempted-unknown` when a send began and the host stopped before recording its outcome: a retry may duplicate the remote message. */
+  outcome(id: string): 'sent' | 'pending' | 'attempted-unknown' | 'other' | undefined {
+    const status = this.status(id)
+    if (status === undefined) return undefined
+    if (status === 'sent') return 'sent'
+    if (status !== 'pending') return 'other'
+    return this.host.effects.attemptUnknown?.('reply', id) ? 'attempted-unknown' : 'pending'
+  }
   withdraw(id: string): void {
     const { store, effects } = this.host
     store.atomic(() => { if (store.receipts.withdraw(id)) { effects.cancel('reply', id); store.afterCommit(() => this.queued.delete(id)) } })
