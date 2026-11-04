@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { accessSync, constants } from 'node:fs'
 import { ExecutorFixture, immediate } from './fixtures/executor.ts'
+import { waitUntil } from './fixtures/async.ts'
 
 /** Fails loudly (never silently passes) when the permission denial a test relies on is not enforced, e.g. when run as root. */
 const requireDenied = (path: string, mode: number) => {
@@ -134,9 +135,15 @@ describe('review phase 2.1: descendants and same-process concurrency', () => {
     let controlled: InstanceType<typeof ControlledSpawn> | undefined
     f.intercept = spec => { if (spec.argv[0] !== 'sh') return undefined; controlled = new ControlledSpawn(spec); return controlled.handle }
     const first = f.launch(ticket, assignment)
-    await new Promise(resolve => setTimeout(resolve, 50))
+    // Condition wait instead of a fixed 50ms sleep: the async launch->prepare chain raced the sleep under
+    // shared-runner load (CI run 41855657606: prepare had not spawned within 100ms, assertion saw 0).
+    const t0 = Date.now()
+    await waitUntil(() => f.prepareCommands().length === 1, 10_000)
+    const chainMs = Date.now() - t0
     const second = f.launch(ticket, f.newAssignment(ticket))
-    await new Promise(resolve => setTimeout(resolve, 50))
+    // Observation window for a wrongly re-run second prepare: the same chain the first launch took, doubled,
+    // so the window scales with runner load instead of assuming 50ms.
+    await new Promise(resolve => setTimeout(resolve, Math.min(Math.max(chainMs * 2, 200), 5_000)))
     expect(f.prepareCommands()).toHaveLength(1)
     controlled!.finish(0)
     await Promise.all([first, second])
