@@ -310,6 +310,7 @@ export class Metrics {
 }
 
 export interface MetricsSnapshot {
+  process?: import('./metrics-process.ts').ProcessUsage
   version: 1; sinceWallMs: number; atWallMs: number; window: number
   durations: Record<string, DurationSummary>
   failedDurations: Record<string, DurationSummary>
