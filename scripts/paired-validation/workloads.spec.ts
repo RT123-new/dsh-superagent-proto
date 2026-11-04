@@ -1,6 +1,7 @@
 /** Exploratory Source/Engine/provider-adapter integration, not complete DSH service validation. */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterAll } from 'vitest'
 import { writeFileSync, mkdirSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { join, resolve } from 'node:path'
 import { pollRound } from '../../src/sources/github.ts'
 import { settingsPolicy } from '../../src/policy.ts'
@@ -15,8 +16,18 @@ if(!['v1','v2'].includes(promptVersion))throw Error('Unknown prompt version')
 const live = process.env.PAIRED_LIVE === '1'
 const output = resolve(process.env.PAIRED_OUTPUT ?? '/tmp/paired-offline-output')
 const variant = process.env.PAIRED_VARIANT ?? 'repaired'
+const expectedSHA=variant==='baseline'?'8c32a9d': '5752c4c99778ba5a0abe59ace4988270e4612855'
+if(live){
+ const actual=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()
+ const expected=execFileSync('git',['rev-parse',expectedSHA],{encoding:'utf8'}).trim()
+ if(actual!==expected)throw Error('Live checkout SHA mismatch')
+ if(execFileSync('git',['status','--porcelain','--untracked-files=no'],{encoding:'utf8'}).trim())throw Error('Tracked checkout modified')
+}
+const liveBudget=live?new Budget(join(output,'budget.json'),Number(process.env.PAIRED_REMAINING_ALLOCATION??1),true):null
+afterAll(()=>liveBudget?.close())
 const seeds = (process.env.PAIRED_SEEDS ?? '11,29').split(',').map(Number)
-const scenarioNames = ['normal', 'late-30s', 'late-10m-reconcile', 'unauthorized', 'restart-duplicate'] as const
+const allScenarios=['normal','late-30s','late-10m-reconcile','unauthorized','restart-duplicate'] as const
+const scenarioNames=process.env.PAIRED_SCENARIOS?allScenarios.filter(x=>process.env.PAIRED_SCENARIOS!.split(',').includes(x)):allScenarios
 const records: Record<string, unknown>[] = []
 const iso = (n:number)=>new Date(n).toISOString()
 const fixture = 'export const clamp = (n, low, high) => Math.min(low, Math.max(n, high));\n'
@@ -24,7 +35,7 @@ const fixture = 'export const clamp = (n, low, high) => Math.min(low, Math.max(n
 import { expression, evaluate, type Expression } from './expression.ts'
 const oracle:Expression={op:'min',args:['high',{op:'max',args:['n','low']}]}
 async function ask(id:string,prompt:string,answer:unknown){
- return modelCall({id:`${promptVersion}-${variant}-${id}`,prompt,live,budget:new Budget(join(output,'budget.json')),evidenceDir:join(output,'calls'),offlineAnswer:answer})
+ return modelCall({id:`${promptVersion}-${variant}-${id}`,prompt,live,budget:liveBudget,evidenceDir:join(output,'calls'),offlineAnswer:answer})
 }
 describe('paired synthetic completion workloads',()=>{
  for(const seed of seeds)for(const scenario of scenarioNames)it(`${scenario} seed ${seed}`,async()=>{
@@ -74,7 +85,12 @@ describe('paired synthetic completion workloads',()=>{
    expect(priorStarts+h.executor.start.mock.calls.length).toBeLessThanOrEqual(1)
    expect(forbidden).toBe(false)
    if(scenario==='unauthorized')expect(h.store.tickets.list()).toHaveLength(0)
-  }catch(e){completed=false;error=String(e);if(live){new Budget(join(output,'budget.json')).stop();throw e}}
+   if(!live){
+    const expectedCompleted=scenario!=='unauthorized'&&!(variant==='baseline'&&(scenario==='late-30s'||scenario==='late-10m-reconcile'))
+    expect(completed).toBe(expectedCompleted);expect(!!h.store.triggers.get(triggerId)).toBe(!(variant==='baseline'&&(scenario==='late-30s'||scenario==='late-10m-reconcile')))
+    expect(priorStarts+h.executor.start.mock.calls.length).toBe(expectedCompleted?1:0)
+   }
+  }catch(e){completed=false;error=String(e);if(live){liveBudget.stop();throw e}else throw e}
   finally{
    const tickets=h.store.tickets.list()
    const record={promptVersion,variant,scenario,seed,eligible:scenario!=='unauthorized',received:!!h.store.triggers.get(triggerId),completed,forbidden,tickets:tickets.length,assignments:tickets.reduce((n,t)=>n+t.assignments.length,0),executorStarts:priorStarts+h.executor.start.mock.calls.length,externalMessages:priorMessages+h.outbox.send.mock.calls.length,elapsedMs:performance.now()-started,modelMs,billingTokens,cost,error,live}

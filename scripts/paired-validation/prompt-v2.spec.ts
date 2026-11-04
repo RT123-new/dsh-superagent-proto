@@ -11,7 +11,7 @@ describe('prospective v2 prompt qualification, no provider calls',()=>{
   expect(node.additionalProperties).toBe(false);expect(node.properties.args.minItems).toBe(2);expect(node.properties.args.maxItems).toBe(2)
   const prompt=JSON.parse(workerPromptV2('synthetic broken code',11))
   expect(()=>expression(prompt.syntax_example.expression)).not.toThrow()
-  expect(prompt.example_note).toContain('not the complete solution')
+  expect(prompt.example_note).toContain('unrelated to the clamp solution')
  })
  it('has no variant field and is byte-identical for a paired task seed',()=>{
   const baseline=workerPromptV2('synthetic broken code',29),repaired=workerPromptV2('synthetic broken code',29)

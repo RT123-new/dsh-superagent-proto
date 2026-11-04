@@ -54,14 +54,14 @@
   "grammar_notes": "A variable leaf is a JSON string: \"n\", \"low\", or \"high\". Never wrap leaves in objects. Each internal node has exactly op and args, op is min or max, args has exactly two expressions. Depth at most 5. Do not add other keys.",
   "syntax_example": {
     "expression": {
-      "op": "min",
+      "op": "max",
       "args": [
-        "n",
+        "low",
         "high"
       ]
     }
   },
-  "example_note": "This example shows grammar only. It clips the upper bound but is not the complete solution. Derive the solution for both bounds.",
+  "example_note": "This example shows grammar only. It chooses the greater bound and never reads n. It is unrelated to the clamp solution. Derive the clamp solution independently.",
   "brokenCode": "export const clamp = (n, low, high) => Math.min(low, Math.max(n, high));\n",
   "seed": 11
 }

@@ -7,7 +7,7 @@ export function workerPromptV2(brokenCode,seed){return JSON.stringify({
   task:'Repair clamp by returning one JSON object only. Requirements: clamp below low to low, above high to high, preserve interior. Return no prose or code fences.',
   output_schema:WORKER_SCHEMA,
   grammar_notes:'A variable leaf is a JSON string: "n", "low", or "high". Never wrap leaves in objects. Each internal node has exactly op and args, op is min or max, args has exactly two expressions. Depth at most 5. Do not add other keys.',
-  syntax_example:{expression:{op:'min',args:['n','high']}},
-  example_note:'This example shows grammar only. It clips the upper bound but is not the complete solution. Derive the solution for both bounds.',
+  syntax_example:{expression:{op:'max',args:['low','high']}},
+  example_note:'This example shows grammar only. It chooses the greater bound and never reads n. It is unrelated to the clamp solution. Derive the clamp solution independently.',
   brokenCode,seed
 })}

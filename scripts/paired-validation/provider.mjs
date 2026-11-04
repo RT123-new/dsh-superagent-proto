@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module'
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 const require = createRequire(import.meta.url)
 const transportPath = createRequire(require.resolve('@deepseek-ai/dsh-llm-deepseek-api-key')).resolve('@deepseek-ai/dsh-llm-deepseek')
@@ -16,7 +16,8 @@ export function usageCost(u) {
   return (u.inputTokens * pricing.inputMiss + (u.cacheReadTokens ?? 0) * pricing.inputHit + u.outputTokens * pricing.output) / pricing.unit
 }
 export class Budget {
-  constructor(path, limit = 1) { this.path = path; this.state = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : { limit, charged: 0, pending: null, calls: [] }; if (this.state.limit !== limit) throw Error('Budget limit mismatch') }
+  constructor(path, limit = 1, exclusive = false) { this.path = path; this.exclusive=exclusive; if(exclusive){mkdirSync(dirname(path),{recursive:true});mkdirSync(path+'.lock');writeFileSync(path+'.lock/owner',String(process.pid))}; this.state = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : { limit, charged: 0, pending: null, calls: [] }; if (this.state.limit !== limit) throw Error('Budget limit mismatch') }
+  close() { if(this.exclusive){rmSync(this.path+'.lock',{recursive:true});this.exclusive=false} }
   reserve(id) {
     if (this.state.pending || this.state.stopped) throw Error('Unknown or pending billing; stopped')
     if (this.state.charged + RESERVATION > this.state.limit) throw Error('Insufficient pessimistic budget headroom')
