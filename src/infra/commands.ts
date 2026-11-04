@@ -8,6 +8,8 @@ import { Probe } from './metrics-probe.ts'
 
 const exec = promisify(execFile)
 const TIMEOUT_MS = 90_000
+/** Page-count ceiling for the page-wise fallback; exceeding it fails visibly instead of looping. */
+const MAX_PAGES = 1000
 /**
  * Error thrown by Commands when a CLI invocation fails, capturing stderr diagnostics, API error codes, and exit status without echoing command arguments.
  * Source channels and pollers inspect its code to distinguish deleted conversations from retryable failures.
@@ -107,8 +109,30 @@ export class Commands {
   }
   /** Fetches all pages of a GitHub API list within the configured repository, skipping items that fail schema validation. */
   async pages<T>(item: z.ZodType<T>, path: string, tally?: Tally): Promise<T[]> {
-    const pages = z.array(z.array(z.unknown())).parse(await this.gh(['api', this.path(path), '--paginate', '--slurp']))
-    return validItems(item, pages.flat(), tally)
+    const resource = this.path(path)
+    try {
+      const pages = z.array(z.array(z.unknown())).parse(await this.gh(['api', resource, '--paginate', '--slurp']))
+      return validItems(item, pages.flat(), tally)
+    } catch (error) {
+      // The whole history exceeded the subprocess output cap, so retrying the same slurp can never progress: read one bounded page per call instead.
+      if (!(error instanceof CliError && error.oversized)) throw error
+      return validItems(item, await this.pagewise(resource), tally)
+    }
+  }
+  /** Reads a list endpoint one page per subprocess call (same gh account, same repository-scoped path), so memory is bounded by one page. */
+  private async pagewise(resource: string): Promise<unknown[]> {
+    const [base = '', query = ''] = resource.split('?', 2)
+    const params = new URLSearchParams(query)
+    const perPage = Math.min(100, Math.max(1, Number(params.get('per_page')) || 100))
+    params.set('per_page', String(perPage))
+    const all: unknown[] = []
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      params.set('page', String(page))
+      const batch = z.array(z.unknown()).parse(await this.gh(['api', `${base}?${params}`]))
+      all.push(...batch)
+      if (batch.length < perPage) return all
+    }
+    throw new CliError(`more than ${MAX_PAGES} pages; refusing to read an unbounded history`)
   }
   private path(path: string): string {
     const outside = /^\/|^[a-z]+:|(^|\/)\.\.?(\/|\?|$)/i.test(path)

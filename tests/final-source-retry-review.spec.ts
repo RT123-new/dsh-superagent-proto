@@ -66,3 +66,22 @@ describe('3.2 large and malformed gh output through a real subprocess', () => {
     expect(classifyError(error)).not.toBe('programming_error')
   })
 })
+
+describe('3.2 oversized slurp falls back to bounded pages', () => {
+  it('reads 250 items page by page when --paginate --slurp exceeds the output cap, without losing or duplicating any', async () => {
+    const commands = fakeGh(`exec node -e '
+const a = process.argv.slice(1).join(" ")
+if (a.includes("--slurp")) process.stdout.write("a".repeat(17000000))
+else {
+const page = Number(/[?&]page=(\\d+)/.exec(a)[1]); const out = []
+for (let i = (page - 1) * 100 + 1; i <= Math.min(250, page * 100); i++) out.push({ id: i })
+console.log(JSON.stringify(out)) }' -- "$@"`)
+    const z = (await import('zod')).z
+    const items = await commands.pages(z.looseObject({ id: z.number() }), 'issues?per_page=100')
+    expect(items.map(i => i.id)).toEqual(Array.from({ length: 250 }, (_, i) => i + 1))
+  })
+  it('still refuses a path outside the repository on the fallback route', async () => {
+    const commands = fakeGh('true')
+    await expect(commands.pages((await import('zod')).z.unknown(), '../../orgs/x')).rejects.toThrow()
+  })
+})
