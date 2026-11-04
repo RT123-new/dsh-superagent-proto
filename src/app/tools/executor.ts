@@ -87,6 +87,8 @@ export function executorTools(host: ExecutorToolsHost, ticket: Ticket): Tool[] {
         if (!current || !liveTicket(current)) throw new Error('Ticket ended (PR was closed or work finished); do not resume it')
         // The PR lookup awaits: a report started by one assignment must not land on the one that replaced it meanwhile.
         const assignmentId = runningAssignment(current)?.id
+        // A pending assignment has no worker turn yet, so a report made then comes from the one it replaced.
+        if (!assignmentId) throw new Error('No assignment is running; this report was not recorded')
         const pull = args.pr_number != null ? await readPull(host.github, args.pr_number, signal) : undefined
         // Claim the PR, record the report, and queue the relay atomically so a rejected PR claim or invalid report leaves no partial state, and a recorded report always reaches the main Session.
         return host.store.atomic(() => {
