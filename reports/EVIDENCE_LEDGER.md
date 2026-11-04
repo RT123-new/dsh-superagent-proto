@@ -18,3 +18,4 @@ Classifications: CONFIRMED / SOURCE-SUPPORTED / HYPOTHESIS / REFUTED / NOT TESTE
 | Issue 7 settings notices | config changes lost/stale | NOT TESTED | — | — | workstream 6-8: A→B→A→B, rapid updates |
 | Issue 8 subagent depth-8 limit | nested agents escape restrictions | SOURCE-SUPPORTED | — | sessions.ts:303-311 depth<8 bound; unresolved ancestry returns UNRESTRICTED (fails open) | W68: depth 1/8/9/20 ancestry tests |
 | Issues 9-24 | instrumentation/perf/storage/UX | NOT TESTED | — | — | later stages per mandate |
+| Issue 9 collector | bounded metrics module: nearest-rank P50/P95, exact slot integrals, queue depth/oldest age, tokens/cost unknown=null | CONFIRMED (unit) | Passed | 14 tests; tsc clean; bench 123ns/observe, 210ns/timer, snapshot 1.7KB serialize p50 0.69ms (reports/evidence/issue-9-bench-local.json, single local run, unloaded) | production hooks after Stage B; real-usage capture unverified |
