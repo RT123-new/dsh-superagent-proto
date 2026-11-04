@@ -16,7 +16,7 @@ const dur = (key: string) => metrics.snapshot().durations[key]
 const failed = (key: string) => metrics.snapshot().failedDurations[key]
 
 it('DomainTimeline measures trigger to evaluation, evaluation, decision to ticket, launch and ticket lifetime from observed events', () => {
-  const t = new DomainTimeline(probe, () => mono)
+  const t = new DomainTimeline(probe, () => mono, 5000, id => id === 'd1' ? 'e1' : undefined)
   t.observe(ev('trigger.received', { triggerId: 't1', threads: [] })); mono += 5
   t.observe(ev('eval.started', { evalId: 'e1', threadKey: 'th', triggerIds: ['t1'], strength: 'weak' })); mono += 20
   t.observe(ev('decision.recorded', { decisionId: 'd1', kind: 'accept', threadKey: 'th' })); mono += 3
@@ -25,7 +25,7 @@ it('DomainTimeline measures trigger to evaluation, evaluation, decision to ticke
   t.observe(ev('ticket.ended', { ticketId: 'k1', by: 'worker', outcome: 'merged' }))
   expect(dur('trigger_to_eval_start|internal')?.maxMs).toBe(5)
   expect(dur('eval_run|internal')?.maxMs).toBe(20)
-  expect(dur('decision_to_assignment|internal')?.maxMs).toBe(3)
+  expect(dur('decision_to_ticket|internal')?.maxMs).toBe(3)
   expect(dur('assignment_launch|internal')?.maxMs).toBe(40)
   expect(dur('ticket_lifetime|internal')?.maxMs).toBe(140)
   const c = metrics.snapshot().counters
@@ -33,7 +33,7 @@ it('DomainTimeline measures trigger to evaluation, evaluation, decision to ticke
 })
 
 it('a start that was never observed records nothing and is counted, not guessed as zero', () => {
-  const t = new DomainTimeline(probe, () => mono)
+  const t = new DomainTimeline(probe, () => mono, 5000, id => id === 'd1' ? 'e1' : undefined)
   t.observe(ev('assignment.started', { ticketId: 'old', assignmentId: 'a' }))
   t.observe(ev('decision.recorded', { decisionId: 'd', kind: 'ignore', threadKey: 'never-started' }))
   expect(metrics.snapshot().durations).toEqual({})
@@ -47,7 +47,7 @@ it('pending state is bounded: the oldest unmatched entry drops and is counted', 
 })
 
 it('DomainTimeline never throws on a malformed event', () => {
-  const t = new DomainTimeline(probe, () => mono)
+  const t = new DomainTimeline(probe, () => mono, 5000, id => id === 'd1' ? 'e1' : undefined)
   expect(() => t.observe({ type: 'eval.started', at, data: {} } as unknown as DomainEvent)).not.toThrow()
   expect(metrics.snapshot().counters.metrics_error).toBe(1)
 })
@@ -64,8 +64,8 @@ it('SessionTimeline times turn, model call and tool call; failures go to the fai
   s.observe('w1', { type: 'step/start', data: { turn: 1, step: 2 } }); mono += 4
   s.observe('w1', { type: 'assistant/attempt', data: { turn: 1, step: 2 } }); mono += 1
   s.observe('w1', { type: 'turn/end', data: { turn: 1, reason: { kind: 'aborted' } } })
-  expect(dur('model_call|internal')).toMatchObject({ count: 1, maxMs: 30 })
-  expect(failed('model_call|internal')).toMatchObject({ count: 1, maxMs: 4 })
+  expect(dur('step_to_settlement|internal')).toMatchObject({ count: 1, maxMs: 30 })
+  expect(failed('step_to_settlement|internal')).toMatchObject({ count: 1, maxMs: 4 })
   expect(dur('tool_run|internal')).toMatchObject({ count: 1, maxMs: 7 })
   expect(failed('tool_run|internal')).toMatchObject({ count: 1, maxMs: 2 })
   expect(dur('worker_turn|internal')).toBeUndefined()

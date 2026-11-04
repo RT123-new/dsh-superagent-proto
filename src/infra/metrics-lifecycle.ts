@@ -10,7 +10,7 @@ import type { Probe } from './metrics-probe.ts'
 /** Insertion-ordered map with a size cap that drops the oldest entry on overflow. */
 class Pending<K, V> {
   private readonly map = new Map<K, V>()
-  constructor(private readonly cap: number, private readonly onDrop: () => void) {}
+  constructor(private readonly cap: number, private readonly onDrop: () => void) { if (!Number.isInteger(cap) || cap < 1 || cap > 10_000) throw new RangeError('timeline capacity must be1..10000') }
   set(key: K, value: V): void {
     if (this.map.has(key)) this.map.delete(key)
     this.map.set(key, value)
@@ -29,7 +29,7 @@ export class DomainTimeline {
   private readonly decided: Pending<string, number>
   private readonly launching: Pending<string, number>
   private readonly alive: Pending<string, number>
-  constructor(private readonly probe: Probe, private readonly mono: () => number, cap = 5000) {
+  constructor(private readonly probe: Probe, private readonly mono: () => number, cap = 5000, private readonly evalOfDecision?: (id: string) => string | undefined) {
     const drop = () => { probe.count('lifecycle_dropped') }
     this.received = new Pending(cap, drop); this.evaluating = new Pending(cap, drop); this.decided = new Pending(cap, drop)
     this.launching = new Pending(cap, drop); this.alive = new Pending(cap, drop)
@@ -47,12 +47,13 @@ export class DomainTimeline {
         case 'trigger.received': this.probe.count('lifecycle_trigger_received'); this.received.set(event.data.triggerId, now); break
         case 'eval.started':
           for (const id of event.data.triggerIds) { const at = this.received.take(id); if (at !== undefined) this.probe.observe('trigger_to_eval_start', 'internal', Math.max(0, now - at)) }
-          this.evaluating.set(event.data.threadKey, now); break
+          this.evaluating.set(event.data.evalId, now); break
         case 'decision.recorded':
-          this.since(this.evaluating, event.data.threadKey, 'eval_run')
+          const evalId = this.evalOfDecision?.(event.data.decisionId)
+          if (evalId) this.since(this.evaluating, evalId, 'eval_run'); else this.probe.count('lifecycle_unmatched')
           this.decided.set(event.data.decisionId, now); this.probe.count(`decision_${label(String(event.data.kind))}`); break
         case 'ticket.created':
-          this.since(this.decided, event.data.decisionId, 'decision_to_assignment')
+          this.since(this.decided, event.data.decisionId, 'decision_to_ticket')
           this.launching.set(event.data.ticketId, now); this.alive.set(event.data.ticketId, now); this.probe.count('ticket_created'); break
         case 'ticket.resumed': this.launching.set(event.data.ticketId, now); this.alive.set(event.data.ticketId, now); this.probe.count('ticket_resumed'); break
         case 'assignment.started': this.since(this.launching, event.data.ticketId, 'assignment_launch'); break
@@ -78,7 +79,7 @@ export class SessionTimeline {
   /** Feed one event of one Session; `session` scopes the correlation keys. Never throws. */
   observe(session: string, event: TimelineEvent): void {
     try {
-      const now = this.mono(), data = (event.data ?? {}) as { turn?: number; step?: number; callId?: string; reason?: { kind?: string }; message?: { isError?: boolean } }
+      const now = this.mono(), data = (event.data ?? {}) as { turn?: number; step?: number; callId?: string; reason?: { kind?: string }; interrupted?: boolean; message?: { isError?: boolean } }
       const stepKey = `${session}:${data.turn}:${data.step}`
       const finish = (map: Pending<string, number>, key: string, stage: string, outcome: 'success' | 'failure') => {
         const start = map.take(key)
@@ -90,8 +91,8 @@ export class SessionTimeline {
         case 'turn/end': finish(this.turns, `${session}:${data.turn}`, 'worker_turn', data.reason?.kind === 'completed' ? 'success' : 'failure'); break
         case 'step/start': this.steps.set(stepKey, now); break
         // A step is one model call plus the tools it requested: the model call ends at the assistant message (or the failed attempt).
-        case 'assistant/message': finish(this.steps, stepKey, 'model_call', 'success'); break
-        case 'assistant/attempt': finish(this.steps, stepKey, 'model_call', 'failure'); break
+        case 'assistant/message': finish(this.steps, stepKey, 'step_to_settlement', data.interrupted ? 'failure' : 'success'); break
+        case 'assistant/attempt': finish(this.steps, stepKey, 'step_to_settlement', 'failure'); break
         case 'tool/call': if (data.callId) this.tools.set(`${session}:${data.callId}`, now); break
         case 'tool/result': { const id = (event.data as { message?: { toolCallId?: string } }).message?.toolCallId; if (id) finish(this.tools, `${session}:${id}`, 'tool_run', data.message?.isError ? 'failure' : 'success') } break
         default: break

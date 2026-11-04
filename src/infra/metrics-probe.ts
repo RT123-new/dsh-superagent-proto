@@ -19,6 +19,7 @@ export interface MetricsLike {
 /** Optional, failure-isolated handle that production code uses to record metrics; every method is a no-op without a collector and never throws. */
 export class Probe {
   constructor(private readonly metrics: MetricsLike | undefined) {}
+  now(): number | undefined { try { return this.metrics?.mono() } catch { this.count('metrics_error'); return undefined } }
   get enabled(): boolean { return this.metrics !== undefined }
   /** Run a collector call; never throws. */
   private safe(run: (metrics: MetricsLike) => void): void {
