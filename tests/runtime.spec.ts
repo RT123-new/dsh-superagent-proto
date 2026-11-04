@@ -1729,13 +1729,14 @@ it('gives a subagent of a worker only the worker\'s work tools, and none once th
   other.session.header = { parentSession: 'someone-else' }
   await (runtime as unknown as { ctx: Context }).ctx.parallel('agent/created', { agent: other } as never)
   expect(restricts.get('child-2')).toBeUndefined()
-  // A subagent whose ancestry cannot be resolved to an authorized ticket fails closed instead of running unrestricted.
+  // Unresolved ancestry alone must not cause this bundle to restrict an unrelated user Session.
   await (controller.create as (options: { sessionId: string }) => Promise<void>)({ sessionId: 'child-3' })
   const stranded = agents.get('child-3')! as unknown as { session: { header: { parentSession?: string } } }
   stranded.session.header = { parentSession: 'ghost' }
   await (runtime as unknown as { ctx: Context }).ctx.parallel('agent/created', { agent: stranded } as never)
-  expect(restricts.get('child-3')).toEqual([{ allow: [] }])
-  expect(guards.get('child-3')!()).toContain('ancestry')
+  // No observed managed provenance: this could be an unrelated user's unloaded parent.
+  expect(restricts.has('child-3')).toBe(false)
+  expect(guards.has('child-3')).toBe(false)
 })
 
 it('gives a subagent of a worker\'s subagent the same work tools and guard', async () => {

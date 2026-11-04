@@ -1,0 +1,176 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/review/red[39m
+
+ [31m❯[39m tests/issue-8-subagent-ancestry.spec.ts [2m([22m[2m9 tests[22m[2m | [22m[31m6 failed[39m[2m)[22m[32m 107[2mms[22m[39m
+   [32m✓[39m keeps a subagent under the worker's restrictions through 1 nested subagent(s)[32m 6[2mms[22m[39m
+   [32m✓[39m keeps a subagent under the worker's restrictions through 8 nested subagent(s)[32m 8[2mms[22m[39m
+[31m   [31m×[31m keeps a subagent under the worker's restrictions through 9 nested subagent(s)[39m[32m 7[2mms[22m[39m
+[31m   [31m×[31m keeps a subagent under the worker's restrictions through 20 nested subagent(s)[39m[32m 13[2mms[22m[39m
+[31m   [31m×[31m fails closed when an ancestor Session is gone[39m[32m 2[2mms[22m[39m
+[31m   [31m×[31m fails closed on cyclic parent metadata[39m[32m 2[2mms[22m[39m
+[31m   [31m×[31m fails closed rather than walking without end past the safety bound[39m[32m 65[2mms[22m[39m
+[31m   [31m×[31m fails closed a worker Session whose ticket is gone[39m[32m 1[2mms[22m[39m
+   [32m✓[39m never touches independently created Sessions or their subagents[32m 3[2mms[22m[39m
+(node:2219) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [31m❯[39m tests/issue-7-settings-notices.spec.ts [2m([22m[2m2 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 82[2mms[22m[39m
+[31m   [31m×[31m delivers every committed eval revision to the main Session through A→B→A→B[39m[32m 58[2mms[22m[39m
+   [32m✓[39m delivers a redelivered revision only once[32m 23[2mms[22m[39m
+ [31m❯[39m tests/issue-6-stale-retries.spec.ts [2m([22m[2m6 tests[22m[2m | [22m[31m3 failed[39m[2m)[22m[32m 16[2mms[22m[39m
+   [32m✓[39m delivers the retry under its stable idempotency id while the ticket and assignment stay authorized[32m 5[2mms[22m[39m
+   [32m✓[39m abandons a retry whose ticket ended during the backoff wait[32m 1[2mms[22m[39m
+[31m   [31m×[31m discards a retry whose ticket ended while its message awaited delivery, without a failure report[39m[32m 5[2mms[22m[39m
+[31m   [31m×[31m discards a retry whose assignment was replaced while its message awaited delivery[39m[32m 1[2mms[22m[39m
+[31m   [31m×[31m reschedules a retry when processing pauses during delivery, and delivers it once after the pause[39m[32m 1[2mms[22m[39m
+   [32m✓[39m reports a failed delivery of an authorized retry on the ticket[32m 2[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 10 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/issue-6-stale-retries.spec.ts[2m > [22mdiscards a retry whose ticket ended while its message awaited delivery, without a failure report
+[31m[1mAssertionError[22m: expected [ { sessionId: 'worker-t1', …(2) } ] to have a length of +0 but got 1[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 1[39m
+
+[36m [2m❯[22m tests/issue-6-stale-retries.spec.ts:[2m99:23[22m[39m
+    [90m 97|[39m   h[33m.[39mpending[33m.[39m[34mat[39m([33m-[39m[34m1[39m)[33m![39m[33m.[39m[34mcommit[39m()
+    [90m 98|[39m   [35mawait[39m vi[33m.[39m[34madvanceTimersByTimeAsync[39m([34m0[39m)
+    [90m 99|[39m   [34mexpect[39m(h[33m.[39mdelivered)[33m.[39m[34mtoHaveLength[39m([34m0[39m)
+    [90m   |[39m                       [31m^[39m
+    [90m100|[39m   [34mexpect[39m(h[33m.[39mengine[33m.[39mreport)[33m.[39mnot[33m.[39m[34mtoHaveBeenCalled[39m()
+    [90m101|[39m   [34mexpect[39m(h[33m.[39msessions[33m.[39mrelay)[33m.[39mnot[33m.[39m[34mtoHaveBeenCalled[39m()
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-6-stale-retries.spec.ts[2m > [22mdiscards a retry whose assignment was replaced while its message awaited delivery
+[31m[1mAssertionError[22m: expected [ { sessionId: 'worker-t1', …(2) } ] to have a length of +0 but got 1[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 1[39m
+
+[36m [2m❯[22m tests/issue-6-stale-retries.spec.ts:[2m115:23[22m[39m
+    [90m113|[39m   h[33m.[39mpending[33m.[39m[34mat[39m([33m-[39m[34m1[39m)[33m![39m[33m.[39m[34mcommit[39m()
+    [90m114|[39m   [35mawait[39m vi[33m.[39m[34madvanceTimersByTimeAsync[39m([34m0[39m)
+    [90m115|[39m   [34mexpect[39m(h[33m.[39mdelivered)[33m.[39m[34mtoHaveLength[39m([34m0[39m)
+    [90m   |[39m                       [31m^[39m
+    [90m116|[39m   [34mexpect[39m(h[33m.[39mengine[33m.[39mreport)[33m.[39mnot[33m.[39m[34mtoHaveBeenCalled[39m()
+    [90m117|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-6-stale-retries.spec.ts[2m > [22mreschedules a retry when processing pauses during delivery, and delivers it once after the pause
+[31m[1mAssertionError[22m: expected [ { sessionId: 'worker-t1', …(2) } ] to have a length of +0 but got 1[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 1[39m
+
+[36m [2m❯[22m tests/issue-6-stale-retries.spec.ts:[2m129:23[22m[39m
+    [90m127|[39m   [35mawait[39m vi[33m.[39m[34madvanceTimersByTimeAsync[39m([33mSLOT_WAIT_MS[39m)
+    [90m128|[39m   [34mexpect[39m(h[33m.[39msessions[33m.[39mprompt)[33m.[39m[34mtoHaveBeenCalledTimes[39m([34m1[39m)
+    [90m129|[39m   [34mexpect[39m(h[33m.[39mdelivered)[33m.[39m[34mtoHaveLength[39m([34m0[39m)
+    [90m   |[39m                       [31m^[39m
+    [90m130|[39m   h[33m.[39mstate[33m.[39mpaused [33m=[39m [35mfalse[39m
+    [90m131|[39m   [35mawait[39m vi[33m.[39m[34madvanceTimersByTimeAsync[39m([33mSLOT_WAIT_MS[39m)
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-7-settings-notices.spec.ts[2m > [22mdelivers every committed eval revision to the main Session through A→B→A→B
+[31m[1mAssertionError[22m: expected [ undefined ] to deeply equal [ 1, 2, 3, 4 ][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[32m-   1,[39m
+[32m-   2,[39m
+[32m-   3,[39m
+[32m-   4,[39m
+[31m+   undefined,[39m
+[2m  ][22m
+
+[36m [2m❯[22m tests/issue-7-settings-notices.spec.ts:[2m37:54[22m[39m
+    [90m 35|[39m   await saveEval(60) // A again (revision 3): same payload as revision…
+    [90m 36|[39m   [35mawait[39m [34msaveEval[39m([34m90[39m) [90m// B again (revision 4)[39m
+    [90m 37|[39m   expect(notices().map(payload => payload.revision)).toEqual([1, 2, 3,…
+    [90m   |[39m                                                      [31m^[39m
+    [90m 38|[39m })
+    [90m 39|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-8-subagent-ancestry.spec.ts[2m > [22mkeeps a subagent under the worker's restrictions through 9 nested subagent(s)
+[41m[1m FAIL [22m[49m tests/issue-8-subagent-ancestry.spec.ts[2m > [22mkeeps a subagent under the worker's restrictions through 20 nested subagent(s)
+[31m[1mAssertionError[22m: expected "vi.fn()" to be called 1 times, but got 0 times[39m
+[36m [2m❯[22m tests/issue-8-subagent-ancestry.spec.ts:[2m52:25[22m[39m
+    [90m 50|[39m   [35mconst[39m leaf [33m=[39m [34mchain[39m(agents[33m,[39m intermediates)
+    [90m 51|[39m   ctx[33m.[39m[34memit[39m([32m'agent/created'[39m[33m,[39m { agent[33m:[39m leaf[33m.[39magent } [35mas[39m never)
+    [90m 52|[39m   [34mexpect[39m(leaf[33m.[39mrestrict)[33m.[39m[34mtoHaveBeenCalledTimes[39m([34m1[39m)
+    [90m   |[39m                         [31m^[39m
+    [90m 53|[39m   [90m// The worker's work tools, not the whole profile.[39m
+    [90m 54|[39m   [35mconst[39m allow [33m=[39m leaf[33m.[39mrestrict[33m.[39mmock[33m.[39mcalls[[34m0[39m][33m![39m[[34m0[39m][33m.[39mallow [35mas[39m string[]
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-8-subagent-ancestry.spec.ts[2m > [22mfails closed when an ancestor Session is gone
+[31m[1mAssertionError[22m: expected "vi.fn()" to be called 1 times, but got 0 times[39m
+[36m [2m❯[22m tests/issue-8-subagent-ancestry.spec.ts:[2m66:25[22m[39m
+    [90m 64|[39m   const leaf = fakeAgent('leaf', 'c2') // c2 is not loaded: its parent…
+    [90m 65|[39m   ctx[33m.[39m[34memit[39m([32m'agent/created'[39m[33m,[39m { agent[33m:[39m leaf[33m.[39magent } [35mas[39m never)
+    [90m 66|[39m   [34mexpect[39m(leaf[33m.[39mrestrict)[33m.[39m[34mtoHaveBeenCalledTimes[39m([34m1[39m)
+    [90m   |[39m                         [31m^[39m
+    [90m 67|[39m   [34mexpect[39m(leaf[33m.[39mrestrict[33m.[39mmock[33m.[39mcalls[[34m0[39m][33m![39m[[34m0[39m])[33m.[39m[34mtoEqual[39m({ allow[33m:[39m [] })
+    [90m 68|[39m   [34mexpect[39m(leaf[33m.[39mguard)[33m.[39m[34mtoHaveBeenCalledTimes[39m([34m1[39m)
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-8-subagent-ancestry.spec.ts[2m > [22mfails closed on cyclic parent metadata
+[31m[1mAssertionError[22m: expected "vi.fn()" to be called 1 times, but got 0 times[39m
+[36m [2m❯[22m tests/issue-8-subagent-ancestry.spec.ts:[2m77:25[22m[39m
+    [90m 75|[39m   [35mconst[39m leaf [33m=[39m [34mfakeAgent[39m([32m'leaf'[39m[33m,[39m [32m'c1'[39m)
+    [90m 76|[39m   ctx[33m.[39m[34memit[39m([32m'agent/created'[39m[33m,[39m { agent[33m:[39m leaf[33m.[39magent } [35mas[39m never)
+    [90m 77|[39m   [34mexpect[39m(leaf[33m.[39mrestrict)[33m.[39m[34mtoHaveBeenCalledTimes[39m([34m1[39m)
+    [90m   |[39m                         [31m^[39m
+    [90m 78|[39m   [34mexpect[39m(leaf[33m.[39mrestrict[33m.[39mmock[33m.[39mcalls[[34m0[39m][33m![39m[[34m0[39m])[33m.[39m[34mtoEqual[39m({ allow[33m:[39m [] })
+    [90m 79|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-8-subagent-ancestry.spec.ts[2m > [22mfails closed rather than walking without end past the safety bound
+[31m[1mAssertionError[22m: expected "vi.fn()" to be called 1 times, but got 0 times[39m
+[36m [2m❯[22m tests/issue-8-subagent-ancestry.spec.ts:[2m85:25[22m[39m
+    [90m 83|[39m   [35mconst[39m leaf [33m=[39m [34mchain[39m(agents[33m,[39m [34m100[39m)
+    [90m 84|[39m   ctx[33m.[39m[34memit[39m([32m'agent/created'[39m[33m,[39m { agent[33m:[39m leaf[33m.[39magent } [35mas[39m never)
+    [90m 85|[39m   [34mexpect[39m(leaf[33m.[39mrestrict)[33m.[39m[34mtoHaveBeenCalledTimes[39m([34m1[39m)
+    [90m   |[39m                         [31m^[39m
+    [90m 86|[39m   [34mexpect[39m(leaf[33m.[39mrestrict[33m.[39mmock[33m.[39mcalls[[34m0[39m][33m![39m[[34m0[39m])[33m.[39m[34mtoEqual[39m({ allow[33m:[39m [] })
+    [90m 87|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-8-subagent-ancestry.spec.ts[2m > [22mfails closed a worker Session whose ticket is gone
+[31m[1mAssertionError[22m: expected "vi.fn()" to be called 1 times, but got 0 times[39m
+[36m [2m❯[22m tests/issue-8-subagent-ancestry.spec.ts:[2m93:27[22m[39m
+    [90m 91|[39m   [35mconst[39m worker [33m=[39m [34mfakeAgent[39m([32m'worker-t9'[39m)
+    [90m 92|[39m   ctx[33m.[39m[34memit[39m([32m'agent/created'[39m[33m,[39m { agent[33m:[39m worker[33m.[39magent } [35mas[39m never)
+    [90m 93|[39m   [34mexpect[39m(worker[33m.[39mrestrict)[33m.[39m[34mtoHaveBeenCalledTimes[39m([34m1[39m)
+    [90m   |[39m                           [31m^[39m
+    [90m 94|[39m   [34mexpect[39m(worker[33m.[39mguard)[33m.[39m[34mtoHaveBeenCalledTimes[39m([34m1[39m)
+    [90m 95|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/10]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m3 failed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[31m10 failed[39m[22m[2m | [22m[1m[32m7 passed[39m[22m[90m (17)[39m
+[2m   Start at [22m 06:39:20
+[2m   Duration [22m 1.31s[2m (transform 440ms, setup 0ms, import 823ms, tests 205ms, environment 0ms)[22m
+

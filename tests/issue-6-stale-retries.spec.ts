@@ -8,6 +8,7 @@
  * message commits, after the asynchronous waits inside delivery.
  */
 import { afterEach, expect, it, vi } from 'vitest'
+import { feishu, startRuntime } from './fixtures/host.ts'
 import { DshExecutor } from '../src/executor/dsh.ts'
 
 /** DshExecutor's private timing: TRANSIENT_BACKOFF_MS for the first retry, SLOT_WAIT_MS for pause/slot waits. */
@@ -172,4 +173,18 @@ it('discards an in-flight retry on shutdown/restart', async () => {
   await vi.advanceTimersByTimeAsync(0)
   expect(h.delivered).toHaveLength(0)
   expect(h.engine.report).not.toHaveBeenCalled()
+})
+
+it('uses current source permissions for a real Runtime automated retry without revoking its active mandate', async () => {
+  const h = await startRuntime()
+  try {
+    const { ticket, sessionId } = await h.acceptedTicket(feishu('1', '@agent fix regression'))
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    h.ctx.emit('agent/error', { agent: h.agents.get(sessionId), error: new Error('fetch failed') } as never)
+    const { revision, value } = h.runtime.settings.block('policy')
+    await h.runtime.settings.save('policy', { ...(value as object), sources: {} }, revision, 'panel')
+    await vi.advanceTimersByTimeAsync(BACKOFF_MS)
+    expect(h.deliveries.mock.calls.filter(([message]) => message.sessionId === sessionId && message.text.startsWith('Your last turn failed'))).toHaveLength(0)
+    expect(h.runtime.store.tickets.get(ticket.id)!.ended).toBeUndefined()
+  } finally { vi.useRealTimers(); await h.stop() }
 })

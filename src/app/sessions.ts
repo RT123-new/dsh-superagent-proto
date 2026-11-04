@@ -180,10 +180,12 @@ export class Sessions {
   /** Injects a notice into the main Session without waking it; no-op if the main Session does not exist yet. */
   private async inject(name: string, value: Record<string, unknown>, summary: string): Promise<void> {
     const resolved = await this.ctx.sessionController.resolveAgent(this.host.masterId as SessionId)
-    if ('error' in resolved) return
-    // Deduplicate by notice name and payload hash so retries are idempotent while updated payloads still deliver.
+    if ('error' in resolved) throw resolved.error
+    // Committed settings revisions have immutable identities independent of object ordering or changed-path details.
+    // Other notices retain the existing name/payload identity.
     const text = JSON.stringify(value)
-    await this.agentDelivery.send(resolved.agent, `notice:${name}:${key(text)}`, text, { inject: summary }, this.host.lifetime)
+    const identity = name.startsWith('settings:') && typeof value.revision === 'number' ? `${name}:${value.revision}` : `${name}:${key(text)}`
+    await this.agentDelivery.send(resolved.agent, `notice:${identity}`, text, { inject: summary }, this.host.lifetime)
   }
   /** Returns the current prompt revision, the active prompt revision of each loaded Session, and whether the main Session still has a pending `'prompts'` notice. */
   status() {
@@ -300,34 +302,30 @@ export class Sessions {
    * A subagent of an Executor Session, or of one of its subagents at any nesting depth, which runs under DSH's
    * `standard` preset with the worker's permissions, gets the same work tools as the worker, and none once the worker's
    * ticket ended: permission inheritance follows the originating authorized Ticket, resolved by validated ancestry
-   * rather than a bounded parent walk. A descendant whose ancestry cannot be trusted fails closed (no tools, every
-   * execution refused), as does a worker Session whose ticket is gone. Independently created user Sessions and their
+   * rather than a bounded parent walk. Observed managed lineage is durable, so missing or corrupt parent metadata cannot erase the originating ticket.
+   * A worker or recorded descendant whose ticket is gone refuses every tool execution. Independently created user Sessions and their
    * subagents are left as they are.
    */
   private limitSubagent(agent: Agent): void {
-    // A worker Session whose ticket is gone stays restricted as its ticket's worker was: workOnly's guard refuses
-    // every execution while no live ticket holds it, and recovers by itself if the ticket ever resolves again.
-    const ownTicket = ticketOfSession(agent.id)
-    if (ownTicket !== undefined) {
-      this.ctx.logger.warn('dsh-superagent found worker Session %s without its ticket; it stays restricted', agent.id)
-      this.bindings.set(agent, { disposers: this.workOnly(agent, ownTicket), subagent: true })
-      return
-    }
-    const ancestry = resolveWorkerAncestry({ id: agent.id, parentSession: agent.session.header.parentSession },
-      sessionId => this.ctx.agents.get(sessionId as SessionId)?.session.header, ticketOfSession, this.host.masterId)
-    if (ancestry.kind === 'unmanaged') return
+    const store = this.host.store
+    const ticketOf = (id: string) => ticketOfSession(id) ?? store.get(KV.sessions.worker(id))
+    const ownTicket = ticketOf(agent.id)
+    const ancestry = ownTicket === undefined
+      ? resolveWorkerAncestry({ id: agent.id, parentSession: agent.session.header.parentSession },
+        sessionId => this.ctx.agents.get(sessionId as SessionId)?.session.header, ticketOf, this.host.masterId)
+      : { kind: 'worker' as const, ticketId: ownTicket }
     if (ancestry.kind === 'worker') {
+      // One immutable originating ticket per managed Session, not a mutable chain or unbounded event history.
+      // Retained after disposal: descendants and restored Sessions cannot escape when their parents unload.
+      store.set(KV.sessions.worker(agent.id), ancestry.ticketId)
       this.bindings.set(agent, { disposers: this.workOnly(agent, ancestry.ticketId), subagent: true })
       return
     }
-    // Unresolved ancestry must not silently run unrestricted: fail closed and say so.
-    this.ctx.logger.warn('dsh-superagent could not resolve the ancestry of Session %s (%s); it stays restricted', agent.id, ancestry.reason)
-    this.bindings.set(agent, { disposers: this.denyWork(agent), subagent: true })
-  }
-  /** Restricts `agent` to no tools and refuses every execution: the fail-closed binding for ancestry that cannot be trusted. */
-  private denyWork(agent: Agent): (() => void)[] {
-    return [agent.ctx.tools.restrict({ allow: [] }),
-      agent.ctx.tools.guard(() => 'This Session\'s ancestry did not resolve to an authorized ticket; managed work stays restricted')]
+    if (ancestry.kind === 'unresolved') {
+      // Missing ancestry is not evidence this is our work. Denying it would alter unrelated user Sessions.
+      // Known managed ancestors resolve from durable provenance above even when no longer loaded.
+      this.ctx.logger.warn('dsh-superagent could not classify Session %s (%s); no managed provenance was found', agent.id, ancestry.reason)
+    }
   }
   /** Register the skills of a prompt version in the agent's skill scope, in place of an earlier version's. */
   private bindSkills(binding: SessionBinding, version: PromptVersion): void {

@@ -75,6 +75,8 @@ export interface ExecutorHost {
   readonly sessions: Pick<Sessions, 'ensure' | 'prompt' | 'promptedId' | 'relay' | 'holds'>
   closing(): boolean
   /** Whether processing is paused, which holds launches and input deliveries. */
+  /** Current policy permission for a new automated retry; does not revoke already active work. */
+  authorized(ticket: Ticket): boolean
   paused(): boolean
   /** Execution environment variables for `ticket`, passed to its workspace prepare command. */
   environment(ticket: Ticket): Variable[]
@@ -564,12 +566,12 @@ export class DshExecutor implements Executor {
     const current = () => {
       if (this.host.closing()) return false
       const ticket = this.host.store.tickets.get(ticketId)
-      return !!ticket && liveTicket(ticket) && runningAssignment(ticket)?.id === assignmentId
+      return !!ticket && liveTicket(ticket) && runningAssignment(ticket)?.id === assignmentId && this.host.authorized(ticket)
     }
     const go = () => {
       if (this.host.closing()) { this.resuming.delete(assignmentId); return }
       const ticket = this.host.store.tickets.get(ticketId)
-      if (!ticket || !liveTicket(ticket) || runningAssignment(ticket)?.id !== assignmentId) { this.resuming.delete(assignmentId); return }
+      if (!ticket || !current()) { this.resuming.delete(assignmentId); return }
       // Wait while processing is paused or no wake slot is free.
       if (this.host.paused()) { this.after(SLOT_WAIT_MS, go); return }
       const sessionId = workerSessionId(ticketId)
