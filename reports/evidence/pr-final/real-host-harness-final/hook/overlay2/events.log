@@ -1,0 +1,5 @@
+2026-11-04T10:48:34.928Z pid=65765 overlay2 active
+2026-11-04T10:48:35.347Z pid=65765 permissionPresets.set orchestrator-bf3b63427047e82689bbb9a1dee14b4a danger-full-access
+2026-11-04T10:48:35.451Z pid=65765 permissionPresets.set worker-859ef777ceb484f0b8b90f6cc90afa48 danger-full-access
+2026-11-04T10:48:35.528Z pid=65765 llm/stream requested #1 signalAborted=false
+2026-11-04T10:48:40.031Z pid=65765 release seen signalAborted=true
