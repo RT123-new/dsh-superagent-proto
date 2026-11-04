@@ -440,6 +440,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/issue-9-lifecycle-adversarial.spec.ts` | Independent causal correlation, receipt and settlement boundary tests. |
 | `tests/issue-9-lifecycle.spec.ts` | The lifecycle timelines: durations between observed events, failures kept apart, unmatched starts never guessed |
 | `tests/issue-9-hooks.spec.ts` | The metrics hooks: failure isolation, disjoint slot states, effect timings, intake timing and usage attribution |
+| `tests/issue-9-slot-wait.spec.ts` | The launch slot wait: enqueue to slot reserved, repeat attempts, denied reservations, ended, stopped and restarted launches, and the bounded stamp map |
 | `tests/issue-9-metrics.spec.ts` | The metrics collector's quantiles, bounded labels, monotonic timing, slot integrals, queue gauge and unknown-stays-unknown token accounting |
 | `tests/delivery.spec.ts` | `AgentDelivery` |
 | `tests/retry-health.spec.ts`, `tests/role-models.spec.ts` | Model budget retries, and the models of the two roles |
