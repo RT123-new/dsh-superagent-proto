@@ -15,7 +15,9 @@ export interface TimelinePlace { at: string; id: string }
 /** Why a message was dropped: its conversation can never receive it (`channelGone`), or its Source no longer listens to it (`channelIgnored`). */
 export type DropReason = 'channelGone' | 'channelIgnored'
 /** Outbound message receipt tracked in the outbox from the moment it is queued (`pending`, `sent`, or `dropped`); delivery attempt counts live on its `reply` effect. */
-export interface Receipt extends OutboundMessage { status: ReplyStatus; queuedAt?: string; dropped?: { at: string; reason: DropReason } }
+export interface Receipt extends OutboundMessage { status: ReplyStatus; queuedAt?: string; dropped?: { at: string; reason: DropReason }
+  /** True once a delivery dispatch reached the point where the provider may have been invoked; SendNotAttempted failures never set it. */
+  providerContact?: boolean }
 /** A dropped outbound message receipt, with the timestamp and reason it was dropped. */
 export type Dropped = Receipt & { dropped: { at: string; reason: DropReason } }
 /** Saved settings snapshot with the policy version and ticket notifications it produced (`internal` saves have no origin). */
@@ -292,6 +294,10 @@ export class Store implements Repositories {
     add: (message: OutboundMessage): boolean => {
       const receipt: Receipt = { ...message, status: 'pending', queuedAt: new Date().toISOString() }
       return Number(this.db.prepare('INSERT OR IGNORE INTO outbox (id, value) VALUES (?, ?)').run(message.id, JSON.stringify(receipt)).changes) > 0
+    },
+    /** Records that a dispatch of `id` may have reached the provider (an ambiguous failure); never cleared except by settle. */
+    markProviderContact: (id: string): void => {
+      this.db.prepare("UPDATE outbox SET value = json_patch(value, ?) WHERE id = ? AND value ->> '$.status' = 'pending'").run(JSON.stringify({ providerContact: true }), id)
     },
     /**
      * Marks a pending receipt as sent or dropped (with drop reason and timestamp), recreating the receipt if the message

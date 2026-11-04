@@ -22,10 +22,12 @@ async function at(ms: number) {
 /** A fake source kind whose channel records every invocation and acceptance, with a declared idempotency contract. */
 function fakeKind(name: string, opts: { idempotency?: 'provider' | 'marker'; idempotencyWindowMs?: number; acceptThenThrow?: boolean; dedupe?: Set<string> }) {
   const calls: string[] = []
+  const invocations: string[] = []
   const kind: SourceKind<Record<string, never>> = { kind: name, title: { zh: 'x', en: 'x' }, description: { zh: '', en: '' }, health: [],
     schema: z.object({}).strict(), fields: [],
     channel: {
       send: async (_host: unknown, message: OutboundMessage) => {
+        invocations.push(message.id)
         if (opts.dedupe?.has(message.id)) return 'sent'         // provider/marker idempotency: no second remote creation
         opts.dedupe?.add(message.id)
         calls.push(message.id)
@@ -36,7 +38,7 @@ function fakeKind(name: string, opts: { idempotency?: 'provider' | 'marker'; ide
       ...(opts.idempotency ? { idempotency: opts.idempotency } : {}),
       ...(opts.idempotencyWindowMs ? { idempotencyWindowMs: opts.idempotencyWindowMs } : {}),
     } as SourceKind<Record<string, never>>['channel'] }
-  return { kind, calls }
+  return { kind, calls, invocations }
 }
 
 it('an ambiguous live failure on a channel WITHOUT proven idempotency parks for operator recovery instead of resending', async () => {
@@ -64,21 +66,36 @@ it('an ambiguous live failure on a channel WITH proven idempotency retries safel
   expect(calls.length).toBe(1)                                     // the provider recorded exactly one creation
 })
 
-it('an ambiguous live failure on a provider-idempotent channel whose key may have EXPIRED parks instead of resending', async () => {
-  // Feishu dedupes a uuid for 1 hour only (open.feishu.cn im/v1 message create+reply); an automatic retry outside the
-  // window could create a duplicate, so an aged-out pending reply parks for operator recovery like an unproven channel.
-  const { kind, calls } = fakeKind('idemexp', { idempotency: 'provider', idempotencyWindowMs: 3_600_000, acceptThenThrow: true, dedupe: new Set() })
+it('a possibly-accepted attempt whose idempotency window expires during a long pause is refused BEFORE the next provider invocation', async () => {
+  // The duplicate risk is the next dispatch SUCCEEDING after the uuid dedupe window (Feishu: 1 hour) has lapsed;
+  // parking after that dispatch would be too late, so the refusal must happen before any further provider contact.
+  const { kind, calls, invocations } = fakeKind('idemexp', { idempotency: 'provider', idempotencyWindowMs: 3_600_000, acceptThenThrow: true, dedupe: new Set() })
   h.runtime.sources.register(kind)
-  h.runtime.outbox.send({ id: 'aged-retry', channel: { source: 'idemexp', thread: 'c:1', address: {} }, text: 'Done', kind: 'reply' })
-  const twoHoursAgo = new Date(Date.now() - 2 * 3_600_000).toISOString()
-  h.runtime.store.db.prepare("UPDATE outbox SET value = json_patch(value, ?) WHERE id = 'aged-retry'").run(JSON.stringify({ queuedAt: twoHoursAgo }))
-  await h.runtime.sendReplies()
-  await at(5000); await at(300_000)
-  expect(calls).toEqual(['aged-retry'])
-  expect(h.runtime.outbox.status('aged-retry')).toBe('pending')
-  const row = h.runtime.store.db.prepare("SELECT error FROM effect WHERE kind = 'reply' AND key = 'aged-retry'").get() as { error: string }
+  h.runtime.outbox.send({ id: 'expire-mid-retry', channel: { source: 'idemexp', thread: 'c:1', address: {} }, text: 'Done', kind: 'reply' })
+  await h.runtime.sendReplies()                                   // attempt 1: provider accepted, response lost
+  expect(invocations).toEqual(['expire-mid-retry'])
+  await at(3_660_000)                                             // 61 minutes pass (e.g. paused source); retry becomes due
+  await at(300_000)
+  expect(invocations).toEqual(['expire-mid-retry'])               // refused pre-dispatch: no second provider invocation
+  expect(calls).toEqual(['expire-mid-retry'])
+  expect(h.runtime.outbox.status('expire-mid-retry')).toBe('pending')
+  const row = h.runtime.store.db.prepare("SELECT error FROM effect WHERE kind = 'reply' AND key = 'expire-mid-retry'").get() as { error: string }
   expect(row.error).toContain('blocked:unknown_outcome')
   expect(row.error).toContain(ATTEMPT_UNKNOWN)
+})
+
+it('a window expiry after only proven-unattempted failures still retries: no provider request was ever made', async () => {
+  const { kind, invocations } = fakeKind('idemnotattempted', { idempotency: 'provider', idempotencyWindowMs: 3_600_000 })
+  h.runtime.sources.register(kind)
+  const { SendNotAttempted } = await import('../src/sources/send.ts')
+  kind.channel!.send = async () => { invocations.push('x'); throw new SendNotAttempted('offline before any request') }
+  h.runtime.outbox.send({ id: 'never-attempted', channel: { source: 'idemnotattempted', thread: 'c:1', address: {} }, text: 'Done', kind: 'reply' })
+  await h.runtime.sendReplies()
+  await at(3_660_000); await at(5000)
+  expect(invocations.length).toBeGreaterThanOrEqual(2)            // safe: the uuid was never used, the window never started
+  expect(h.runtime.outbox.status('never-attempted')).toBe('pending')
+  const row = h.runtime.store.db.prepare("SELECT error FROM effect WHERE kind = 'reply' AND key = 'never-attempted'").get() as { error: string }
+  expect(row.error).not.toContain('blocked:')
 })
 
 it('a validation failure before any provider invocation parks as permanent with zero provider calls', async () => {

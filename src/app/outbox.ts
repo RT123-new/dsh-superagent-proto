@@ -67,6 +67,12 @@ export class Outbox implements OutboxPort {
     if (!sources.instance(receipt.channel.source)?.enabled) throw new Later('The Source is off or not installed')
     // Hold later messages for the same ticket and conversation behind an earlier pending message until it exceeds the failure threshold.
     if (store.receipts.behind(id, FAILURES_BEFORE_ERROR)) throw new Later('An earlier message of this ticket to this conversation waits')
+    // A previous attempt may have reached the provider. Once the provider idempotency key may have expired (queuedAt
+    // bounds the first key use conservatively), another invocation could duplicate that accepted send, so the refusal
+    // must happen BEFORE the next provider contact; parking only after a failed dispatch would be too late.
+    const window = sources.channelIdempotencyWindow(receipt.channel.source)
+    if (window !== undefined && receipt.providerContact && (!receipt.queuedAt || Date.now() - Date.parse(receipt.queuedAt) >= window))
+      throw new AttemptUnknownError(new Error('the provider idempotency window may have expired after a possibly-accepted attempt'))
     if (!sources.channelAllowed(receipt.channel)) { store.receipts.settle(receipt, 'channelIgnored'); this.queued.delete(id); return }
     // A permanently unreachable target (such as a recalled message or deleted Issue) settles as `channelGone` so its receipt prevents retries.
     let result: 'sent' | 'gone' | 'waiting'
@@ -76,11 +82,9 @@ export class Outbox implements OutboxPort {
       // unknown outcome: only a channel with a proven idempotency contract may retry it automatically; otherwise park it
       // exactly like the crash path instead of risking an external duplicate.
       if (error instanceof SendNotAttempted) throw error
+      // Anything else means a provider request may have happened; the pre-dispatch gate above needs that fact durably.
+      store.receipts.markProviderContact(id)
       if (sources.channelIdempotency(receipt.channel.source) === undefined) throw new AttemptUnknownError(error)
-      // A provider idempotency key can expire (Feishu dedupes a uuid for 1 hour). `queuedAt` precedes the first key
-      // use, so a receipt older than the window may be past dedupe: park rather than risk a duplicate remote creation.
-      const window = sources.channelIdempotencyWindow(receipt.channel.source)
-      if (window !== undefined && (!receipt.queuedAt || Date.now() - Date.parse(receipt.queuedAt) >= window)) throw new AttemptUnknownError(error)
       throw error
     }
     if (result === 'waiting') throw new Later('The Source is not installed')
