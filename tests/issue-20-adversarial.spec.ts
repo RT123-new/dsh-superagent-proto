@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { spawnSync } from 'node:child_process'
 import { afterEach, expect, it } from 'vitest'
 import { Store } from '../src/app/store.ts'
 import type { Decision, Trigger } from '../src/core/index.ts'
@@ -42,4 +43,38 @@ it('reopen keeps re-saved links and database integrity',()=>{
  s.close();store=undefined;s=new Store(join(root,'db'));store=s
  expect(s.read.flow(since)).toEqual({judged:1,accepted:1})
  expect(s.db.prepare('PRAGMA integrity_check').get()?.integrity_check).toBe('ok')
+})
+
+it('upgrades an existing stale link table once and catches direct REPLACE and id changes',()=>{
+ let s=setup();s.decisions.save(decision(['a']))
+ s.db.exec('DROP TRIGGER decision_link_insert_v1; DROP TRIGGER decision_link_update_v1; DROP TRIGGER decision_link_delete_v1; DELETE FROM decision_trigger')
+ s.close();store=undefined;s=new Store(join(root,'db'));store=s
+ expect(s.read.flow(since)).toEqual({judged:1,accepted:1})
+ s.db.prepare('INSERT OR REPLACE INTO decision(id,thread,value) VALUES(?,?,?)').run('d','github:1',JSON.stringify(decision(['b','b'])))
+ expect(s.db.prepare('SELECT trigger FROM decision_trigger').all().map(x=>x.trigger)).toEqual(['b'])
+ s.db.exec("UPDATE decision SET id='new-d' WHERE id='d'")
+ expect(s.db.prepare('SELECT decision FROM decision_trigger').all().map(x=>x.decision)).toEqual(['new-d'])
+})
+
+for(const mode of ['uncommitted','committed'])it(`SIGKILL after ${mode} save preserves decision/link atomicity`,()=>{
+ let s=setup();s.decisions.save(decision(['a']));s.close();store=undefined
+ const killed=spawnSync('pnpm',['exec','tsx','scripts/storage/review-crash.ts',join(root,'db'),mode],{cwd:process.cwd(),encoding:'utf8'})
+ expect(killed.signal === 'SIGKILL' || killed.status !== 0).toBe(true)
+ s=new Store(join(root,'db'));store=s
+ const expected=mode==='committed'?'b':'a'
+ expect(s.decisions.get('d')?.triggerIds).toEqual([expected])
+ expect(s.db.prepare('SELECT trigger FROM decision_trigger WHERE decision=?').all('d').map(x=>x.trigger)).toEqual([expected])
+ expect(s.db.prepare('PRAGMA integrity_check').get()?.integrity_check).toBe('ok')
+},15000)
+
+it('flow forces the time-window index even after adding a decision-side maintenance index',()=>{
+ const s=setup(), captured:string[]=[]
+ const original=s.db.prepare.bind(s.db)
+ s.db.prepare=((sql:string)=>{if(sql.includes('COUNT(DISTINCT'))captured.push(sql);return original(sql)}) as typeof s.db.prepare
+ s.read.flow(since)
+ for(const sql of captured){
+  const plan=original('EXPLAIN QUERY PLAN '+sql).all(since).map(x=>x.detail).join('\n')
+  expect(plan).toMatch(/SEARCH t USING INDEX trigger_at/)
+  expect(plan).not.toMatch(/SCAN d/)
+ }
 })
