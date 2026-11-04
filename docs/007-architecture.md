@@ -331,7 +331,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/app/skill-files.ts` | Packaged text: `promptFile`, which joins a file's one-sentence lines into paragraphs, and the bundled skills |
 | `src/app/sessions.ts` | Sessions |
 | `src/app/delivery.ts` | `AgentDelivery`: delivers a message to a DeepSeek Harness agent once per request id, also across a restored Session |
-| `src/app/ancestry.ts` | `resolveWorkerAncestry` and `WorkerAncestry`: validated worker-ancestry resolution for managed subagents, with terminal conditions, cycle detection and a defensive bound, never failing open |
+| `src/app/ancestry.ts` | `resolveWorkerAncestry` and `WorkerAncestry`: validated worker-ancestry resolution for managed subagents, with terminal conditions, cycle detection and a defensive bound; caller uses recorded managed provenance |
 | `src/app/retry-health.ts` | `RetryHealth`: which Sessions wait on a model budget retry, for the `models` health entry |
 | `src/app/role-models.ts` | Resolves the Eval and Executor models, and seeds a new Session with its role's model |
 | `src/app/assessment.ts` | The MasterAssessor, the assessment schema and the window `orchestrator_eval` answers |
@@ -452,8 +452,8 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/draft.spec.ts`, `tests/prompt-config.spec.ts`, `tests/markdown.spec.ts`, `tests/marks.spec.ts` | Draft states, merges and the save bar's line; the prompt configuration by section and the line diff; the Markdown subset and its links; the mark of every state the views classify |
 | `tests/locales.spec.ts`, `tests/styles.spec.ts` | The copy in both languages, the stylesheet |
 | `tests/issue-6-stale-retries.spec.ts` | Issue 6: transient-failure retries revalidated as their message commits; stale retries discarded, a mid-delivery pause rescheduled |
-| `tests/issue-7-settings-notices.spec.ts` | Issue 7: settings notifications versioned by block revision; A→B→A→B all delivered, a redelivered revision injected once |
-| `tests/issue-8-subagent-ancestry.spec.ts`, `tests/issue-8-ancestry-resolution.spec.ts` | Issue 8: worker restrictions at any subagent nesting depth, fail-closed unresolved ancestry, unrelated Sessions untouched |
+| `tests/issue-7-settings-notices.spec.ts`, `tests/issue-7-durable-notices.spec.ts` | Issue 7: settings notifications versioned by block revision; A→B→A→B all delivered, a redelivered revision injected once |
+| `tests/issue-8-subagent-ancestry.spec.ts`, `tests/issue-8-ancestry-resolution.spec.ts` | Issue 8: worker restrictions through validated or recorded managed ancestry, unloaded parents/restart, unrelated Sessions untouched |
 | `tests/class-docs.spec.ts` | Every class in `src` has a JSDoc block before it |
 | `tests/docs.spec.ts` | Numbered documents link only to earlier ones, every local link resolves, no document has merge conflict markers, and this document's tables list every module and every test |
 
@@ -627,3 +627,11 @@ Point `DSH_HOME` at a temporary directory and create a new profile there. Copy t
 
 - Trust: which Trigger fields are trusted, such as the Source's actor and Thread membership, and which are not, such as the body and quotes.
 - Deployment isolation: the agent's profile on its own pinned DeepSeek Harness installation, so upgrading DeepSeek Harness elsewhere does not break it.
+
+### Independent safety review refinements (Issues 6-8)
+
+Automated transient retries revalidate current `settingsPolicy.revalidate(mandate)` before starting delivery and at its commit callback. This is a new-message boundary, not blanket revocation of active Mandates. Existing active work semantics remain unchanged.
+
+Settings notice delivery uses immutable `settings:<block>:<revision>` identity rather than payload serialization. Missing main Sessions leave notice effects pending. Informational notices coalesce per block; required policy inputs do not coalesce, and their append position distinguishes repeated transitions even within one millisecond.
+
+Observed managed descendants record one originating ticket ID per Session in `session-worker:` KV records. The record survives parent disposal and host restart, including ticket deletion. No unrelated Session records or event history are stored. This is constant data per managed Session, not a globally fixed-size store; records cannot be pruned on parent disposal without losing descendant protection. Upgrades require no schema change. Never-observed ancestry with missing parents, or a wholly unknown chain beyond the safety bound, cannot be proven managed. Such Sessions are logged but not restricted, preserving unrelated user Sessions. Universal protection for pre-upgrade or never-observed missing ancestry remains unproven. Async persistence header reads exist but would need a separate pre-execution gating design, not a silent permission change.

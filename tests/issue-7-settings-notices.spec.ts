@@ -67,6 +67,25 @@ it('retains every required policy transition even when A-B-A-B occurs in one mil
     await h.runtime.settings.save('policy', value, revision, 'panel')
   }
   const transitions = h.runtime.store.tickets.get(ticket.id)!.inputs.filter(input => input.kind === 'policy-changed')
-  expect(transitions.filter(input => input.effect.requesterAllowed === false)).toHaveLength(2)
+  expect(transitions.filter(input => input.effect?.requesterAllowed === false)).toHaveLength(2)
   vi.useRealTimers()
+})
+
+it('deduplicates a committed revision by immutable identity, not incidental payload serialization', async () => {
+  h = await startRuntime()
+  h.runtime.sessions.notify('settings:eval', { settings_saved: 'eval', revision: 41, changed: ['x'] }, 'saved')
+  await h.runtime.idle()
+  h.runtime.sessions.notify('settings:eval', { revision: 41, settings_saved: 'eval', changed: ['x', 'y'] }, 'saved again')
+  await h.runtime.idle()
+  expect(notices().filter(payload => payload.revision === 41)).toHaveLength(1)
+})
+it('serializes simultaneous same-block saves with optimistic revision conflicts', async () => {
+  h = await startRuntime()
+  const { revision, value } = h.runtime.settings.block('eval')
+  const results = await Promise.allSettled([60, 90].map(timeoutSeconds =>
+    h!.runtime.settings.save('eval', { ...(value as object), timeoutSeconds }, revision, 'panel')))
+  expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1)
+  expect(results.filter(result => result.status === 'rejected')).toHaveLength(1)
+  expect(h.runtime.settings.block('eval').revision).toBe(revision + 1)
+  expect(notices().at(-1)?.revision).toBe(revision + 1)
 })

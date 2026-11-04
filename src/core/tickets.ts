@@ -202,8 +202,8 @@ export class Tickets extends EnginePart {
     // Iterate tickets oldest first so deliveries queue in acceptance order.
     for (const ticket of this.repo.tickets.open().sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
       const effect = effects.get(ticket.id)
-      // Include `at` in the input key so repeated transitions between the same policy versions still record a new input.
-      if (effect) this.addInput(ticket, { id: key('input', ticket.id, 'policy', from, to, at), kind: 'policy-changed', from, to, at, effect })
+      // The append position, unlike wall time, distinguishes repeated transitions in the same millisecond.
+      if (effect) this.addInput(ticket, { id: key('input', ticket.id, 'policy', from, to, String(ticket.inputs.length)), kind: 'policy-changed', from, to, at, effect })
     }
   }
   /**

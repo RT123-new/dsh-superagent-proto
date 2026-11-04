@@ -1,0 +1,23 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/review/repo[39m
+
+ [32m✓[39m tests/docs.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+(node:4410) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/issue-7-settings-notices.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 203[2mms[22m[39m
+(node:4421) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/issue-8-subagent-ancestry.spec.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 170[2mms[22m[39m
+(node:4428) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/issue-6-stale-retries.spec.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 91[2mms[22m[39m
+(node:4439) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/issue-7-durable-notices.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+ [32m✓[39m tests/issue-8-ancestry-resolution.spec.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m6 passed[39m[22m[90m (6)[39m
+[2m      Tests [22m [1m[32m50 passed[39m[22m[90m (50)[39m
+[2m   Start at [22m 06:45:16
+[2m   Duration [22m 2.16s[2m (transform 464ms, setup 0ms, import 1.15s, tests 509ms, environment 0ms)[22m
+

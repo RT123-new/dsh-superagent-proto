@@ -1,0 +1,42 @@
+$ tsdown
+ℹ tsdown v0.22.14 powered by rolldown v1.2.7
+ℹ config file: /tmp/review/repo/tsdown.config.ts 
+ℹ entry: src/index.ts, src/sources/github.ts, src/sources/feishu.ts
+ℹ target: es2024
+ℹ tsconfig: tsconfig.json
+ℹ entry: src/client/index.tsx
+ℹ target: node22.19.0
+ℹ tsconfig: tsconfig.json
+ℹ Build start
+
+ WARN  We recommend using the ESM format instead of CommonJS.
+The ESM format is compatible with modern platforms and runtimes, and most new libraries are now distributed only in ESM format.
+Learn more at https://nodejs.org/en/learn/modules/publishing-a-package#how-did-we-get-here
+
+ℹ Cleaning 12 files
+ℹ [CJS] lib/client.js  358.52 kB │ gzip: 86.64 kB
+ℹ [CJS] 1 files, total: 358.52 kB
+✔ Build complete in 2774ms
+ℹ [ESM] lib/index.js                 453.71 kB │ gzip: 128.49 kB
+ℹ [ESM] lib/github-watch.js           33.91 kB │ gzip:  11.00 kB
+ℹ [ESM] lib/feishu-watch.js            0.60 kB │ gzip:   0.29 kB
+ℹ [ESM] lib/feishu-B-qfhSpK.js        48.32 kB │ gzip:  14.58 kB
+ℹ [ESM] lib/poll-CgJyPzf7.js          38.67 kB │ gzip:  13.90 kB
+ℹ [ESM] lib/github-pull-DteTlGeo.js   25.42 kB │ gzip:   8.23 kB
+ℹ [ESM] lib/index.d.ts                24.97 kB │ gzip:   7.72 kB
+ℹ [ESM] lib/feishu-watch.d.ts          5.98 kB │ gzip:   2.00 kB
+ℹ [ESM] lib/github-watch.d.ts          0.39 kB │ gzip:   0.22 kB
+ℹ [ESM] lib/kind-CC2z1Ko1.d.ts        35.84 kB │ gzip:   9.06 kB
+ℹ [ESM] lib/intake-BntR4bhz.d.ts      29.31 kB │ gzip:   9.22 kB
+ℹ [ESM] 11 files, total: 697.14 kB
+[33m[PLUGIN_TIMINGS] [0mPlugin hooks ran for 3.3s of this 3.4s build (99%).
+The slowest hooks, timed inside each callback (the wait before a callback starts is excluded, the time it awaits is included):
+  - rolldown-plugin-dts:generate load (90%, 3.0s, 42 calls)
+Additional hook time came from the hooks below and from hooks under 1s.
+3 hooks are listed without a time. Their calls overlapped, so the time inside one call includes work from other calls. To find their cost, profile the build with `node --cpu-prof`:
+  - rolldown-plugin-dts:resolver resolveId (300 calls)
+  - tsdown:deps resolveId (66 calls)
+  - rolldown-plugin-dts:fake-js transform (42 calls)
+See https://rolldown.rs/reference/InputOptions.checks#plugintimings for more details.
+
+✔ Build complete in 3442ms

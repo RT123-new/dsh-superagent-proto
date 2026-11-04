@@ -1,4 +1,4 @@
-/** Validated worker-ancestry resolution for managed subagents: no arbitrary depth bound, cycle-safe, fail-closed. */
+/** Validated worker-ancestry resolution with cycle detection and an explicit safety bound. */
 
 /** How a Session relates to dsh-superagent's managed worker Sessions. */
 export type WorkerAncestry =
@@ -19,7 +19,7 @@ export const ANCESTRY_HOPS_MAX = 64
  * Resolves the managed worker Session `start` descends from by walking `parentSession` links. Terminal conditions:
  * no parent (an independently created Session or the top of an unmanaged chain), the master's Session (unmanaged), or
  * a worker Session, whose id names the Ticket its restrictions inherit from. A broken link, a cycle or the safety
- * bound resolves `unresolved`, whose callers fail closed for managed work.
+ * bound resolves `unresolved`; callers must distinguish known managed provenance from unrelated work.
  */
 export function resolveWorkerAncestry(
   start: { id: string; parentSession?: string },
