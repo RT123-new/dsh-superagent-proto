@@ -147,3 +147,13 @@ it('a report whose PR lookup was in flight when its ticket ended is refused and 
   expect(JSON.stringify(ticket)).not.toContain('late from the old turn')
   expect(outcome).toMatch(/^refused/)
 })
+it('characterization: after stopTicket with no ensure in flight the worker Session keeps its registered tools (they refuse, none is released)', async () => {
+  h = await startRuntime()
+  const { ticket, sessionId } = await h.acceptedTicket(feishu('1', '@bot fix'))
+  const before = names(sessionId).length
+  expect(before).toBeGreaterThan(0)
+  h.runtime.engine.stopTicket(ticket.id)
+  await vi.waitFor(() => expect(h!.runtime.store.tickets.get(ticket.id)!.ended).toBeDefined())
+  await h.runtime.idle()
+  expect(names(sessionId).length).toBe(before)
+})
