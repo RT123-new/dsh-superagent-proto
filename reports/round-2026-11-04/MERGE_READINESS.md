@@ -7,8 +7,8 @@
 Three independent gates are still open, by design:
 
 1. **Independent code verdict on the current head.** PARTIALLY LANDED: the complementary independent review (`INDEPENDENT_REVIEW_COMPLEMENTARY.md`, verbatim) accepts all client findings and the settings allowlist at `fd3b7a6` with actual probes replayed unmodified (32/32 client probes at `26ab444`; the original wire RED restored and replayed GREEN as 1 selected test at `fd3b7a6` - filtered, not the full suite). That acceptance is explicitly scoped: it is NOT whole-backend acceptance. Still pending: the deep backend review (source ingestion, executor, persistence, runtime safety) and the backend verdict on the section-11 T_i commits (`56bb709`, `c0794ca`). Earlier scoped accepts cover the transport verdicts at `3eb84b5`/`26ab444`, the historical banners at `910cfa9`/`627d356`, and the adversary timing patch `a5a8a41`.
-2. **Stable full canonical run.** Canonical validation is adversary-run only (`pnpm test`). The reference count of record at the last freeze is 140 files / 1728 pass / 2 skip at `6027b6e`; the branch is now 141+ files with new tests. No author-side run substitutes.
-3. **CI proof.** The CI failure-masking repair (`8643e27`, `d6e0f60`, `e0d7fc3`) is structurally proven (artifact run 41835601528 demonstrated the mask; the workflow contract is pinned by `tests/ci-workflow.spec.ts`) but the fixed workflow has not executed on GitHub; that requires an authorized push of the frozen head.
+2. **Stable full canonical run.** Canonical validation is adversary-run only (`pnpm test`). The reference count of record at the last freeze is 140 files / 1728 pass / 2 skip at `6027b6e` from an independent LOCAL run; the real CI at `6027b6e` was false-green, masking 2 failed files (artifact run 41835601528). The branch is now 141+ files with new tests. No author-side run substitutes.
+3. **CI proof.** The CI failure-masking repair (`8643e27`, `d6e0f60`, `e0d7fc3`) is proven behaviorally and structurally: artifact run 41835601528 demonstrated the mask; the independent extracted-pipeline check returns 0 for success, 17 for test exit 17, 23 for tee exit 23; the workflow contract is pinned by `tests/ci-workflow.spec.ts`. But the fixed workflow has not executed on GitHub; that requires an authorized push of the frozen head.
 
 ## Known open items (carried in the evidence ledger)
 
@@ -20,9 +20,9 @@ Three independent gates are still open, by design:
 
 ## What is verified at this head
 
-- All 18 ledger entries carry exact statuses; 8 VERIFIED FIXED, 2 VERIFIED UNCHANGED, 3 PARTIALLY VERIFIED, 2 DEFERRED WITH REASON, 1 UNPROVEN, plus the CI/T_i sub-gates above.
+- All 19 ledger entries carry exact statuses: 10 VERIFIED FIXED (R2-19 scoped to client + allowlist), 2 VERIFIED UNCHANGED, 4 PARTIALLY VERIFIED, 2 DEFERRED WITH REASON, 1 UNPROVEN, plus the CI/T_i sub-gates above.
 - Failing-first discipline held for every new repair this round (RED captured before GREEN), including the reviewer's wire probe reproduced unmodified.
-- 46 files changed, +2740/-73 across 16 commits; every commit surgical (sweep-commit risk noted and avoided after `a5a8a41`).
+- 46 files changed, +2751/-74 across 17 code commits (`6027b6e..fd3b7a6`); report commits on top are docs-only, no code. Every commit surgical (sweep-commit risk noted and avoided after `a5a8a41`).
 
 ## Conditions to certify
 

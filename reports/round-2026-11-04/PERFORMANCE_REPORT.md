@@ -24,7 +24,7 @@ None. This round's changes are correctness, operator-safety, transport-contract,
 
 ## Measurement-scope reductions honestly reported
 
-- `tests/pr-final-metrics-review.spec.tsx` (M4): sweep capped at 2000 rows plus spot checks. Earlier 20k-row measurements are historical and are never reported as current.
+- `tests/pr-final-metrics-review.spec.tsx` (M4): the percentile oracle originally swept exhaustively over sizes 1..10000 (two percentile passes); it now exhausts sizes 1..2000 plus boundary spot checks at 9999/10000. The 1..10000 measurements are historical and are never reported as current.
 - `tests/stage-d/issue-18-startup.spec.ts`: iterations reduced 20k -> 2k. Earlier 20k-iteration numbers are historical and are never reported as current.
 
 ## Instrumentation added (section 11), not performance claims

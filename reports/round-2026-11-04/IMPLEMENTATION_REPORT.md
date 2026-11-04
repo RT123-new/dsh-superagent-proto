@@ -1,13 +1,13 @@
 # Implementation report: mandate review round of 2026-11-04
 
-> Scope: commits `6027b6e..e62ad1a` on `programme/reliability` (16 commits, 46 files, +2740/-73). This round implements the repair mandate received 2026-11-04 12:25 GMT (iMessage) and the 13:20 GMT full-review request. Prior checkpoints (`reports/FINAL_STATUS.md`, `reports/EVIDENCE_LEDGER.md`) are historical records labelled as such at `910cfa9`; they are not current validation. Canonical full-suite validation is adversary-run only; the counts cited here are author-side focused runs (`npx vitest`), never canonical.
+> Scope: code commits `6027b6e..fd3b7a6` on `programme/reliability` (17 commits, 46 files, +2751/-74), plus docs-only report commits on top (`59e9d1e`, `e40cc09`, `3f08653`, and later report corrections; no code change after `fd3b7a6`). This round implements the repair mandate received 2026-11-04 12:25 GMT (iMessage) and the 13:20 GMT full-review request. Prior checkpoints (`reports/FINAL_STATUS.md`, `reports/EVIDENCE_LEDGER.md`) are historical records labelled as such at `910cfa9`; they are not current validation. Canonical full-suite validation is adversary-run only; the counts cited here are author-side focused runs (`npx vitest`), never canonical.
 
 ## 1. Blocked-effects endpoint keyset pagination (`fa9d8ef`, mandate section 8)
 
 - File/function: `src/app/http.ts` blocked-effects list route; `src/app/effects.ts` blocked-row query.
-- Original defect: the operator blocked-effects list was unbounded/offset-based; a shifting first page could drop or duplicate rows between pages.
-- Why it occurs: new blocked rows insert ahead of rows the operator has already seen, so offset windows overlap or skip.
-- What changed: keyset (cursor) pagination over a stable row key; the endpoint returns a cursor the client passes back.
+- Original defect: the operator blocked-effects list was unbounded: one response returned every blocked row.
+- Why it occurs: there was no paging at all, so the list grew without bound and the client held the whole set.
+- What changed: keyset (cursor) pagination over a stable row key (strict `seq > cursor`, no inclusive anchor); the endpoint returns a cursor the client passes back.
 - Why safe: keyset windows follow the stored key order, independent of inserts before the cursor.
 - Tests: pagination cases in the effects-route and client suites.
 - Before/after: before, an unbounded or drifting list; after, stable bounded pages with an explicit cursor.
@@ -16,9 +16,9 @@
 ## 2. Boundary-row dedupe and rearm-refusal surface (`1901887`)
 
 - File/function: client blocked-list page assembly; toast surface; `scripts/browser-harness/`.
-- Original defect: the row straddling two keyset pages could render twice; a refused rearm was silent.
-- Why: the server legitimately returns the boundary row as the cursor anchor; the client appended it again. Refusals returned no user-visible signal.
-- What changed: client dedupes the shifted boundary row; a refused rearm raises a refusal toast.
+- Original defect: a row could render twice across a refresh; a refused rearm was silent.
+- Why: a refreshed FIRST page can overlap the older appended cache after mutations (rows shifting across the page boundary), and the client appended without deduping. Refusals returned no user-visible signal.
+- What changed: client dedupes the shifted boundary row on merge; a refused rearm raises a refusal toast.
 - Tests: client probes plus portable browser-harness pixel snapshots (viewport-exact layout evidence only; no theme/touch/Safari fidelity is claimed from Chrome-mouse captures).
 - Before/after: duplicate row and silent refusal before; single row and explicit refusal signal after.
 - Remaining limitation: pixels prove layout/flow at exact viewports only.
@@ -39,7 +39,7 @@
 - File/function: `src/client/` blocked-effects panel (`ConfirmButton`, Load More, refetch merge); `tests/fixtures/panel-server.ts` (CAS + downPaths).
 - Original defects: (a) missing error states left the panel blank on load/action failure; (b) an armed confirmation could be re-armed by a prop update mid-approval; (c) a refused rearm left the row looking current; (d) two Load More requests could run concurrently; (e) the fixture's compare-and-set mutated generation on refusal, unlike production.
 - What changed: explicit failed/empty/error states; approval freeze on the armed confirmation; refused-rearm recovery (row refetch and surface); a ref guard so only one Load More is in flight; functional collection updates so state merges cannot reuse stale arrays; refetch merge by extent epoch so pages settling during a refused-rearm refetch are not clobbered; fixture CAS corrected to mirror production (refusal does not mutate generation, tests set external state changes explicitly).
-- Why safe: every behavior change is client-local or fixture-local; server validation of generation at rearm is unchanged.
+- Why safe: server validation of generation at rearm is unchanged. The approval freeze lives in the SHARED `ConfirmButton` widget (8 consumers across 6 files), so it is not automatically local: for consumers whose confirmation does not close over mutating state the open-time capture is behavior-identical, and the other consumers were exercised by the panel suites (independent run: 62/62 at `6248a3e`); only a confirmation whose target mutates while open changes behavior, which is the intended fix. The remaining changes are client-local or fixture-local.
 - Tests: reviewer probes replayed unmodified and failing-first; 7 client probes accepted at `3139960` and again at `26ab444` (32/32 with panel assertions).
 - Before/after: silent stale UI before; explicit states, frozen approval, single-flight paging, accurate fixture semantics after.
 - Remaining limitation: same-tick Load More guard covers the in-flight window, not a deliberately double-issued user action across ticks; server-side rearm validation remains the backstop.
@@ -56,7 +56,7 @@
 ## 6. Adversary timing patch (`a5a8a41`)
 
 - File/function: `tests/pr-final-metrics-review.spec.tsx` (M4), `tests/stage-d/issue-18-startup.spec.ts`, `tests/runtime-concurrency.spec.ts` timing.
-- Original defect: three CI timing failures (5s timeouts) masked by defect 3.
+- Original defect: two CI timing failures (5s timeouts in `tests/pr-final-metrics-review.spec.tsx` M4 and `tests/stage-d/issue-18-startup.spec.ts`, per artifact run 41835601528) masked by defect 3. The separate `tests/runtime-concurrency.spec.ts:758` `candidates()` failure is a local assertion race, not a 5s timeout, and stays UNPROVEN (ledger R2-5).
 - What changed: the independent adversary's minimal patch, applied byte-exact. Note: M4 sweep is capped at 2000 rows plus spot checks and issue-18 iterations reduced 20k to 2k; these are reduced-scope measurements and are never reported against the old 20k numbers.
 - Remaining limitation: reduced iteration counts narrow the measured envelope; the runtime-concurrency `candidates()` race hypothesis remains UNPROVEN (see ledger).
 
