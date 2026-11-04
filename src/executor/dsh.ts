@@ -370,7 +370,7 @@ export class DshExecutor implements Executor {
     if (!this.probe.enabled || this.launchStamps.has(assignmentId)) return
     try {
       if (this.launchStamps.size >= 5000) { this.launchStamps.delete(this.launchStamps.keys().next().value!); this.probe.count('launch_stamp_dropped') }
-      this.launchStamps.set(assignmentId, performance.now())
+      const now = this.probe.now(); if (now !== undefined) this.launchStamps.set(assignmentId, now)
     } catch { this.probe.count('metrics_error') }
   }
   /** Enqueues a `delivery` effect to steer pending inputs into `ticket`'s running worker session. */
@@ -390,7 +390,8 @@ export class DshExecutor implements Executor {
     this.sampleSlots()
     const queuedAt = this.launchStamps.get(assignmentId)
     this.launchStamps.delete(assignmentId)
-    if (queuedAt !== undefined) this.probe.observe('slot_wait', 'internal', performance.now() - queuedAt)
+    const reservedAt = this.probe.now()
+    if (queuedAt !== undefined && reservedAt !== undefined) this.probe.observe('slot_wait', 'internal', reservedAt - queuedAt)
     try { await this.launch(ticket, assignment); this.transient.delete(`launch:${assignmentId}`) }
     catch (error) {
       // Shutdown or pause re-queues the launch for resume, and transient network/provider errors retry with backoff.
@@ -691,7 +692,7 @@ export class DshExecutor implements Executor {
   dispose(): void {
     for (const dispose of this.disposers.splice(0)) dispose()
     for (const timer of this.timers) clearTimeout(timer)
-    this.timers.clear(); this.historyQueued.clear(); this.deliveryQueued.clear()
+    this.timers.clear(); this.historyQueued.clear(); this.deliveryQueued.clear(); this.launchStamps.clear()
     for (const controller of this.launching.values()) controller.abort()
     this.launching.clear()
   }
