@@ -232,6 +232,30 @@ it('paginates a long blocked-effects history instead of loading it unbounded', a
   expect(all('button').some(button => button.textContent?.includes(zh.loadMore))).toBe(false)  // exhausted: no more pages
 })
 
+it('a rearm after appending pages does not duplicate the shifted boundary row', async () => {
+  server.blockedEffects = Array.from({ length: 250 }, (_, i) => ({ kind: 'relay', key: `r${i}`, class: 'permanent', attempts: 1, since: '2026-09-22T00:00:00Z', attemptUnknown: false, generation: 1 }))
+  await mount()
+  await click(zh['tab.execution'])
+  await click(zh.loadMore)                                                                 // 250 rows across two pages
+  expect(all('.dt-blocked-effects li')).toHaveLength(250)
+  const first = all('.dt-blocked-effects li')[0]!
+  await click(first.querySelector('button')!)                                              // rearm the first row
+  await click(zh.confirm)
+  const keys = all('.dt-blocked-effects li').map(row => row.textContent)
+  expect(keys).toHaveLength(249)
+  expect(new Set(keys).size).toBe(249)                                                     // no duplicated boundary row
+})
+
+it('tells the operator when the server refuses a rearm instead of silently keeping the row', async () => {
+  server.blockedEffects = [{ kind: 'relay', key: 'r1', class: 'permanent', attempts: 1, since: '2026-09-22T00:00:00Z', attemptUnknown: false, generation: 1 }]
+  await mount()
+  await click(zh['tab.execution'])
+  await click(zh.rearmEffect)
+  server.blockedEffects = []                                                               // a concurrent rearm wins before the confirmation
+  await click(zh.confirm)
+  expect(text()).toContain(zh.rearmEffectRefused)
+})
+
 it('sends one stop for a double click on Confirm', async () => {
   at({ page: 'execution', id: 't1' })
   await mount()

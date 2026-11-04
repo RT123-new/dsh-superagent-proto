@@ -14,7 +14,7 @@ import { ConfirmButton, Hint, LabelValue, LoadMore, LoadState, Section, StatusHe
 export function ExecutionStatus({ filter: current, state, reload }: {
   filter: TicketFilter; state: StateView; reload: () => Promise<void>
 }) {
-  const { t, call, navigate } = usePanel()
+  const { t, call, navigate, notify } = usePanel()
   const [limit, setLimit] = useState(20)
   const { data, error, reload: reloadTickets } = usePoll(() => call('GET tickets', { query: { state: current, limit } }), [current, limit])
   // The first page of blocked effects polls fresh; older pages are appended on demand so a long
@@ -22,7 +22,13 @@ export function ExecutionStatus({ filter: current, state, reload }: {
   const blocked = usePoll(() => call('GET effects/blocked', { query: { limit: 200 } }), [])
   const [olderBlocked, setOlderBlocked] = useState<BlockedEffect[]>([])
   const [olderCursor, setOlderCursor] = useState<string | undefined>()
-  const blockedItems = [...(blocked.data?.items ?? []), ...olderBlocked]
+  // The polled first page is fresher than appended pages: when a rearm shifts the boundary, the same row can sit in
+  // both - keep the first-page copy and drop the stale duplicate.
+  const seenBlocked = new Set<string>()
+  const blockedItems = [...(blocked.data?.items ?? []), ...olderBlocked].filter(item => {
+    const id = `${item.kind}:${item.key}`
+    return !seenBlocked.has(id) && !!seenBlocked.add(id)
+  })
   const blockedNext = olderBlocked.length ? olderCursor : blocked.data?.nextCursor
   const moreBlocked = async () => {
     if (!blockedNext) return
@@ -61,7 +67,7 @@ export function ExecutionStatus({ filter: current, state, reload }: {
         {item.attemptUnknown && <Hint>{t('blockedEffectUnknown')}</Hint>}
         <div className="dt-row-meta dt-row-buttons"><ConfirmButton variant="outline" icon="refresh" label={t('rearmEffect')} title={t('rearmEffect')}
           message={item.attemptUnknown ? `${t('rearmEffectConfirm')} ${t('blockedEffectUnknown')}` : t('rearmEffectConfirm')}
-          onConfirm={async () => { await call('POST effects/:kind/rearm', { kind: item.kind, body: { key: item.key, expectedGeneration: item.generation, ...(item.attemptUnknown ? { acknowledgeUnknownOutcome: true } : {}) } }); setOlderBlocked(olderBlocked.filter(row => !(row.kind === item.kind && row.key === item.key))); await blocked.reload() }} /></div>
+          onConfirm={async () => { const result = await call('POST effects/:kind/rearm', { kind: item.kind, body: { key: item.key, expectedGeneration: item.generation, ...(item.attemptUnknown ? { acknowledgeUnknownOutcome: true } : {}) } }); if (!result.rearmed) notify(t('rearmEffectRefused')); setOlderBlocked(olderBlocked.filter(row => !(row.kind === item.kind && row.key === item.key))); await blocked.reload() }} /></div>
       </div></li>)}</ul>
       {blockedNext && <LoadMore onMore={moreBlocked} />}</section> : null}
     <LoadState error={error} loading={!data} />
