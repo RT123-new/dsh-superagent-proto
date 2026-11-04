@@ -120,6 +120,18 @@ export class Effects {
     return this.store.db.prepare("SELECT key, error, attempts, since, generation FROM effect WHERE kind = ? AND error LIKE 'blocked:%' ORDER BY seq").all(kind) as never
   }
   /**
+   * One bounded page of blocked rows across all kinds in deterministic global `seq` order; `after` is the last seen
+   * seq (keyset: rows inserted or removed between pages never shift the continuation). `limit` is required.
+   */
+  blockedPage(opts: { limit: number; after?: number }): { kind: EffectKind; key: string; error: string; attempts: number; since: string; generation: number; seq: number }[] {
+    return this.store.db.prepare("SELECT kind, key, error, attempts, since, generation, seq FROM effect WHERE error LIKE 'blocked:%' AND seq > ? ORDER BY seq LIMIT ?")
+      .all(opts.after ?? 0, opts.limit) as never
+  }
+  /** The authoritative blocked-row total, independent of pagination. */
+  blockedCount(): number {
+    return Number((this.store.db.prepare("SELECT count(*) AS n FROM effect WHERE error LIKE 'blocked:%'").get() as { n: number }).n)
+  }
+  /**
    * Explicit operator recovery of a parked row: it becomes due now and is dispatched again (an ordered kind then resumes behind it).
    * Never called automatically. A sticky `[attempt-unknown]` marker is kept, since the earlier attempt's outcome is still not known.
    * Returns false when the row does not exist or is not blocked. The alternative, dropping the row, is `cancel`.

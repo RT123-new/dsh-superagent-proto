@@ -42,7 +42,7 @@ it('GET effects/blocked returns the safe class and counters only: no stored erro
   expect(effects.blocked('relay')[0]!.error).toContain(SECRET.slice(0, 4))      // the stored row is not the surface
   const res = await call('GET', 'effects/blocked')
   expect(res.status).toBe(200)
-  expect(res.body).toEqual({ items: [{ kind: 'relay', key: 'head', class: 'permanent', attempts: expect.any(Number), since: expect.any(String), attemptUnknown: false, generation: expect.any(Number) }] })
+  expect(res.body).toEqual({ items: [{ kind: 'relay', key: 'head', class: 'permanent', attempts: expect.any(Number), since: expect.any(String), attemptUnknown: false, generation: expect.any(Number) }], count: 1, nextCursor: undefined })
   expect(res.text).not.toContain('SECRET'); expect(res.text).not.toContain('payload'); expect(res.text).not.toContain('bad request')
 })
 
@@ -57,13 +57,45 @@ it('a crashed reply is reported as unknown without exposing remote text and requ
   expect(blocked.body).toEqual({ items: [{
     kind: 'reply', key: 'remote-1', class: 'unknown', attempts: 0,
     since: '2026-11-04T11:00:00.000Z', attemptUnknown: true, generation: expect.any(Number),
-  }] })
+  }], count: 1, nextCursor: undefined })
   expect(blocked.text).not.toContain('remote send may have succeeded')
   expect(await call('POST', 'effects/reply/rearm', { key: 'remote-1' }))
     .toMatchObject({ status: 200, body: { rearmed: false, requiresAcknowledgement: true } })
   expect(await call('POST', 'effects/reply/rearm', { key: 'remote-1', acknowledgeUnknownOutcome: true }))
     .toMatchObject({ status: 200, body: { rearmed: true } })
-  expect((await call('GET', 'effects/blocked')).body).toEqual({ items: [] })
+  expect((await call('GET', 'effects/blocked')).body).toEqual({ items: [], count: 0, nextCursor: undefined })
+})
+
+it('GET effects/blocked is bounded: keyset pages carry an authoritative count and never skip or duplicate', async () => {
+  const { store, call } = setup()
+  const insert = store.db.prepare("INSERT INTO effect (kind, key, value, seq, due, since, attempts, error) VALUES (?, ?, '{}', ?, 0, ?, 0, 'blocked:permanent: seeded')")
+  const keys = ['relay:a', 'reply:b', 'relay:c', 'reply:d', 'relay:e']
+  keys.forEach((key, i) => { const [kind, k] = key.split(':') as [string, string]; insert.run(kind, k, i + 1, new Date(Date.now() - i * 1000).toISOString()) })
+  const page1 = await call('GET', 'effects/blocked?limit=2')
+  expect(page1.status).toBe(200)
+  expect(page1.body.count).toBe(5)                                                       // authoritative total, separate from the page
+  expect((page1.body.items as { key: string }[]).map(item => item.key)).toEqual(['a', 'b'])
+  expect(page1.body.nextCursor).toBeTruthy()
+  const page2 = await call('GET', `effects/blocked?limit=2&cursor=${page1.body.nextCursor}`)
+  expect((page2.body.items as { key: string }[]).map(item => item.key)).toEqual(['c', 'd'])
+  const page3 = await call('GET', `effects/blocked?limit=2&cursor=${page2.body.nextCursor}`)
+  expect((page3.body.items as { key: string }[]).map(item => item.key)).toEqual(['e'])
+  expect(page3.body.nextCursor).toBeUndefined()
+  expect(page3.body.count).toBe(5)
+  const unlimited = await call('GET', 'effects/blocked')
+  expect(unlimited.body.count).toBe(5)
+  expect((unlimited.body.items as unknown[]).length).toBeLessThanOrEqual(200)             // the default request is bounded too
+})
+
+it('a row rearmed between pages does not shift the keyset continuation', async () => {
+  const { store, call } = setup()
+  const insert = store.db.prepare("INSERT INTO effect (kind, key, value, seq, due, since, attempts, error) VALUES ('relay', ?, '{}', ?, 0, ?, 0, 'blocked:permanent: seeded')")
+  for (let i = 1; i <= 5; i++) insert.run(`row-${i}`, i, new Date(Date.now() - i * 1000).toISOString())
+  const page1 = await call('GET', 'effects/blocked?limit=2')
+  store.db.prepare("DELETE FROM effect WHERE kind = 'relay' AND key = 'row-1'").run()      // a concurrent rearm removes an already-seen row
+  const page2 = await call('GET', `effects/blocked?limit=2&cursor=${page1.body.nextCursor}`)
+  expect((page2.body.items as { key: string }[]).map(item => item.key)).toEqual(['row-3', 'row-4'])
+  expect(page2.body.count).toBe(4)
 })
 
 it('both routes keep the same-origin and loopback controls', async () => {

@@ -328,7 +328,12 @@ const ROUTES: { [K in keyof Api]: Route<K> } = {
     'Unavailable Eval not found') },
   'GET tickets': { query: ['state', 'offset', 'limit'], answer: ({ query }) => page(server.tickets[query.state === 'ended' ? 'ended'
     : 'open']) },
-  'GET effects/blocked': { answer: () => ({ items: server.blockedEffects }) },
+  'GET effects/blocked': { query: ['limit', 'cursor'], answer: ({ query }) => {
+    const limit = Math.min(Number(query.limit ?? 200) || 200, 1000)
+    const after = Number(query.cursor ?? 0) || 0
+    const page = server.blockedEffects.slice(after, after + limit)
+    return { items: page, count: server.blockedEffects.length, nextCursor: after + page.length < server.blockedEffects.length ? String(after + page.length) : undefined }
+  } },
   'POST effects/:kind/rearm': { body: true, answer: ({ params, body }) => {
     const before = server.blockedEffects.length
     server.blockedEffects = server.blockedEffects.filter(item => !(item.kind === params.kind && item.key === body.key))

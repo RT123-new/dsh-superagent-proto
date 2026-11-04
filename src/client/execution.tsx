@@ -1,6 +1,6 @@
 /** Execution status view (active Tickets and pause control) and Execution settings group (Executor capacity and workspace environment). */
 import { useRef, useState } from 'react'
-import { TICKET_FILTERS, type TicketFilter } from '../app/api.ts'
+import { TICKET_FILTERS, type BlockedEffect, type TicketFilter } from '../app/api.ts'
 import { LIMITS } from '../limits.ts'
 import { usePoll, type SettingsView, type SourceView, type StateView } from './api.ts'
 import { DisclosureRow, Icon, InfoTip, Input, Pill } from './controls.tsx'
@@ -17,7 +17,19 @@ export function ExecutionStatus({ filter: current, state, reload }: {
   const { t, call, navigate } = usePanel()
   const [limit, setLimit] = useState(20)
   const { data, error, reload: reloadTickets } = usePoll(() => call('GET tickets', { query: { state: current, limit } }), [current, limit])
-  const blocked = usePoll(() => call('GET effects/blocked'), [])
+  // The first page of blocked effects polls fresh; older pages are appended on demand so a long
+  // blocked history never arrives or renders in one unbounded response.
+  const blocked = usePoll(() => call('GET effects/blocked', { query: { limit: 200 } }), [])
+  const [olderBlocked, setOlderBlocked] = useState<BlockedEffect[]>([])
+  const [olderCursor, setOlderCursor] = useState<string | undefined>()
+  const blockedItems = [...(blocked.data?.items ?? []), ...olderBlocked]
+  const blockedNext = olderBlocked.length ? olderCursor : blocked.data?.nextCursor
+  const moreBlocked = async () => {
+    if (!blockedNext) return
+    const page = await call('GET effects/blocked', { query: { limit: 200, cursor: Number(blockedNext) } })
+    setOlderBlocked([...olderBlocked, ...page.items])
+    setOlderCursor(page.nextCursor)
+  }
   const { paused, load: { maxWorkers } } = state
   // Pausing uses its own block revision so toggling pause does not invalidate an open Execution settings draft.
   const pause = async () => { await call('POST executor/pause', { body: { paused: !paused } }); await reload() }
@@ -43,14 +55,15 @@ export function ExecutionStatus({ filter: current, state, reload }: {
           true) }}>{t(`ticketFilter.${value}`)}</Pill>)}
     </div>
     {current === 'idle' && <Hint>{t('idleHint')}</Hint>}
-    {blocked.data?.items.length ? <section className="dt-blocked-effects"><h3>{t('blockedEffectsTitle')}</h3><ul className="dt-list">
-      {blocked.data.items.map(item => <li key={`${item.kind}:${item.key}`} className="dt-row dt-att dt-att-error"><div className="dt-row-main">
+    {blockedItems.length ? <section className="dt-blocked-effects"><h3>{t('blockedEffectsTitle')} <span className="dt-count">{blocked.data?.count ?? blockedItems.length}</span></h3><ul className="dt-list">
+      {blockedItems.map(item => <li key={`${item.kind}:${item.key}`} className="dt-row dt-att dt-att-error"><div className="dt-row-main">
         <div className="dt-att-what dt-mono">{t('blockedEffectLine', { kind: item.kind, key: item.key, class: item.class, attempts: item.attempts })}</div>
         {item.attemptUnknown && <Hint>{t('blockedEffectUnknown')}</Hint>}
         <div className="dt-row-meta dt-row-buttons"><ConfirmButton variant="outline" icon="refresh" label={t('rearmEffect')} title={t('rearmEffect')}
           message={item.attemptUnknown ? `${t('rearmEffectConfirm')} ${t('blockedEffectUnknown')}` : t('rearmEffectConfirm')}
-          onConfirm={async () => { await call('POST effects/:kind/rearm', { kind: item.kind, body: { key: item.key, expectedGeneration: item.generation, ...(item.attemptUnknown ? { acknowledgeUnknownOutcome: true } : {}) } }); await blocked.reload() }} /></div>
-      </div></li>)}</ul></section> : null}
+          onConfirm={async () => { await call('POST effects/:kind/rearm', { kind: item.kind, body: { key: item.key, expectedGeneration: item.generation, ...(item.attemptUnknown ? { acknowledgeUnknownOutcome: true } : {}) } }); setOlderBlocked(olderBlocked.filter(row => !(row.kind === item.kind && row.key === item.key))); await blocked.reload() }} /></div>
+      </div></li>)}</ul>
+      {blockedNext && <LoadMore onMore={moreBlocked} />}</section> : null}
     <LoadState error={error} loading={!data} />
     {data && (data.items.length ? <ul className="dt-list">{data.items.map(ticket => ticket.stage === 'person'
       ? <TicketLine key={ticket.id} ticket={ticket} question

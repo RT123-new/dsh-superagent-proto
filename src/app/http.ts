@@ -40,7 +40,7 @@ export interface HttpHost {
   readonly settings: Pick<Settings, 'view' | 'save' | 'pause' | 'sync' | 'refreshLabels'>
   readonly engine: EngineForPeople
   readonly executor: Pick<DshExecutor, 'activeCount'>
-  readonly effects: Pick<Effects, 'blocked' | 'rearm'>
+  readonly effects: Pick<Effects, 'blocked' | 'blockedPage' | 'blockedCount' | 'rearm'>
   readonly health: Record<string, Health>
   readonly machine: Machine
   readonly masterId: string
@@ -206,7 +206,14 @@ function routes(runtime: HttpHost): Routes {
     },
     'GET tickets/:id': ({ params }) => ticketPage(runtime, params.id),
     'POST tickets/:id/retry': ({ params }) => { const id = ticket(params.id); runtime.engine.retryTicket(id); return { retried: true } },
-    'GET effects/blocked': () => ({ items: EFFECT_KINDS.flatMap(kind => runtime.effects.blocked(kind).map(row => blockedItem(kind, row))) }),
+    'GET effects/blocked': ({ query }) => {
+      // Bounded by default; keyset by the global effect seq so growing history never shifts a continuation.
+      const { limit, cursor } = BlockedQuery.parse(query)
+      const rows = runtime.effects.blockedPage({ limit: limit + 1, after: cursor })
+      const page = rows.slice(0, limit)
+      const nextCursor = rows.length > limit ? String(page.at(-1)!.seq) : undefined
+      return { items: page.map(row => blockedItem(row.kind, row)), count: runtime.effects.blockedCount(), nextCursor }
+    },
     'POST effects/:kind/rearm': async ({ params, body }) => {
       const kind = z.enum(EFFECT_KINDS).safeParse(params.kind)
       if (!kind.success) throw new RouteError(404, 'Unknown effect kind')
@@ -251,9 +258,10 @@ function match(table: Routes, method: string, segments: string[]) {
   return undefined
 }
 const EFFECT_KINDS = ['assessment', 'launch', 'delivery', 'relay', 'notice', 'reply'] as const satisfies readonly EffectKind[]
+const BlockedQuery = z.object({ limit: z.coerce.number().int().min(1).max(1000).default(200), cursor: z.coerce.number().int().nonnegative().optional() }).strict()
 const ERROR_CLASSES: ReadonlySet<string> = new Set(['cancelled', 'unauthorized', 'permanent', 'programming_error', 'rate_limited', 'provider_temporary', 'transient'])
 /** Only the static class and counters leave the host: the stored error text can carry remote content and is never returned. */
-function blockedItem(kind: EffectKind, row: { key: string; error: string; attempts: number; since: string; generation: number }): BlockedEffect {
+export function blockedItem(kind: EffectKind, row: { key: string; error: string; attempts: number; since: string; generation: number }): BlockedEffect {
   const found = /^blocked:([a-z_]+):/.exec(row.error)?.[1] ?? ''
   return { kind, key: row.key, class: ERROR_CLASSES.has(found) ? found : 'unknown', attempts: row.attempts, since: row.since, attemptUnknown: row.error.endsWith(` ${ATTEMPT_UNKNOWN}`) || row.error === ATTEMPT_UNKNOWN, generation: row.generation }
 }

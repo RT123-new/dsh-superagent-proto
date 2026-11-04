@@ -214,6 +214,24 @@ it('words an ended Ticket by its outcome, on its row and its page, with a person
   expect(all('.dt-hint').map(hint => hint.textContent).find(line => line?.includes(en['outcome.stopped']))).toMatch(/Stopped by a person: 不需要了$/)
 })
 
+it('paginates a long blocked-effects history instead of loading it unbounded', async () => {
+  server.blockedEffects = Array.from({ length: 450 }, (_, i) => ({ kind: 'relay', key: `r${i}`, class: 'permanent', attempts: 1, since: '2026-09-22T00:00:00Z', attemptUnknown: false, generation: 1 }))
+  await mount()
+  await click(zh['tab.execution'])
+  expect(all('.dt-blocked-effects li')).toHaveLength(200)                                  // first bounded page only
+  expect(server.requests.filter(request => request.path.startsWith('effects/blocked'))).toHaveLength(1)
+  expect(text()).toContain('relay · r199')
+  expect(text()).not.toContain('relay · r200')
+  expect(server.blockedEffects.length).toBe(450)
+  await click(zh.loadMore)
+  expect(all('.dt-blocked-effects li')).toHaveLength(400)                                  // appended, first page kept
+  expect(text()).toContain('relay · r399')
+  await click(zh.loadMore)
+  expect(all('.dt-blocked-effects li')).toHaveLength(450)
+  expect(text()).toContain('relay · r449')
+  expect(all('button').some(button => button.textContent?.includes(zh.loadMore))).toBe(false)  // exhausted: no more pages
+})
+
 it('sends one stop for a double click on Confirm', async () => {
   at({ page: 'execution', id: 't1' })
   await mount()
