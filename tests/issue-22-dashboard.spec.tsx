@@ -45,3 +45,13 @@ it('supports the existing Chinese locale without raw translation keys', () => {
   expect(node.textContent).not.toContain('metricsStage.')
   expect(node.textContent).not.toContain('Not observed')
 })
+
+it('separates failed attempts from success quantiles', () => {
+  const metrics = new Metrics()
+  metrics.observe('workspace_prepare', 'internal', 500, 'failure')
+  const node = render(metrics)
+  expect(node.textContent).toContain('Failed attempt durations (separate from success samples)')
+  expect(node.querySelectorAll('table')).toHaveLength(2)
+  expect(node.querySelector('table')?.textContent).not.toContain('500')
+  expect(node.querySelectorAll('table')[1]?.textContent).toContain('500')
+})

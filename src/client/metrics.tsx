@@ -10,6 +10,7 @@ const number = (v: number | null | undefined, unknown: string, suffix = '') => v
 export function MetricsPanel({ metrics: m, t }: { metrics: MetricsSnapshot; t: T }) {
   const unknown = t('metricsUnknown')
   const observed = Object.entries(m.durations)
+  const failed = Object.entries(m.failedDurations)
   const rows = STAGES.flatMap<[string, DurationSummary | undefined]>(stage => {
     const samples = observed.filter(([key]) => key.split('|')[0] === stage)
     return samples.length ? samples : [[`${stage}|-`, undefined]]
@@ -25,6 +26,10 @@ export function MetricsPanel({ metrics: m, t }: { metrics: MetricsSnapshot; t: T
         <td>{v ? v.count : unknown}</td><td>{number(v?.p50Ms, unknown)}</td><td>{number(v?.p95Ms, unknown)}</td></tr>)}</tbody>
     </table></div>
     <Hint>{t('metricsScroll')}</Hint><Hint>{t('metricsCoverage')}</Hint>
+    {failed.length > 0 && <><h3>{t('metricsFailedAttempts')}</h3><div className="dt-metrics-scroll" tabIndex={0} role="region" aria-label={t('metricsFailedAttempts')}><table className="dt-metrics-table">
+      <thead><tr><th>{t('metricsStage')}</th><th>{t('metricsSamples')}</th><th>P50 (ms)</th><th>P95 (ms)</th></tr></thead>
+      <tbody>{failed.map(([key, v]) => <tr key={key}><th scope="row">{label(key.split('|')[0]!)} / {key.split('|')[1]}</th>
+        <td>{v.count}</td><td>{number(v.p50Ms, unknown)}</td><td>{number(v.p95Ms, unknown)}</td></tr>)}</tbody></table></div></>}
     <h3>{t('metricsQueues')}</h3>
     {Object.entries(m.queues).length ? <ul className="dt-metrics-list">{Object.entries(m.queues).map(([key, q]) => <li key={key}>
       {t(({ eval: 'metricsQueueEval', assignment: 'metricsQueueAssignment', effect: 'metricsQueueEffect' } as const)[key as 'eval'] ?? 'metricsQueueOther')}

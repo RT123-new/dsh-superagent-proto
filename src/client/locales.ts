@@ -775,17 +775,18 @@ const TEXT = {
   "metricsStage.eval_run": ["评估执行", "Eval run"],
   "metricsStage.decision_to_assignment": ["决策到派工", "Decision to assignment"],
   "metricsStage.slot_wait": ["工作槽等待", "Worker-slot wait"],
-  "metricsStage.workspace_prepare": ["工作区准备（包含失败尝试）", "Workspace preparation (includes failed attempts)"],
+  "metricsStage.workspace_prepare": ["工作区准备", "Workspace preparation"],
   "metricsStage.delivery_to_worker": ["送达工作器确认", "Worker delivery acknowledgement"],
   "metricsStage.worker_turn": ["工作器轮次", "Worker turn"],
   "metricsStage.tool_run": ["命令 / 工具耗时", "Command / tool duration"],
   "metricsStage.report_to_response": ["报告到回复确认", "Report to response acknowledgement"],
   "metricsStage.effect_queue_wait": ["副作用队列等待", "Effect queue wait"],
-  "metricsStage.effect_run": ["副作用尝试耗时（包含失败尝试）", "Effect attempt duration (includes failures)"],
+  "metricsStage.effect_run": ["副作用执行", "Effect run"],
   "metricsStage.other": ["其他", "Other"],
   metricsScroll: ['窄屏可横向滚动表格查看 P95。', 'On narrow panels, scroll the table sideways to see P95.'],
   metricsSlotsUnit: ['工作槽', 'slots'],
   metricsUsageUnknown: ['用量未知的报告（输入缓存读取 / 未缓存输入 / 输出）', 'Reports with unknown usage (cache read / uncached input / output)'],
+  metricsFailedAttempts: ['失败尝试耗时（与成功样本分开）', 'Failed attempt durations (separate from success samples)'],
 } as const satisfies Record<string, readonly [string, string]>
 export type DshSuperagentKey = keyof typeof TEXT
 const language = (index: 0 | 1) => Object.fromEntries(Object.entries(TEXT).map(([key, pair]) => [key, pair[index]])) as Record<DshSuperagentKey, string>
