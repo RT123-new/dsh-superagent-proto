@@ -1,0 +1,67 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/review/repo[39m
+
+ [31m❯[39m tests/issue-22-dashboard.spec.tsx [2m([22m[2m6 tests[22m[2m | [22m[31m3 failed[39m[2m)[22m[32m 96[2mms[22m[39m
+   [32m✓[39m shows unavailable telemetry as unknown, including all unobserved mandated stages, without a zero-cost success claim[32m 31[2mms[22m[39m
+   [32m✓[39m labels partial queues and component tokens honestly, with nearest-rank recent-window durations[32m 20[2mms[22m[39m
+   [32m✓[39m supports the existing Chinese locale without raw translation keys[32m 8[2mms[22m[39m
+[31m   [31m×[31m separates failed duration observations from successful quantiles and does not hide them[39m[32m 17[2mms[22m[39m
+[31m   [31m×[31m shows observed stages beyond the twelve initial rows instead of silently dropping their data[39m[32m 12[2mms[22m[39m
+[31m   [31m×[31m exposes unknown cache-write coverage as well as known usage subtotal[39m[32m 7[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 3 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/issue-22-dashboard.spec.tsx[2m > [22mseparates failed duration observations from successful quantiles and does not hide them
+[31m[1mAssertionError[22m: expected 'Runtime observationsThis process only…' to contain 'Successful attempts'[39m
+
+Expected: [32m"[7mSuccessful attempt[27ms"[39m
+Received: [31m"[7mRuntime observationsThis process only; resets on restart. Quantiles use the latest 1024 samples per stage, not lifetime samples.2026-11-04T06:56:46.775Z → 2026-11-04T06:56:46.775ZStage / sourceSamplesP50 (ms)P95 (ms)Local receipt to eval queue / -Not observedNot observedNot observedEval queue wait / -Not observedNot observedNot observedEval run / -Not observedNot observedNot observedDecision to assignment / -Not observedNot observedNot observedWorker-slot wait / -Not observedNot observedNot observedWorkspace preparation (includes failed attempts) / github11010Worker delivery acknowledgement / -Not observedNot observedNot observedWorker turn / -Not observedNot observedNot observedCommand / tool duration / -Not observedNot observedNot observedReport to response acknowledgement / -Not observedNot observedNot observedEffect queue wait / -Not observedNot observedNot observedEffect attempt duration (includes failures) / -Not observedNot observedNot observedOn narrow panels, scroll the table sideways to see P95.No samples does not mean zero latency or an absent stage. Command duration includes process and network time; it is not isolated API network latency.Queue depth / oldest waitNo observed samplesWorker-slot utilizationNo observed samplesObserved usage (not total usage)Only received usage reports are counted; this does not prove tasks completed correctly. Missing usage and unknown prices are not zero.Uncached inputNot observedCache readNot observedOutputNot observedCache writeNot observedReasoning (reported separately)Not observedKnown cost subtotal (USD)Not observedReports with unknown cost0Reports with unknown usage (cache read / uncached input / output): 0 / 0 / 0Observed countersNo observed sample[27ms"[39m
+
+[36m [2m❯[22m tests/issue-22-dashboard.spec.tsx:[2m53:28[22m[39m
+    [90m 51|[39m   metrics[33m.[39m[34mobserve[39m([32m'workspace_prepare'[39m[33m,[39m [32m'github'[39m[33m,[39m [34m900[39m[33m,[39m [32m'failure'[39m)
+    [90m 52|[39m   [35mconst[39m node [33m=[39m [34mrender[39m(metrics)
+    [90m 53|[39m   [34mexpect[39m(node[33m.[39mtextContent)[33m.[39m[34mtoContain[39m([32m'Successful attempts'[39m)
+    [90m   |[39m                            [31m^[39m
+    [90m 54|[39m   [34mexpect[39m(node[33m.[39mtextContent)[33m.[39m[34mtoContain[39m([32m'Failed / cancelled attempts'[39m)
+    [90m 55|[39m   [34mexpect[39m(node[33m.[39mtextContent)[33m.[39m[34mtoContain[39m([32m'900'[39m)
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-22-dashboard.spec.tsx[2m > [22mshows observed stages beyond the twelve initial rows instead of silently dropping their data
+[31m[1mAssertionError[22m: expected 'Runtime observationsThis process only…' to contain '12345'[39m
+
+Expected: [32m"12345"[39m
+Received: [31m"Runtime observationsThis process only; resets on restart. Quantiles use the latest 1024 samples per stage, not lifetime samples.2026-11-04T06:56:46.791Z → 2026-11-04T06:56:46.791ZStage / sourceSamplesP50 (ms)P95 (ms)Local receipt to eval queue / -Not observedNot observedNot observedEval queue wait / -Not observedNot observedNot observedEval run / -Not observedNot observedNot observedDecision to assignment / -Not observedNot observedNot observedWorker-slot wait / -Not observedNot observedNot observedWorkspace preparation (includes failed attempts) / -Not observedNot observedNot observedWorker delivery acknowledgement / -Not observedNot observedNot observedWorker turn / -Not observedNot observedNot observedCommand / tool duration / -Not observedNot observedNot observedReport to response acknowledgement / -Not observedNot observedNot observedEffect queue wait / -Not observedNot observedNot observedEffect attempt duration (includes failures) / -Not observedNot observedNot observedOn narrow panels, scroll the table sideways to see P95.No samples does not mean zero latency or an absent stage. Command duration includes process and network time; it is not isolated API network latency.Queue depth / oldest waitNo observed samplesWorker-slot utilizationNo observed samplesObserved usage (not total usage)Only received usage reports are counted; this does not prove tasks completed correctly. Missing usage and unknown prices are not zero.Uncached inputNot observedCache readNot observedOutputNot observedCache writeNot observedReasoning (reported separately)Not observedKnown cost subtotal (USD)Not observedReports with unknown cost0Reports with unknown usage (cache read / uncached input / output): 0 / 0 / 0Observed countersNo observed samples"[39m
+
+[36m [2m❯[22m tests/issue-22-dashboard.spec.tsx:[2m62:28[22m[39m
+    [90m 60|[39m   metrics[33m.[39m[34mobserve[39m([32m'other'[39m[33m,[39m [32m'github'[39m[33m,[39m [34m12345[39m)
+    [90m 61|[39m   [35mconst[39m node [33m=[39m [34mrender[39m(metrics)
+    [90m 62|[39m   [34mexpect[39m(node[33m.[39mtextContent)[33m.[39m[34mtoContain[39m([32m'12345'[39m)
+    [90m   |[39m                            [31m^[39m
+    [90m 63|[39m })
+    [90m 64|[39m it('exposes unknown cache-write coverage as well as known usage subtot…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-22-dashboard.spec.tsx[2m > [22mexposes unknown cache-write coverage as well as known usage subtotal
+[31m[1mAssertionError[22m: expected 'Runtime observationsThis process only…' to contain 'Cache-write coverage: 1 / 2 reports'[39m
+
+Expected: [32m"[7mCache-write coverage[27m: [7m1[27m / [7m2 report[27ms"[39m
+Received: [31m"[7mRuntime observationsThis process only; resets on restart. Quantiles use the latest 1024 samples per stage, not lifetime samples.2026-11-04T06:56:46.804Z → 2026-11-04T06:56:46.804ZStage / sourceSamplesP50 (ms)P95 (ms)Local receipt to eval queue / -Not observedNot observedNot observedEval queue wait / -Not observedNot observedNot observedEval run / -Not observedNot observedNot observedDecision to assignment / -Not observedNot observedNot observedWorker-slot wait / -Not observedNot observedNot observedWorkspace preparation (includes failed attempts) / -Not observedNot observedNot observedWorker delivery acknowledgement / -Not observedNot observedNot observedWorker turn / -Not observedNot observedNot observedCommand / tool duration / -Not observedNot observedNot observedReport to response acknowledgement / -Not observedNot observedNot observedEffect queue wait / -Not observedNot observedNot observedEffect attempt duration (includes failures) / -Not observedNot observedNot observedOn narrow panels, scroll the table sideways to see P95.No samples does not mean zero latency or an absent stage. Command duration includes process and network time; it is not isolated API network latency.Queue depth / oldest waitNo observed samplesWorker-slot utilizationNo observed samplesObserved usage (not total usage)Only received usage reports are counted; this does not prove tasks completed correctly. Missing usage and unknown prices are not zero.Uncached input7Cache read5Output9Cache write0Reasoning (reported separately)Not observedKnown cost subtotal (USD)0.000006Reports with unknown cost1Reports with unknown usage (cache read / uncached input / output)[27m: [7m0[27m / [7m0 / 0Observed countersNo observed sample[27ms"[39m
+
+[36m [2m❯[22m tests/issue-22-dashboard.spec.tsx:[2m69:28[22m[39m
+    [90m 67|[39m   metrics.recordUsage({ inputCacheHit: 4, inputCacheMiss: 5, output: 6…
+    [90m 68|[39m   [35mconst[39m node [33m=[39m [34mrender[39m(metrics)
+    [90m 69|[39m   expect(node.textContent).toContain('Cache-write coverage: 1 / 2 repo…
+    [90m   |[39m                            [31m^[39m
+    [90m 70|[39m   [34mexpect[39m(node[33m.[39mtextContent)[33m.[39m[34mtoContain[39m([32m'Known cost subtotal'[39m)
+    [90m 71|[39m   [34mexpect[39m(node[33m.[39mtextContent)[33m.[39m[34mtoContain[39m([32m'Reports with unknown cost1'[39m)
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m3 passed[39m[22m[90m (6)[39m
+[2m   Start at [22m 06:56:45
+[2m   Duration [22m 864ms[2m (transform 160ms, setup 0ms, import 231ms, tests 96ms, environment 440ms)[22m
+

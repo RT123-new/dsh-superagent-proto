@@ -1,0 +1,122 @@
+$ vitest run
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/review/repo[39m
+
+(node:7129) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/sources.spec.ts [2m([22m[2m72 tests[22m[2m)[22m[33m 3825[2mms[22m[39m
+     [33m[2m✓[22m[39m drops the events it reads once the Source is off [33m 1362[2mms[22m[39m
+     [33m[2m✓[22m[39m starts the consumer again after it exits, and is ready once the next run listens [33m 1059[2mms[22m[39m
+(node:7182) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/runtime-concurrency.spec.ts [2m([22m[2m56 tests[22m[2m)[22m[33m 8078[2mms[22m[39m
+     [33m[2m✓[22m[39m holds a delivery that reached a worker while a hand-off stopped its subagents until the stop ended [33m 4041[2mms[22m[39m
+ [32m✓[39m tests/service-script.spec.ts [2m([22m[2m15 tests[22m[2m)[22m[33m 5333[2mms[22m[39m
+   [33m[2m✓[22m[39m restarts the service, and a restart whose graceful stop timed out does not keep recovery off [33m 1151[2mms[22m[39m
+   [33m[2m✓[22m[39m exits 1 when the started service does not answer in time, and leaves its process running [33m 2060[2mms[22m[39m
+   [33m[2m✓[22m[39m does not signal a process that took the recorded service PID, and keeps a stop that timed out [33m 1097[2mms[22m[39m
+(node:7322) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/runtime.spec.ts [2m([22m[2m91 tests[22m[2m)[22m[33m 4030[2mms[22m[39m
+ [32m✓[39m tests/panel-source.spec.tsx [2m([22m[2m15 tests[22m[2m)[22m[33m 1171[2mms[22m[39m
+(node:7343) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/tools.spec.ts [2m([22m[2m26 tests[22m[2m)[22m[33m 1125[2mms[22m[39m
+ [32m✓[39m tests/panel-trigger.spec.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 971[2mms[22m[39m
+   [33m[2m✓[22m[39m reads back the Triggers between the newest page and the earlier ones it shows, once more arrive than a page holds [33m 486[2mms[22m[39m
+ [32m✓[39m tests/panel-eval.spec.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 928[2mms[22m[39m
+(node:7370) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/followups.spec.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 864[2mms[22m[39m
+ [32m✓[39m tests/panel-execution.spec.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 735[2mms[22m[39m
+ [32m✓[39m tests/panel-deployment.spec.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 728[2mms[22m[39m
+ [32m✓[39m tests/panel-prompts.spec.tsx [2m([22m[2m15 tests[22m[2m)[22m[33m 709[2mms[22m[39m
+ [32m✓[39m tests/panel-settings.spec.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 701[2mms[22m[39m
+ [32m✓[39m tests/panel-overview.spec.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 538[2mms[22m[39m
+ [32m✓[39m tests/panel-panel.spec.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 356[2mms[22m[39m
+(node:7429) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/effects.spec.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 343[2mms[22m[39m
+(node:7436) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/model-surface.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 273[2mms[22m[39m
+(node:7447) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/migration.spec.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 243[2mms[22m[39m
+(node:7454) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+[90mstdout[2m | tests/issue-22-http-review.spec.ts[2m > [22m[2mrecords bounded populated snapshot payload size and serialization overhead without raw queue IDs
+[22m[39m{"scenario":"48 successful + 48 failed stage/source series, 1024 samples each, 3000 tracked queue IDs","bytes":11296,"averageSerializationMs":1.15716273,"visiblePayloadBytesPerSecondAt5s":2259.2}
+
+ [32m✓[39m tests/issue-22-http-review.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 181[2mms[22m[39m
+(node:7465) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/settings.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 164[2mms[22m[39m
+ [32m✓[39m tests/core-engine.spec.ts [2m([22m[2m113 tests[22m[2m)[22m[32m 152[2mms[22m[39m
+(node:7483) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/views.spec.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 126[2mms[22m[39m
+(node:7490) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/store.spec.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 124[2mms[22m[39m
+(node:7497) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/prompts.spec.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 94[2mms[22m[39m
+ [32m✓[39m tests/issue-9-metrics.spec.ts [2m([22m[2m20 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+(node:7511) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/health.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 116[2mms[22m[39m
+ [32m✓[39m tests/client.spec.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 92[2mms[22m[39m
+ [32m✓[39m tests/environment.spec.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 98[2mms[22m[39m
+ [32m✓[39m tests/issue-5-preparation-cancellation.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 352[2mms[22m[39m
+(node:7585) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/outbox.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 81[2mms[22m[39m
+ [32m✓[39m tests/issue-22-dashboard.spec.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 73[2mms[22m[39m
+(node:7604) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/queue.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 93[2mms[22m[39m
+ [32m✓[39m tests/deployment.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 91[2mms[22m[39m
+ [32m✓[39m tests/policy.spec.ts [2m([22m[2m328 tests[22m[2m)[22m[32m 76[2mms[22m[39m
+ [32m✓[39m tests/controls.spec.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 61[2mms[22m[39m
+ [32m✓[39m tests/index.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 57[2mms[22m[39m
+ [32m✓[39m tests/commands.spec.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+(node:7690) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/timeline.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 35[2mms[22m[39m
+ [32m✓[39m tests/delivery.spec.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 32[2mms[22m[39m
+ [32m✓[39m tests/styles.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m tests/assessment.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+ [32m✓[39m tests/bundle-patch.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+ [32m✓[39m tests/feishu-image.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+ [32m✓[39m tests/role-models.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m tests/feishu-read.spec.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m tests/registry.spec.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [32m✓[39m tests/cards.spec.ts [2m([22m[2m55 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/issue-4-workspace-preparation.spec.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 86[2mms[22m[39m
+ [32m✓[39m tests/retry-health.spec.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/issue-4-5-adversarial.spec.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 263[2mms[22m[39m
+ [32m✓[39m tests/github-read.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/http.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+(node:7807) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/background.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/admission-context.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/docs.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/navigation.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/issue-9-adversarial.spec.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/class-docs.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/draft.spec.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/passes.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/stage.spec.ts [2m([22m[2m31 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/locales.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/prompt-config.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m tests/markdown.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m tests/marks.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m tests/cache.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m66 passed[39m[22m[90m (66)[39m
+[2m      Tests [22m [1m[32m1269 passed[39m[22m[90m (1269)[39m
+[2m   Start at [22m 07:01:06
+[2m   Duration [22m 53.91s[2m (transform 2.18s, setup 0ms, import 9.00s, tests 33.76s, environment 5.53s)[22m
+

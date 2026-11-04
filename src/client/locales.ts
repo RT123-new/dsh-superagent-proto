@@ -781,12 +781,15 @@ const TEXT = {
   "metricsStage.tool_run": ["命令 / 工具耗时", "Command / tool duration"],
   "metricsStage.report_to_response": ["报告到回复确认", "Report to response acknowledgement"],
   "metricsStage.effect_queue_wait": ["副作用队列等待", "Effect queue wait"],
-  "metricsStage.effect_run": ["副作用执行", "Effect run"],
+  "metricsStage.effect_run": ["副作用尝试耗时", "Effect attempt duration"],
   "metricsStage.other": ["其他", "Other"],
+  metricsSuccess: ['成功尝试', 'Successful attempts'],
+  metricsFailure: ['失败 / 已取消尝试', 'Failed / cancelled attempts'],
+  metricsQueueCoverage: ['标记不完整的深度可能只是下界；年龄只覆盖已跟踪的等待项。', 'Incomplete depth may be a lower bound; age covers tracked waiting items only.'],
+  metricsExtraCoverage: ['缓存写入 / 推理的报告覆盖数：不可用；显示的是已知分量小计。', 'Cache-write / reasoning report coverage: not available; displayed values are known component subtotals.'],
   metricsScroll: ['窄屏可横向滚动表格查看 P95。', 'On narrow panels, scroll the table sideways to see P95.'],
   metricsSlotsUnit: ['工作槽', 'slots'],
   metricsUsageUnknown: ['用量未知的报告（输入缓存读取 / 未缓存输入 / 输出）', 'Reports with unknown usage (cache read / uncached input / output)'],
-  metricsFailedAttempts: ['失败尝试耗时（与成功样本分开）', 'Failed attempt durations (separate from success samples)'],
 } as const satisfies Record<string, readonly [string, string]>
 export type DshSuperagentKey = keyof typeof TEXT
 const language = (index: 0 | 1) => Object.fromEntries(Object.entries(TEXT).map(([key, pair]) => [key, pair[index]])) as Record<DshSuperagentKey, string>

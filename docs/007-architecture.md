@@ -383,6 +383,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/client/provider.tsx` | What every page reads from its host: copy, calls, navigation, notices, the state poll, and `restart`, which reads the state quickly while dsh-superagent restarts |
 | `src/client/api.ts` | Calls and polls of the management API, typed by `src/app/api.ts`, and the Decision filters of the Eval status |
 | `src/client/route.ts` | The tabs, the settings groups, the typed routes that `parseRoute` reads, and the route memory with the settings group opened last |
+| `src/client/metrics.tsx` | Process-local metrics view, separate success/failure samples, partial coverage labels; no additional polling |
 | `src/client/overview.tsx` | The overview |
 | `src/client/source.tsx`, `trigger.tsx`, `eval.tsx`, `execution.tsx` | One file per stage: its status, and its settings where it has some |
 | `src/client/thread.tsx`, `ticket.tsx` | The record pages: a Thread with its timeline, and a Ticket with its authorization, Inputs and Assignments |
@@ -427,6 +428,8 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/queue.spec.ts` | The Runtime's work through the effect queue, and what earlier versions stored |
 | `tests/followups.spec.ts` | A person's follow-up on a Ticket's Thread: its notice to the main Session, the tools that act on it, what a burst costs; a worker's hand-back and context follow, and the main Session's note |
 | `tests/health.spec.ts` | One health entry per part, each cleared by its own next success |
+| `tests/issue-22-dashboard.spec.tsx` | Metrics component coverage, outcome separation, unknown usage and locale tests |
+| `tests/issue-22-http-review.spec.ts` | Optional overview metrics adapter serialization, backward compatibility and bounded populated payload measurement |
 | `tests/issue-9-adversarial.spec.ts` | Independent metric reconciliation, validation, bounds and snapshot tests. |
 | `tests/issue-9-metrics.spec.ts` | The metrics collector's quantiles, bounded labels, monotonic timing, slot integrals, queue gauge and unknown-stays-unknown token accounting |
 | `tests/delivery.spec.ts` | `AgentDelivery` |
