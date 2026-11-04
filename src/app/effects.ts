@@ -8,6 +8,7 @@ export const FAILURES_BEFORE_ERROR = 3
 import type { HealthBoard, HealthEntry } from '../infra/health.ts'
 import type { Store } from './store.ts'
 import { Probe } from '../infra/metrics-probe.ts'
+import { errorRecord, retryDecision } from './retry-policy.ts'
 
 export interface EffectPayloads {
   /** Build an Eval's candidate card and relay it to the main Session; the key is the Eval ID. */
@@ -44,6 +45,9 @@ type Task = { kind: EffectKind; key: string; generation: number; done: Promise<v
  * Durable SQLite-backed queue that persists side effects inside command transactions and dispatches them after commit.
  * Coordinates per-kind handlers, concurrency limits, exponential backoff, and health reporting for MasterAssessor, DshExecutor, Sessions, and Outbox.
  */
+/** How often a parked (blocked) row is rechecked; it is never discarded, and re-enqueueing its key rearms it. */
+export const BLOCKED_RECHECK_MS = 3600_000
+
 export class Effects {
   private readonly handlers = new Map<EffectKind, Handler<never>>()
   private readonly health = new Map<EffectKind, HealthEntry>()
@@ -55,7 +59,9 @@ export class Effects {
   /** Effects run only between `start` and `drain`; rows queued before `start` wait, such as while setup is incomplete. */
   private started = false
   private stopped = false
-  constructor(private readonly store: Store, private readonly board: Pick<HealthBoard, 'claim'>, private readonly now = () => Date.now(), private readonly probe: Probe = new Probe(undefined)) {
+  constructor(private readonly store: Store, private readonly board: Pick<HealthBoard, 'claim'>, private readonly now = () => Date.now(), private readonly probe: Probe = new Probe(undefined),
+    /** Randomness source for retry jitter; tests inject a seeded PRNG for deterministic schedules. */
+    private readonly rng: () => number = Math.random) {
     this.seq = Number(store.db.prepare('SELECT IFNULL(MAX(seq), 0) AS seq FROM effect').get()?.seq ?? 0)
   }
   /** Upserts an effect in the caller's transaction, coalescing with any waiting row of the same kind and key while keeping its queue position. */
@@ -157,9 +163,18 @@ export class Effects {
     else if (failure.error instanceof Later) {
       this.store.db.prepare(`UPDATE effect SET due = ? WHERE ${own}`).run(this.now() + handler.retry[0], ...ownRow)
     } else {
-      const delay = Math.min(handler.retry[1], handler.retry[0] * 2 ** Math.min(row.attempts, 16))
-      this.store.db.prepare(`UPDATE effect SET attempts = attempts + 1, error = ?, due = ? WHERE ${own}`)
-        .run(String(failure.error).slice(0, 1000), this.now() + delay, ...ownRow)
+      const decision = retryDecision(failure.error, row.attempts, handler.retry[0], handler.retry[1], this.rng, this.now())
+      if (decision.retry) {
+        // Bounded-jitter exponential backoff (Issue 15): keeps the kind's configured base/max as d_base/d_max.
+        this.store.db.prepare(`UPDATE effect SET attempts = attempts + 1, error = ?, due = ? WHERE ${own}`)
+          .run(errorRecord(failure.error, decision.class), this.now() + decision.delay, ...ownRow)
+      } else {
+        // Permanent/unauthorised/cancelled/programming failures are never silently dropped: park the row visibly
+        // (`blocked:<class>` surfaces in health at once), recheck hourly, and rearm only on explicit re-enqueue,
+        // whose upsert resets attempts and due. Policy-transition effects reach here only via real handler failures.
+        this.store.db.prepare(`UPDATE effect SET attempts = attempts + 1, error = ?, due = ? WHERE ${own}`)
+          .run(`blocked:${decision.class}: ${errorRecord(failure.error, decision.class)}`, this.now() + BLOCKED_RECHECK_MS, ...ownRow)
+      }
     }
     if (!this.stopped) this.report(kind)
   }
@@ -171,7 +186,8 @@ export class Effects {
     const row = this.store.db.prepare(`SELECT COUNT(*) AS waiting, MIN(since) AS since, MAX(attempts) AS attempts,
       (SELECT error FROM effect WHERE kind = ? AND attempts > 0 ORDER BY seq DESC LIMIT 1) AS error FROM effect WHERE kind = ?`).get(kind, kind)
     const waiting = Number(row?.waiting ?? 0)
-    const failing = Number(row?.attempts ?? 0) >= FAILURES_BEFORE_ERROR && !this.handlers.get(kind)?.quiet
+    const blocked = typeof row?.error === 'string' && row.error.startsWith('blocked:')
+    const failing = (Number(row?.attempts ?? 0) >= FAILURES_BEFORE_ERROR || blocked) && !this.handlers.get(kind)?.quiet
     const detail = waiting ? `${waiting} waiting since ${String(row?.since)}` : 'Nothing waiting'
     this.health.get(kind)?.set(failing
       ? { state: 'error', detail: `${detail}; the last failure: ${String(row?.error)}`, at: new Date(this.now()).toISOString() }

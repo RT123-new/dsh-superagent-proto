@@ -82,22 +82,30 @@ it('keeps an effect\'s place in its queue when it is queued again with a new pay
   expect(run.mock.calls.map(([, key]) => key)).toEqual(['first', 'second'])
 })
 
-it('retries a failed effect after a delay that doubles up to its maximum, and reports the kind in error after three failures', async () => {
+it('retries a failed effect with bounded-jitter backoff up to its configured maximum, and reports the kind in error after three failures', async () => {
   let fail = true
   const run = vi.fn(async () => { if (fail) throw new Error('session busy') })
   effects.handle('notice', run, { retry: [1000, 3000] })
   effects.enqueue('notice', 'prompts', { value: { prompt_config_saved: 2 }, summary: 'Prompt configuration saved' })
   await effects.idle()
   expect(health.notice).toMatchObject({ state: 'ready', detail: '1 waiting since 2026-09-09T00:00:00.000Z' })
-  for (const wait of [1000, 2000, 3000, 3000]) {
+  const due = () => (store.db.prepare("SELECT due FROM effect WHERE kind = 'notice'").get() as { due: number }).due
+  const delays: number[] = []
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const wait = due() - clock
+    delays.push(wait)
     clock += wait - 1; await effects.idle()
     const calls = run.mock.calls.length
     clock += 1; await effects.idle()
     expect(run).toHaveBeenCalledTimes(calls + 1)
-    if (wait === 2000) expect(health.notice).toMatchObject({ state: 'error', detail: expect.stringContaining('1 waiting since 2026-09-09T00:00:00.000Z; the last failure: Error: session busy') })
+    if (attempt === 2) expect(health.notice).toMatchObject({ state: 'error', detail: expect.stringContaining('1 waiting since 2026-09-09T00:00:00.000Z; the last failure:') })
+    if (attempt === 2) expect(health.notice).toMatchObject({ state: 'error', detail: expect.stringContaining('session busy') })
   }
+  // Bounded jitter: each delay lands in [0.5 * a_n, a_n] with a_n = min(3000, 1000 * 2^n).
+  const a = (n: number) => Math.min(3000, 1000 * 2 ** n)
+  delays.forEach((delay, n) => { expect(delay).toBeGreaterThanOrEqual(0.5 * a(n)); expect(delay).toBeLessThanOrEqual(a(n)) })
   fail = false
-  clock += 3000; await effects.idle()
+  clock = due(); await effects.idle()
   expect(health.notice).toMatchObject({ state: 'ready', detail: 'Nothing waiting' })
   expect(effects.pending('notice')).toBe(false)
 })
