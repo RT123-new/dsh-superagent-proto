@@ -602,6 +602,34 @@ describe('a worker whose work runs in the background', () => {
     await vi.waitFor(() => expect(h.jobs.service.kill).toHaveBeenCalledWith(job, one.sessionId, expect.any(String)))
     expect(h.runtime.store.tickets.get(one.ticket.id)!.inputs).toEqual([expect.objectContaining({ kind: 'text', text: expect.stringContaining('host restarted') })])
   })
+  // Review fault tests (phase 7): ownership of a job left to a person across stop and an in-process restart.
+  it('review: a job left to a person is killed once and by its owner when the ticket is stopped, and the stop frees nothing it still holds', async () => {
+    const one = await handsOff({ state: 'blocked', summary: 'Which color?' })
+    const left = h.jobs.run(one.sessionId, 'pnpm dev')
+    await h.runTool(one.sessionId, 'orchestrator_report', { state: 'blocked', summary: 'Which size?' }); await h.runtime.idle()
+    idle(one.sessionId)
+    await vi.waitFor(() => expect(h.jobs.service.wait).toHaveBeenCalledWith(left, expect.any(Number), one.sessionId, expect.anything()))
+    expect(left).toBeDefined()
+    h.runtime.engine.stopTicket(one.ticket.id); await h.runtime.idle()
+    await vi.waitFor(() => expect(h.jobs.service.kill).toHaveBeenCalledWith(left, one.sessionId, expect.any(String)))
+    expect(h.jobs.service.kill.mock.calls.filter(call => call[0] === left)).toHaveLength(1)
+    await vi.waitFor(() => expect(h.jobs.service.list(one.sessionId).filter(job => job.status === 'running')).toEqual([]))
+  })
+  it('review: an in-process restart kills a job a worker left to a person and does not wake the worker for its end', async () => {
+    const one = await handsOff({ state: 'blocked', summary: 'Which color?' })
+    const left = h.jobs.run(one.sessionId, 'pnpm dev')
+    await h.runTool(one.sessionId, 'orchestrator_report', { state: 'blocked', summary: 'Which size?' }); await h.runtime.idle()
+    idle(one.sessionId)
+    await vi.waitFor(() => expect(h.jobs.service.wait).toHaveBeenCalledWith(left, expect.any(Number), one.sessionId, expect.anything()))
+    const agent = h.agents.get(one.sessionId)!
+    const woken = agent.followup.mock.calls.length
+    h.runtime.executor.resume()
+    await new Promise(resolve => setTimeout(resolve, 20))
+    // Either the job is stopped by the restart, or it still runs with its owner known; report which.
+    const running = h.jobs.service.list(one.sessionId).filter(job => job.id === left && job.status === 'running').length
+    expect({ killed: h.jobs.service.kill.mock.calls.some(call => call[0] === left), running }).toEqual({ killed: true, running: 0 })
+    expect(agent.followup.mock.calls.length).toBe(woken)
+  })
   it('stops a ticket whose worker Session was never created without a health error, and goes on past a failing kill', async () => {
     const settings = h.runtime.store.settings()
     h.runtime.store.saveSettings({ ...settings, executor: { ...settings.executor, maxWorkers: 1 } })
