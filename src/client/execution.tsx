@@ -48,7 +48,7 @@ export function ExecutionStatus({ filter: current, state, reload }: {
         <div className="dt-att-what dt-mono">{t('blockedEffectLine', { kind: item.kind, key: item.key, class: item.class, attempts: item.attempts })}</div>
         {item.attemptUnknown && <Hint>{t('blockedEffectUnknown')}</Hint>}
         <div className="dt-row-meta dt-row-buttons"><ConfirmButton variant="outline" icon="refresh" label={t('rearmEffect')} title={t('rearmEffect')}
-          message={t('rearmEffectConfirm')}
+          message={item.attemptUnknown ? `${t('rearmEffectConfirm')} ${t('blockedEffectUnknown')}` : t('rearmEffectConfirm')}
           onConfirm={async () => { await call('POST effects/:kind/rearm', { kind: item.kind, body: { key: item.key } }); await blocked.reload() }} /></div>
       </div></li>)}</ul></section> : null}
     <LoadState error={error} loading={!data} />

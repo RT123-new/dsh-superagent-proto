@@ -232,6 +232,7 @@ it('final review 2.4: Execution lists blocked background tasks by safe class and
   expect(text()).toContain(zh.blockedEffectUnknown)
   expect(server.requests.some(request => request.path === 'effects/relay/rearm')).toBe(false)
   await click(zh.rearmEffect)
+  expect(text()).toContain(zh.blockedEffectUnknown)                                            // the duplicate warning is in the confirmation too
   expect(server.requests.some(request => request.path === 'effects/relay/rearm')).toBe(false)   // not before the confirmation
   await click(zh.confirm)
   expect(server.requests.find(request => request.path === 'effects/relay/rearm')).toMatchObject({ method: 'POST', body: { key: 'r1' } })
