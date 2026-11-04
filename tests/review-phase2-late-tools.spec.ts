@@ -88,3 +88,15 @@ it('after the ticket ended, orchestrator_trigger_handback on a trigger that reac
   await h!.runTool(sessionId, 'orchestrator_trigger_handback', { trigger_id: triggerId, reason: 'late hand-back' }).catch(() => {})
   expect(handbackState(triggerId)).toBe(before)
 })
+it('ensure failing for a ticket that ended releases the tools it registered', async () => {
+  const { sessionId } = await setup()
+  const ticket = h!.runtime.store.tickets.list()[0]!
+  const sessions = h!.runtime.sessions as unknown as { ensure(id: string, cwd: string, title: string, role: 'worker', authorize: () => void): Promise<Agent> }
+  let ended = false
+  const pending = sessions.ensure(sessionId, ticket.execution?.directory ?? '', ticket.title, 'worker', () => {
+    if (names(sessionId).length > 0 && !ended) { ended = true; h!.runtime.engine.stopTicket(ticket.id); throw new Error('Assignment cancelled') }
+  })
+  await expect(pending).rejects.toThrow('Assignment cancelled')
+  expect(ended).toBe(true)
+  expect(names(sessionId)).toEqual([])
+})
