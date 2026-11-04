@@ -449,6 +449,8 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/stage-d/issue-16-slots.spec.ts` | Stage D Issue 16 measurement: per-state worker slot occupancy, background work holding slots, handoff freeing them, cancellation, crash backoff, person +1 slot, 30-minute background limit |
 | `tests/stage-d/issue-17-concurrency.spec.ts` | Stage D Issue 17 measurement: capacity 3/6/12 throughput and completion distributions, FIFO starvation, slot-refill latency with and without a relay kick, failure injection |
 | `tests/stage-d/issue-18-startup.spec.ts` | Stage D Issue 18 measurement: cold vs warm launches with real prepare, partial-preparation recovery, restart storms, prompt-decoration microbenchmarks |
+| `tests/stage-d/issue-17-slot-refill-kick.spec.ts` | Stage D Issue 17 follow-up, failing-first: the slot-free wake - a quiet turn end or handoff refills a queued launch at once; no dispatch or spin while paused; a cancelled queued launch is not resurrected |
+| `tests/stage-d/issue-17-slot-refill-bench.spec.ts` | Stage D Issue 17 follow-up: paired baseline/variant benchmark of the slot-free wake across capacities and seeds, raw evidence per arm for refill-bench-analyze.mjs |
 | `tests/issue-5-decoration-races.spec.ts` | Skill-scope cancellation, generation-scoped release and concurrent decoration readiness |
 | `tests/issue-5-session-creation-gates.spec.ts` | Cancellation checks across session resolution, workspace creation, create RPC and model initialization |
 | `tests/issue-21-context.spec.ts` | Exact context paging, refresh, isolation, older-correction preservation and honest offline usage fields |
