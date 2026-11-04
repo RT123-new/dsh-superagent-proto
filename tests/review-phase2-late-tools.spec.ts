@@ -66,3 +66,25 @@ it('control: an unrevoked decoration registers the worker tools', async () => {
   await privates().decorate(agent, () => {})
   expect(names(sessionId).length).toBeGreaterThan(0)
 })
+const handbackState = (triggerId: string) => JSON.stringify(h!.runtime.store.triggers.disposition(triggerId) ?? null)
+/** A follow-up on the ticket's Thread reaches the live ticket's worker, which may hand it back. */
+async function withFollowUp() {
+  h = await startRuntime()
+  const first = await h.acceptedTicket(feishu('1', '@bot fix'))
+  const more = feishu('2', '@bot another change', { root_id: 'om_1' })
+  h.runtime.receive(more); await h.runtime.idle()
+  return { ...first, triggerId: more.id }
+}
+it('control: on a live ticket orchestrator_trigger_handback records the hand-back for a trigger that reached the ticket', async () => {
+  const { sessionId, triggerId } = await withFollowUp()
+  await h!.runTool(sessionId, 'orchestrator_trigger_handback', { trigger_id: triggerId, reason: 'beyond this ticket' })
+  expect(handbackState(triggerId)).toContain('beyond this ticket')
+})
+it('after the ticket ended, orchestrator_trigger_handback on a trigger that reached it changes no state', async () => {
+  const { ticket, sessionId, triggerId } = await withFollowUp()
+  h!.runtime.engine.stopTicket(ticket.id)
+  await vi.waitFor(() => expect(h!.runtime.store.tickets.get(ticket.id)!.ended).toBeDefined())
+  const before = handbackState(triggerId)
+  await h!.runTool(sessionId, 'orchestrator_trigger_handback', { trigger_id: triggerId, reason: 'late hand-back' }).catch(() => {})
+  expect(handbackState(triggerId)).toBe(before)
+})
