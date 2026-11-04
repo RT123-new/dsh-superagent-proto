@@ -748,11 +748,19 @@ describe('what a worker read', () => {
     expect(sent()).toBe(2)
   })
   it('counts a message that woke a ticket as read by a later dropped report once a step of its worker took it', async () => {
-    const { one, thanks } = await completed()
+    const { one, thanks, ticket } = await completed()
     // The resumed Assignment's message wakes the worker; its next step takes the note that it resumed and the message.
-    h.runtime.receive(thanks); await h.runtime.idle()
+    h.runtime.receive(thanks)
+    // Condition, not wall-clock: the wake delivery has committed before the report is processed; a dropped report
+    // hands back anything still undelivered, however the read stamp stands (tickets.end).
+    await vi.waitFor(() => expect(ticket().undelivered).toEqual([]))
+    await h.runtime.idle()
     h.step(one.sessionId)
-    await later()
+    // Condition, not wall-clock: the step's read stamp landed before the dropped report is processed.
+    await vi.waitFor(() => {
+      const input = ticket().inputs.find(item => item.kind === 'trigger' && item.triggerId === thanks.id)
+      expect((input as { readAt?: string | null } | undefined)?.readAt).toBeTruthy()
+    })
     await h.runTool(one.sessionId, 'orchestrator_report', { state: 'dropped', summary: 'Nothing to do' })
     await h.runtime.pump(); await h.runtime.idle()
     expect(h.candidates()).not.toContain(thanks.id)

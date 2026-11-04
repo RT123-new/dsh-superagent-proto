@@ -8,7 +8,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 557.811136
+    "wallMs": 563.286616
   },
   {
     "profile": "latency-bound",
@@ -19,7 +19,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 2,
-    "wallMs": 509.7158320000001
+    "wallMs": 544.976158
   },
   {
     "profile": "latency-bound",
@@ -30,7 +30,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 3,
-    "wallMs": 514.9059439999999
+    "wallMs": 556.794034
   },
   {
     "profile": "latency-bound",
@@ -41,7 +41,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 3,
-    "wallMs": 495.9822180000001
+    "wallMs": 530.3221720000001
   },
   {
     "profile": "latency-bound",
@@ -52,7 +52,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 461.8866039999998
+    "wallMs": 499.4844670000002
   },
   {
     "profile": "latency-bound",
@@ -63,7 +63,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 2,
-    "wallMs": 507.19622900000013
+    "wallMs": 527.6177250000001
   },
   {
     "profile": "latency-bound",
@@ -74,7 +74,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 3,
-    "wallMs": 486.6874630000002
+    "wallMs": 501.3425699999998
   },
   {
     "profile": "latency-bound",
@@ -85,7 +85,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 3,
-    "wallMs": 489.8466500000004
+    "wallMs": 528.1550029999999
   },
   {
     "profile": "latency-bound",
@@ -96,7 +96,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 459.3872359999996
+    "wallMs": 480.3435479999998
   },
   {
     "profile": "latency-bound",
@@ -107,7 +107,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 2,
-    "wallMs": 465.30301899999995
+    "wallMs": 503.7458319999996
   },
   {
     "profile": "latency-bound",
@@ -118,7 +118,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 3,
-    "wallMs": 465.2896549999996
+    "wallMs": 497.3778050000001
   },
   {
     "profile": "latency-bound",
@@ -129,7 +129,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 3,
-    "wallMs": 474.79867300000024
+    "wallMs": 502.34415400000034
   },
   {
     "profile": "latency-bound",
@@ -140,7 +140,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 450.0291590000006
+    "wallMs": 482.69778700000006
   },
   {
     "profile": "latency-bound",
@@ -151,7 +151,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 2,
-    "wallMs": 467.16805999999997
+    "wallMs": 489.8045919999995
   },
   {
     "profile": "latency-bound",
@@ -162,7 +162,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 3,
-    "wallMs": 468.07878300000084
+    "wallMs": 521.8821250000001
   },
   {
     "profile": "latency-bound",
@@ -173,7 +173,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 3,
-    "wallMs": 516.4708720000017
+    "wallMs": 521.4104919999991
   },
   {
     "profile": "latency-bound",
@@ -184,7 +184,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 441.30555300000015
+    "wallMs": 464.1097370000007
   },
   {
     "profile": "latency-bound",
@@ -195,7 +195,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 2,
-    "wallMs": 461.5499409999993
+    "wallMs": 490.69909200000075
   },
   {
     "profile": "latency-bound",
@@ -206,7 +206,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 3,
-    "wallMs": 464.9801210000005
+    "wallMs": 477.51018900000054
   },
   {
     "profile": "latency-bound",
@@ -217,7 +217,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 3,
-    "wallMs": 441.5749139999989
+    "wallMs": 485.5620119999985
   },
   {
     "profile": "rate-bound",
@@ -228,7 +228,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 453.7938180000001
+    "wallMs": 461.4558020000004
   },
   {
     "profile": "rate-bound",
@@ -239,7 +239,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 455.86877000000095
+    "wallMs": 480.6623380000001
   },
   {
     "profile": "rate-bound",
@@ -250,7 +250,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 450.25991299999987
+    "wallMs": 475.54870200000005
   },
   {
     "profile": "rate-bound",
@@ -261,7 +261,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 460.5139959999997
+    "wallMs": 483.93205300000045
   },
   {
     "profile": "rate-bound",
@@ -272,7 +272,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 456.6212630000009
+    "wallMs": 470.46024899999975
   },
   {
     "profile": "rate-bound",
@@ -283,7 +283,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 440.85911699999997
+    "wallMs": 465.6410500000002
   },
   {
     "profile": "rate-bound",
@@ -294,7 +294,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 444.2191329999987
+    "wallMs": 481.23022499999934
   },
   {
     "profile": "rate-bound",
@@ -305,7 +305,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 469.84010900000067
+    "wallMs": 479.73433900000055
   },
   {
     "profile": "rate-bound",
@@ -316,7 +316,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 462.77049799999986
+    "wallMs": 456.09883999999875
   },
   {
     "profile": "rate-bound",
@@ -327,7 +327,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 462.07308399999965
+    "wallMs": 459.79002700000274
   },
   {
     "profile": "rate-bound",
@@ -338,7 +338,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 458.5454060000011
+    "wallMs": 476.5835769999976
   },
   {
     "profile": "rate-bound",
@@ -349,7 +349,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 443.6984599999996
+    "wallMs": 461.8916070000014
   },
   {
     "profile": "rate-bound",
@@ -360,7 +360,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 452.70164400000067
+    "wallMs": 466.2436600000001
   },
   {
     "profile": "rate-bound",
@@ -371,7 +371,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 455.90407600000253
+    "wallMs": 465.46071499999744
   },
   {
     "profile": "rate-bound",
@@ -382,7 +382,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 442.21040899999934
+    "wallMs": 474.3514839999989
   },
   {
     "profile": "rate-bound",
@@ -393,7 +393,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 451.65345100000195
+    "wallMs": 466.2043270000031
   },
   {
     "profile": "rate-bound",
@@ -404,7 +404,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 431.7516429999996
+    "wallMs": 473.9081909999986
   },
   {
     "profile": "rate-bound",
@@ -415,7 +415,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 448.8434240000024
+    "wallMs": 469.53262299999915
   },
   {
     "profile": "rate-bound",
@@ -426,7 +426,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 448.16019099999903
+    "wallMs": 482.06547599999976
   },
   {
     "profile": "rate-bound",
@@ -437,7 +437,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 435.30756600000313
+    "wallMs": 473.55264100000204
   },
   {
     "profile": "failure-burst",
@@ -448,7 +448,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 1,
-    "wallMs": 434.82698000000164
+    "wallMs": 457.3886280000006
   },
   {
     "profile": "failure-burst",
@@ -459,7 +459,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 2,
-    "wallMs": 460.8264989999989
+    "wallMs": 480.6073350000006
   },
   {
     "profile": "failure-burst",
@@ -470,7 +470,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 3,
-    "wallMs": 445.9117040000019
+    "wallMs": 451.56246699999974
   },
   {
     "profile": "failure-burst",
@@ -481,7 +481,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 3,
-    "wallMs": 449.03929100000096
+    "wallMs": 454.78463900000133
   },
   {
     "profile": "failure-burst",
@@ -492,7 +492,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 1,
-    "wallMs": 446.1898110000002
+    "wallMs": 453.2923570000021
   },
   {
     "profile": "failure-burst",
@@ -503,7 +503,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 2,
-    "wallMs": 436.1254310000004
+    "wallMs": 439.7908889999999
   },
   {
     "profile": "failure-burst",
@@ -514,7 +514,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 3,
-    "wallMs": 427.0467229999995
+    "wallMs": 453.84657100000186
   },
   {
     "profile": "failure-burst",
@@ -525,7 +525,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 3,
-    "wallMs": 417.7945780000009
+    "wallMs": 462.21855199999845
   },
   {
     "profile": "failure-burst",
@@ -536,7 +536,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 1,
-    "wallMs": 410.2004190000007
+    "wallMs": 443.40876800000115
   },
   {
     "profile": "failure-burst",
@@ -547,7 +547,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 2,
-    "wallMs": 427.19220900000073
+    "wallMs": 460.8079839999991
   },
   {
     "profile": "failure-burst",
@@ -558,7 +558,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 3,
-    "wallMs": 454.4247910000013
+    "wallMs": 444.60678199999893
   },
   {
     "profile": "failure-burst",
@@ -569,7 +569,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 3,
-    "wallMs": 433.4574769999999
+    "wallMs": 427.07936699999846
   },
   {
     "profile": "failure-burst",
@@ -580,7 +580,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 1,
-    "wallMs": 419.2082859999973
+    "wallMs": 429.038789000002
   },
   {
     "profile": "failure-burst",
@@ -591,7 +591,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 2,
-    "wallMs": 432.49353899999915
+    "wallMs": 430.862640000003
   },
   {
     "profile": "failure-burst",
@@ -602,7 +602,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 3,
-    "wallMs": 417.0984300000018
+    "wallMs": 440.41713900000104
   },
   {
     "profile": "failure-burst",
@@ -613,7 +613,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 3,
-    "wallMs": 428.40568399999756
+    "wallMs": 457.6720370000003
   },
   {
     "profile": "failure-burst",
@@ -624,7 +624,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 1,
-    "wallMs": 418.6219349999992
+    "wallMs": 446.019981999998
   },
   {
     "profile": "failure-burst",
@@ -635,7 +635,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 2,
-    "wallMs": 429.63180900000225
+    "wallMs": 502.99209300000075
   },
   {
     "profile": "failure-burst",
@@ -646,7 +646,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 3,
-    "wallMs": 433.3203629999989
+    "wallMs": 449.2584390000011
   },
   {
     "profile": "failure-burst",
@@ -657,7 +657,7 @@
     "stored": 189,
     "failures": 11,
     "maxActive": 3,
-    "wallMs": 441.5181990000019
+    "wallMs": 461.1032010000017
   },
   {
     "profile": "slow-network",
@@ -668,7 +668,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 446.64334400000007
+    "wallMs": 463.29421100000036
   },
   {
     "profile": "slow-network",
@@ -679,7 +679,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 2,
-    "wallMs": 457.4872179999984
+    "wallMs": 460.6912850000008
   },
   {
     "profile": "slow-network",
@@ -690,7 +690,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 4,
-    "wallMs": 441.1725929999957
+    "wallMs": 475.88690900000074
   },
   {
     "profile": "slow-network",
@@ -701,7 +701,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 8,
-    "wallMs": 460.86726199999976
+    "wallMs": 469.3811229999992
   },
   {
     "profile": "slow-network",
@@ -712,7 +712,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 447.79452799999854
+    "wallMs": 449.5122340000016
   },
   {
     "profile": "slow-network",
@@ -723,7 +723,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 2,
-    "wallMs": 444.0174380000026
+    "wallMs": 461.8213839999953
   },
   {
     "profile": "slow-network",
@@ -734,7 +734,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 4,
-    "wallMs": 464.58651900000405
+    "wallMs": 454.83112199999596
   },
   {
     "profile": "slow-network",
@@ -745,7 +745,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 8,
-    "wallMs": 459.54352800000197
+    "wallMs": 463.73061600000074
   },
   {
     "profile": "slow-network",
@@ -756,7 +756,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 447.75959099999454
+    "wallMs": 441.6864740000019
   },
   {
     "profile": "slow-network",
@@ -767,7 +767,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 2,
-    "wallMs": 471.3279739999998
+    "wallMs": 457.2627799999973
   },
   {
     "profile": "slow-network",
@@ -778,7 +778,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 4,
-    "wallMs": 448.8958419999981
+    "wallMs": 448.57146400000056
   },
   {
     "profile": "slow-network",
@@ -789,7 +789,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 8,
-    "wallMs": 455.99065800000244
+    "wallMs": 460.7173410000032
   },
   {
     "profile": "slow-network",
@@ -800,7 +800,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 447.9236860000019
+    "wallMs": 450.303648000001
   },
   {
     "profile": "slow-network",
@@ -811,7 +811,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 2,
-    "wallMs": 448.3191189999998
+    "wallMs": 455.83331100000214
   },
   {
     "profile": "slow-network",
@@ -822,7 +822,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 4,
-    "wallMs": 442.3080360000022
+    "wallMs": 464.55289300000004
   },
   {
     "profile": "slow-network",
@@ -833,7 +833,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 8,
-    "wallMs": 466.4041040000011
+    "wallMs": 462.256475999995
   },
   {
     "profile": "slow-network",
@@ -844,7 +844,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 1,
-    "wallMs": 445.6174009999959
+    "wallMs": 461.2424500000052
   },
   {
     "profile": "slow-network",
@@ -855,7 +855,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 2,
-    "wallMs": 470.7483429999993
+    "wallMs": 469.4576309999975
   },
   {
     "profile": "slow-network",
@@ -866,7 +866,7 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 4,
-    "wallMs": 441.3224410000039
+    "wallMs": 465.9816439999995
   },
   {
     "profile": "slow-network",
@@ -877,6 +877,6 @@
     "stored": 200,
     "failures": 0,
     "maxActive": 8,
-    "wallMs": 453.79181199999584
+    "wallMs": 479.5329720000009
   }
 ]

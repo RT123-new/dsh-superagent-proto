@@ -263,6 +263,14 @@ describe('trusted transport metadata: real provider Retry-After at the gh bounda
     const failure2 = await commandsFor(bad).gh(['api', 'repos/acme/widgets/issues']).catch((error: unknown) => error)
     expect(serverNotBeforeOf(failure2)).toBeUndefined()
   })
+  it('uses the last page header block when a paginated gh api call fails mid-way', async () => {
+    const cli = failingGh("HTTP/2.0 200 OK\r\n\r\n[{\"id\":1}]HTTP/2.0 403 Forbidden\r\nRetry-After: 30\r\n\r\n{\"message\":\"API rate limit exceeded\"}", 'gh: API rate limit exceeded (HTTP 403)')
+    const before = Date.now()
+    const failure = await commandsFor(cli).gh(['api', 'repos/acme/widgets/issues', '--paginate', '--slurp']).catch((error: unknown) => error)
+    const notBefore = serverNotBeforeOf(failure)
+    expect(notBefore).toBeGreaterThanOrEqual(before + 30_000)
+    expect(notBefore).toBeLessThanOrEqual(Date.now() + 30_000)
+  })
   /** A stand-in lark-cli that prints a typed error envelope on stderr (lark-cli >= 1.0.84 contract) and fails. */
   const failingLark = (envelope: string): string => {
     const dir = mkdtempSync(join(tmpdir(), 'fake-lark-')); dirs.push(dir)
@@ -294,14 +302,14 @@ describe('trusted transport metadata: real provider Retry-After at the gh bounda
     const notBefore = serverNotBeforeOf(await larkFor(network).lark(['im', '+messages-reply']).catch((error: unknown) => error))
     expect(notBefore).toBeGreaterThanOrEqual(Date.now() + 11_000)
   })
-  it('requests response headers for single gh api calls (never with --paginate) and strips them from successful JSON', async () => {
+  it('requests response headers for every gh api call and strips each interleaved block from successful paginated JSON', async () => {
     const commands = new Commands(() => deployment, {}, new AbortController().signal)
     const run = vi.spyOn(commands, 'run').mockResolvedValue('HTTP/2.0 200 OK\r\nContent-Type: application/json\r\n\r\n{"ok":true}')
     await expect(commands.gh(['api', 'repos/acme/widgets/issues'])).resolves.toEqual({ ok: true })
     expect(run).toHaveBeenCalledWith('/path/agent-gh', ['api', 'repos/acme/widgets/issues', '--include'], undefined, { responseHeaders: true })
     run.mockClear()
-    run.mockResolvedValue('{"ok":true}')
-    await commands.gh(['api', 'repos/acme/widgets/issues', '--paginate', '--slurp'])
-    expect(run).toHaveBeenCalledWith('/path/agent-gh', ['api', 'repos/acme/widgets/issues', '--paginate', '--slurp'], undefined, { responseHeaders: false })
+    run.mockResolvedValue('HTTP/2.0 200 OK\r\n\r\n[{"id":1}]HTTP/2.0 200 OK\r\n\r\n[{"id":2}]')
+    await expect(commands.gh(['api', 'repos/acme/widgets/issues', '--paginate', '--slurp'])).resolves.toEqual([[{ id: 1 }], [{ id: 2 }]])
+    expect(run).toHaveBeenCalledWith('/path/agent-gh', ['api', 'repos/acme/widgets/issues', '--paginate', '--slurp', '--include'], undefined, { responseHeaders: true })
   })
 })

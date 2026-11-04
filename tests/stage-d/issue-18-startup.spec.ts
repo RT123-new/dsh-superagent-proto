@@ -158,6 +158,7 @@ it('prompt decoration: triggerMessage, batchLine and inputMessage cost per deliv
   const longTrigger = feishu('2', '@bot x'.repeat(5000))
   const link = { source_url: 'https://example.test/msg/1' }
   const batch = Array.from({ length: 50 }, (_, i) => feishu(`${i + 10}`, `@bot item ${i} ` + 'context '.repeat(20)))
+  // Iterations sized for the 5s unit budget on a loaded shared runner; the nsPerOp bound below is the assertion.
   const measure = (name: string, iterations: number, run: () => unknown) => {
     run() // warm
     const t0 = performance.now()
@@ -166,14 +167,14 @@ it('prompt decoration: triggerMessage, batchLine and inputMessage cost per deliv
     return { name, iterations, totalMs: Math.round(ms * 100) / 100, nsPerOp: Math.round(ms * 1e6 / iterations) }
   }
   const results = [
-    measure('triggerMessage', 20_000, () => triggerMessage(trigger, link)),
-    measure('triggerMessage-long-capped', 20_000, () => triggerMessage(longTrigger, link)),
-    measure('triggerMessage-with-reply', 20_000, () => triggerMessage(trigger, link, 'note', longTrigger)),
-    measure('batchLine-x50', 10_000, () => batch.map(batchLine0)),
-    measure('inputMessage-note', 20_000, () => inputMessage({ id: 'i1', kind: 'note', text: 'CI passed', at: '2026-11-04T00:00:00Z' } as never)),
-    measure('inputMessage-trigger', 20_000, () => inputMessage({ id: 'i2', kind: 'trigger', triggerId: trigger.id, at: '2026-11-04T00:00:00Z' } as never,
+    measure('triggerMessage', 2_000, () => triggerMessage(trigger, link)),
+    measure('triggerMessage-long-capped', 2_000, () => triggerMessage(longTrigger, link)),
+    measure('triggerMessage-with-reply', 2_000, () => triggerMessage(trigger, link, 'note', longTrigger)),
+    measure('batchLine-x50', 1_000, () => batch.map(batchLine0)),
+    measure('inputMessage-note', 2_000, () => inputMessage({ id: 'i1', kind: 'note', text: 'CI passed', at: '2026-11-04T00:00:00Z' } as never)),
+    measure('inputMessage-trigger', 2_000, () => inputMessage({ id: 'i2', kind: 'trigger', triggerId: trigger.id, at: '2026-11-04T00:00:00Z' } as never,
       triggerMessage(trigger, link))),
-    measure('ticketExecution', 20_000, () => ticketExecution(
+    measure('ticketExecution', 2_000, () => ticketExecution(
       { id: 't1', origin: { triggerId: trigger.id, triggerIds: [trigger.id] }, mandate: { strength: 'explicit', basis: {}, policyVersion: 'v1' } } as never,
       { kind: 'accept', name: 'fix-x', scope: 'Fix x', title: 'Fix x' } as never, SettingsSchema.parse({}), '/tmp/state')),
   ]
