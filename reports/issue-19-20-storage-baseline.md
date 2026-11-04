@@ -58,3 +58,8 @@ Median ms (all synchronous, i.e. each blocks the event loop for that long):
 1. Candidate repairs, each failing-first with before/after on these fixtures: windowed triggerStats/flow (index-supported, per-source last-at), keyset pagination, bounded list APIs, search via FTS5 only if measured worthwhile.
 2. Backup/restore + crash + bounded-batch retention prototype as opt-in, off by default, with reference/tombstone checks.
 3. Independent review before integration.
+
+## Backup / crash experiment (scripts/storage/crash-backup.ts, 100k triggers, evidence crash-backup-100000.json)
+- VACUUM INTO 96 ms, sqlite backup API 66 ms (57-59 MB); both copies: integrity_check ok, row counts equal source.
+- 8 SIGKILL trials during 500-row-batch delete (trigger + trigger_thread + disposition in one BEGIN IMMEDIATE txn): every trial integrity ok, deleted counts multiples of batch size, the three tables always in step; rerun resumed to the exact expected 40000 rows.
+- Limits: process kill only, NOT power loss/fsync fault; eligibility predicate in the script is age only (placeholder), not the reference-safe predicate; 100k only so far; backup run while idle (no concurrent writers).
