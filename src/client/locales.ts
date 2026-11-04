@@ -763,6 +763,7 @@ const TEXT = {
   "metricsSlotState.busy": ["运行中", "busy"],
   "metricsSlotState.preparing": ["准备中", "preparing"],
   "metricsSlotNow": ["最近一次记录", "as last recorded"],
+  "metricsSnapshotFailed": ["运行观测快照读取失败，当前没有可显示的观测数据；这不代表一切正常。", "The runtime observation snapshot failed, so no telemetry can be shown. This is not a healthy reading."],
   "metricsNoSamples": ["无观测样本", "No observed samples"],
   "metricsInputMiss": ["未缓存输入", "Uncached input"],
   "metricsInputHit": ["缓存读取", "Cache read"],

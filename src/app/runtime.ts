@@ -182,11 +182,16 @@ export class Runtime extends Service implements SourceHost {
       throw error
     }
   }
-  /** A point-in-time metrics snapshot, or undefined when instrumentation is off. Reconciles authoritative queue lengths just before reading. */
+  /** One metrics reading: `off` (instrumentation disabled), `ok` (with a snapshot) or `failed` (the snapshot threw; counted as metrics_error). Reconciles authoritative queue lengths just before reading. */
+  metricsReading(): { state: 'off' } | { state: 'failed' } | { state: 'ok'; snapshot: MetricsSnapshot & { process: ProcessUsage } } {
+    if (!this.metrics) return { state: 'off' }
+    try { this.effects.measure(); return { state: 'ok', snapshot: { ...this.metrics.snapshot(), process: processUsage() } } }
+    catch { this.probe.count('metrics_error'); return { state: 'failed' } }
+  }
+  /** A point-in-time metrics snapshot, or undefined when instrumentation is off or the snapshot failed (see `metricsReading` to tell them apart). */
   metricsSnapshot(): (MetricsSnapshot & { process: ProcessUsage }) | undefined {
-    if (!this.metrics) return undefined
-    try { this.effects.measure(); return { ...this.metrics.snapshot(), process: processUsage() } }
-    catch { this.probe.count('metrics_error'); return undefined }
+    const reading = this.metricsReading()
+    return reading.state === 'ok' ? reading.snapshot : undefined
   }
   get health(): Readonly<Record<string, Health>> { return this.board.all }
   /** Aborted when dsh-superagent stops or loses its state directory lock, cancelling running reads and subprocesses. */
@@ -241,7 +246,7 @@ export class Runtime extends Service implements SourceHost {
       get deployment() { return setup.deployment },
       get setupProblem() { return setup.problem }, get feishuProblem() { return setup.feishuProblem },
       configured: () => setup.configured(), links: () => runtime.links(), ticketEnvironment: ticket => runtime.ticketEnvironment(ticket),
-      checkSetup: () => { setup.check() }, requestPass: () => { passes.request() }, metricsSnapshot: () => runtime.metricsSnapshot(), models: () => this.ctx.sessionController.modelCatalog() }
+      checkSetup: () => { setup.check() }, requestPass: () => { passes.request() }, metricsSnapshot: () => runtime.metricsSnapshot(), metricsReading: () => runtime.metricsReading(), models: () => this.ctx.sessionController.modelCatalog() }
   }
   /** Idempotent stop; concurrent or repeated calls share the same shutdown promise. */
   stop(): Promise<void> { return this.stopping ??= this.shutdown() }

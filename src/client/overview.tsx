@@ -101,5 +101,6 @@ export function OverviewPage() {
       </div>}
     </Section>
     {data.metrics && <MetricsPanel metrics={data.metrics} t={t} />}
+    {!data.metrics && data.metricsState === 'failed' && <Section title={t('metricsTitle')}><Hint>{t('metricsSnapshotFailed')}</Hint></Section>}
   </>
 }

@@ -32,3 +32,10 @@ State taxonomy, existing sources vs UI (from code):
 Remaining blockers to a full taxonomy: temporary-vs-permanent classification needs the retry workstream's data; model-capacity wait needs a runtime-level state, not durations. Nothing was built from durations.
 
 Phase M5 option: add `metricsState: 'off' | 'ok' | 'failed'` to GET overview (http.ts line ~161 and api.ts line 22), set in Runtime.metricsSnapshot; panel-overview locks would need an updated case for 'failed' only. Not implemented; needs lead agreement because it touches API/runtime.
+
+## Update 3
+
+M5 repaired (lead-authorised, source-grounded): Runtime.metricsReading() returns off | ok | failed; GET overview adds `metricsState`; metricsSnapshot() is unchanged for callers and stays authoritative in the HTTP layer (hosts that override it, as existing tests do, keep working); metricsReading is consulted only to explain a missing snapshot. Overview shows a "snapshot failed ... not a healthy reading" hint only for `failed`; `off` renders as before (existing panel-overview section locks pass). Failing proof: reports/evidence/pr-final/m5-before-fix.txt (metricsState undefined on baseline). Tests: tests/pr-final-metrics-state.spec.tsx (ok/failed/off via the real runtime by swapping the private collector; legacy host without metricsReading). docs/007-architecture.md test table updated (docs.spec requires it).
+
+Arrow-key scroll now proven in headless Chrome: after Tab to the Successful-attempts region and 20 ArrowRight key events, scrollLeft 0 -> 192 (max = 505-313). M9 adversarial test added (copy-not-reference counts, unknown state rejected, backwards clock keeps integrals non-negative, new collector resets to empty).
+Still unverified: real DSH host shell/theme variables and live-host restart (no host available in this environment).

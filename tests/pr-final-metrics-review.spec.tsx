@@ -70,3 +70,20 @@ it('M9: the slot snapshot and panel expose the CURRENT disjoint slot states (bus
   expect(node.textContent).toContain('preparing 1')
   expect(node.textContent).toContain('busy 2')
 })
+it('M9 adversarial: snapshot counts are a copy, bounded to configured states, stable across a backwards clock, and reset with a new collector', () => {
+  let mono = 100
+  const m = new Metrics({ mono: () => mono }); const p = m.slotPool('worker', 2, ['busy', 'preparing'])
+  p.transition(2, { busy: 1, preparing: 0 })
+  const first = m.snapshot()
+  ;(first.slots.worker!.counts as Record<string, number>).busy = 99; (first.slots.worker!.counts as Record<string, number>).injected = 5
+  expect(m.snapshot().slots.worker!.counts).toEqual({ busy: 1, preparing: 0 })
+  expect(() => p.setCount('injected', 1)).toThrow()
+  mono = 10 // backwards clock
+  p.transition(2, { busy: 0, preparing: 2 })
+  const s = m.snapshot().slots.worker!
+  expect(s.counts).toEqual({ busy: 0, preparing: 2 })
+  expect(s.integrals.observedMs).toBeGreaterThanOrEqual(0)
+  expect(s.integrals.capacitySlotMs).toBeGreaterThanOrEqual(0)
+  const fresh = new Metrics({ mono: () => 0 })
+  expect(fresh.snapshot().slots).toEqual({})
+})
