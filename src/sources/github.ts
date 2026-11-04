@@ -166,36 +166,48 @@ async function watch(ctx: SourceContext, signal: AbortSignal): Promise<void> {
   if (!ctx.configured()) { ctx.report('github', health('paused', 'setupPending')); return }
   // A plain start or restart never rearms: a parked read stays blocked until the owner switches the Source off and on.
   // A trusted server not-before from a failure survives a restart: nothing is read inside a known embargo, yet the loop stays responsive to the Source setting and to stopping.
-  let embargo = Number(ctx.state.get(KV.github.notBefore))
-  if (!Number.isFinite(embargo)) embargo = 0
+  let floor = Number(ctx.state.get(KV.github.notBefore))
+  if (!Number.isFinite(floor)) floor = 0
+  let embargo = floor
+  let unsaved = false
   let wasOn = true
   while (!signal.aborted) {
     const config = ctx.config<GithubConfig>(SOURCE)
     if (config && !wasOn) rearmParked(ctx)
     wasOn = !!config
     if (config && embargo > Date.now()) {
-      ctx.report('github', { state: 'paused', detail: `Waiting for the server's not-before (${new Date(Math.min(embargo, 8.64e15)).toISOString()}); nothing is read until then`, at: new Date().toISOString() })
+      // An embargo that could not be saved stays an error for as long as it is held in memory only; each slice retries the write.
+      if (unsaved) {
+        try { ctx.state.set(KV.github.notBefore, String(Math.min(Math.floor(floor), 8.64e15))); unsaved = false } catch { /* still unsaved */ }
+      }
+      const until = new Date(Math.min(embargo, 8.64e15)).toISOString()
+      ctx.report('github', unsaved
+        ? { state: 'error', detail: `The server's not-before (${until}) could not be saved, so a restart would forget it; nothing is read until then`, at: new Date().toISOString() }
+        : { state: 'paused', detail: `Waiting for the server's not-before (${until}); nothing is read until then`, at: new Date().toISOString() })
       await pause(Math.min(embargo - Date.now(), 60_000), signal)
       continue
     }
     try {
-      if (config) { interval = await pollRound(ctx, signal); embargo = 0; clearEmbargo(ctx) }
+      if (config) { interval = await pollRound(ctx, signal); embargo = 0; floor = 0; unsaved = false; clearEmbargo(ctx) }
       else ctx.report('github', health('paused', 'sourceOff'))
       failures = 0; lastError = undefined
     } catch (error) {
       failures += 1; lastError = error
       const notBefore = serverNotBeforeOf(error)
-      let saveFailure: unknown
-      if (notBefore !== undefined && Number.isFinite(notBefore) && notBefore > embargo) embargo = Math.min(notBefore, 8.64e15)
-      if (notBefore !== undefined && Number.isFinite(notBefore) && notBefore > Date.now()) {
-        try { ctx.state.set(KV.github.notBefore, String(Math.min(Math.floor(notBefore), 8.64e15))) } catch (writeError) { saveFailure = writeError }
+      const typed = notBefore !== undefined && Number.isFinite(notBefore) && notBefore > Date.now()
+      if (typed) floor = Math.max(floor, Math.min(notBefore!, 8.64e15))
+      if (typed) {
+        try { ctx.state.set(KV.github.notBefore, String(Math.min(Math.floor(notBefore), 8.64e15))) } catch { unsaved = true }
       }
       const failed = pollFailure(failures, config?.failuresBeforeError ?? 1, error)
       if (!signal.aborted && failed) ctx.report('github', failed)
-      // The embargo is still honoured in this process; only its survival across a restart is lost, so say so.
-      if (saveFailure !== undefined && !signal.aborted) ctx.report('github', { state: 'error', detail: `The server's not-before could not be saved and a restart would forget it: ${String(saveFailure).slice(0, 200)}`, at: new Date().toISOString() })
+      // The embargo is still honoured in this process; only its survival across a restart is lost. The error text is never copied into health.
+      if (unsaved && !signal.aborted) ctx.report('github', { state: 'error', detail: "The server's not-before could not be saved, so a restart would forget it", at: new Date().toISOString() })
     }
-    await pause(pollPauseSeconds(Math.max(interval, ctx.config<GithubConfig>(SOURCE)?.pollSeconds ?? 60), failures, lastError) * 1000, signal)
+    const waitMs = pollPauseSeconds(Math.max(interval, ctx.config<GithubConfig>(SOURCE)?.pollSeconds ?? 60), failures, lastError) * 1000
+    // With a typed server floor the loop above holds and waits in slices, so settings changes, retries of the save and stopping stay responsive.
+    if (config && floor > Date.now()) { embargo = Math.max(embargo, floor, Math.min(Date.now() + waitMs, 8.64e15)); continue }
+    await pause(waitMs, signal)
   }
 }
 interface Round {

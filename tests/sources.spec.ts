@@ -895,7 +895,7 @@ describe('github source', () => {
       if (fail) {
         const set = value.store.set.bind(value.store)
         vi.spyOn(value.store, 'set').mockImplementation(((name: string, v: unknown) => {
-          if (name === 'github-not-before' && fail.writes) throw new Error('disk full')
+          if (name === 'github-not-before' && fail.writes) throw new Error('disk full /home/u/.secret/db token=ghp_HOSTILE')
           return set(name, v as never)
         }) as typeof value.store.set)
       }
@@ -934,15 +934,25 @@ describe('github source', () => {
         await third(); value.store.close()
       } finally { vi.useRealTimers() }
     })
-    it('a failed embargo write keeps the in-process embargo, reports it as an error, and the loop keeps running', async () => {
+    it('a failed embargo write stays an error for the whole embargo with a static message, keeps the in-memory floor, and recovers when the write succeeds', async () => {
       try {
-        const { value, calls, launch } = await arrange({ writes: true })
+        const fail = { writes: true }
+        const { value, calls, launch } = await arrange(fail)
         const first = launch()
         await vi.waitFor(() => expect(calls).toHaveLength(1))
-        await vi.waitFor(() => expect(value.health.github).toMatchObject({ state: 'error', detail: expect.stringContaining('disk full') }))
-        await vi.advanceTimersByTimeAsync(3_000_000)
+        const unsaved = () => expect(value.health.github).toMatchObject({ state: 'error', detail: expect.stringContaining('could not be saved') })
+        await vi.waitFor(unsaved)
+        for (let slice = 0; slice < 5; slice++) {
+          await vi.advanceTimersByTimeAsync(60_000)
+          unsaved()
+          expect(JSON.stringify(value.health.github)).not.toMatch(/disk full|HOSTILE|\/home\/u|secret/)
+        }
         expect(calls).toHaveLength(1)
-        await vi.advanceTimersByTimeAsync(700_000)
+        fail.writes = false
+        await vi.advanceTimersByTimeAsync(61_000)
+        await vi.waitFor(() => expect(value.health.github).toMatchObject({ state: 'paused', detail: expect.stringContaining('Waiting') }))
+        expect(value.store.get('github-not-before')).toBeDefined()
+        await vi.advanceTimersByTimeAsync(3_600_000)
         await vi.waitFor(() => expect(calls).toHaveLength(2))
         await first(); value.store.close()
       } finally { vi.useRealTimers() }
