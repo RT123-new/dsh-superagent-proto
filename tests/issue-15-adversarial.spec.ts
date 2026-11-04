@@ -6,7 +6,7 @@ import { Store } from '../src/app/store.ts'
 import { Effects } from '../src/app/effects.ts'
 import { HealthBoard } from '../src/infra/health.ts'
 import { CliError } from '../src/infra/commands.ts'
-import { classifyError, retryDecision, errorRecord, serverNotBefore } from '../src/app/retry-policy.ts'
+import { TransportFailure, classifyError, retryDecision, errorRecord, serverNotBefore } from '../src/app/retry-policy.ts'
 const cleanup: (() => void)[] = []
 afterEach(() => { for (const fn of cleanup.splice(0).reverse()) fn() })
 function harness() {
@@ -44,4 +44,43 @@ it('normalizes Retry-After only as HTTP delta seconds or valid HTTP date, not ep
 })
 it('keeps structured persisted error JSON valid under long diagnostics',()=>{
  expect(()=>JSON.parse(errorRecord(new Error('x'.repeat(5000)),'transient'))).not.toThrow()
+})
+
+it('accepts explicit transport metadata on the existing CLI error without reinterpreting lark codes',()=>{
+ const failure = new CliError('rate limit', 123456)
+ Object.assign(failure,{transportFailure:new TransportFailure('HTTP response',{status:429,retryAfter:'45'},1000)})
+ expect(classifyError(failure)).toBe('rate_limited')
+ const decision=retryDecision(failure,0,2000,60000,()=>0,1000)
+ expect(decision.retry && decision.delay).toBe(45000)
+ expect(classifyError(new CliError('unknown feishu code',123456))).toBe('transient')
+})
+it('parses exact valid HTTP dates and rejects impossible dates and unsafe deltas',()=>{
+ const at=Date.parse('Wed, 04 Nov 2026 08:00:00 GMT')
+ expect(serverNotBefore('Wed, 04 Nov 2026 08:00:00 GMT',1000)).toBe(at)
+ expect(serverNotBefore('Wed, 31 Feb 2026 08:00:00 GMT',1000)).toBeUndefined()
+ expect(serverNotBefore(Number.MAX_SAFE_INTEGER,1000)).toBeUndefined()
+ expect(serverNotBefore(45,1000)).toBe(46000)
+})
+it('preserves the blocked ordered head and later policy transitions until explicit rearm',async()=>{
+ const h=harness();h.fx.enqueue('relay','head',{text:'policy A-B'});h.fx.enqueue('relay','later',{text:'policy B-A'})
+ await h.fx.idle();h.advance();await h.fx.idle()
+ expect(h.calls).toBe(1);expect(h.fx.pending('relay','head')).toBe(true);expect(h.fx.pending('relay','later')).toBe(true)
+ h.fx.enqueue('relay','head',{text:'explicit retry A-B'});await h.fx.idle();expect(h.calls).toBe(2)
+ expect(h.fx.pending('relay','later')).toBe(true)
+})
+
+it('reports blocked failures immediately even for quiet effect handlers',async()=>{
+ const h=harness();const board=new HealthBoard();const fx=new Effects(h.store,board,()=>1000)
+ fx.handle('notice',async()=>{throw new SyntaxError('bad payload')},{quiet:true});fx.start()
+ fx.enqueue('notice','settings:policy',{value:{revision:1},summary:'saved'});await fx.idle()
+ expect(board.all.notice?.state).toBe('error');await fx.drain()
+})
+it('does not let an old failed generation park a newly rearmed payload',async()=>{
+ const h=harness();const board=new HealthBoard();const fx=new Effects(h.store,board,()=>1000)
+ const gate=Promise.withResolvers<void>();let calls=0
+ fx.handle('notice',async()=>{if(++calls===1){await gate.promise;throw Object.assign(new Error('old denied'),{status:403})}});fx.start()
+ fx.enqueue('notice','settings:policy',{value:{revision:1},summary:'saved'})
+ await Promise.resolve();await Promise.resolve()
+ fx.enqueue('notice','settings:policy',{value:{revision:2},summary:'new save'})
+ gate.resolve();await fx.idle();expect(calls).toBe(2);expect(fx.pending('notice')).toBe(false);await fx.drain()
 })

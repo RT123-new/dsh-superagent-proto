@@ -10,7 +10,7 @@ import { afterEach, beforeEach, expect, it } from 'vitest'
 import { BLOCKED_RECHECK_MS, Effects, Later } from '../src/app/effects.ts'
 import { Store } from '../src/app/store.ts'
 import { HealthBoard } from '../src/infra/health.ts'
-import { classifyError } from '../src/app/retry-policy.ts'
+import { TransportFailure, classifyError } from '../src/app/retry-policy.ts'
 import { mulberry32 } from './fixtures/retry-backoff.ts'
 
 let directory: string
@@ -67,7 +67,7 @@ it('keeps Later semantics: reschedule at the base delay without consuming an att
   await fx.drain()
 })
 
-it('parks a permanent failure visibly: blocked marker, hourly recheck, immediate health error, structured status kept', async () => {
+it('parks a permanent failure visibly without automatic re-execution, with structured status kept', async () => {
   const fx = make(3)
   fx.handle('relay', async () => { throw Object.assign(new Error('Issue deleted'), { status: 410 }) }, { ordered: true })
   fx.enqueue('relay', 'x', { text: 'x' })
@@ -77,14 +77,14 @@ it('parks a permanent failure visibly: blocked marker, hourly recheck, immediate
   expect(parked.error.startsWith('blocked:permanent:')).toBe(true)
   expect(parked.error).toContain('"status":410')
   expect(board.all['relay']?.state).toBe('error') // visible at once, not after FAILURES_BEFORE_ERROR
-  // The row is rechecked, not dropped: at the recheck instant it retries once and parks again.
+  // Passing the legacy timestamp does not dispatch the blocked operation.
   clock = parked.due
   fx.kick(); await flush()
-  expect(row().due - clock).toBe(BLOCKED_RECHECK_MS)
+  expect(row().due).toBe(parked.due)
   await fx.drain()
 })
 
-it('rear ms a parked row only on explicit re-enqueue', async () => {
+it('rearms a parked row only on explicit re-enqueue', async () => {
   const fx = make(3)
   let fail = true
   fx.handle('relay', async () => { if (fail) throw Object.assign(new Error('forbidden'), { status: 403 }) }, { ordered: true })
@@ -100,18 +100,18 @@ it('rear ms a parked row only on explicit re-enqueue', async () => {
 
 it('honors a transport-supplied retryAfter beyond the jittered delay', async () => {
   const fx = make(3)
-  fx.handle('relay', async () => { throw Object.assign(new Error('rate limited'), { status: 429, retryAfter: 45 }) }, { ordered: true })
+  fx.handle('relay', async () => { throw new TransportFailure('rate limited', { status: 429, retryAfter: 45 }, clock) }, { ordered: true })
   fx.enqueue('relay', 'x', { text: 'x' })
   await flush()
   expect(row().due - t0).toBe(45_000)
-  expect(row().error).toContain('"retryAfter":45')
+  expect(row().error).toContain('"serverNotBeforeMs":')
   await fx.drain()
 })
 
 it('classifies from structured fields only', () => {
   expect(classifyError(Object.assign(new Error('x'), { status: 401 }))).toBe('unauthorized')
   expect(classifyError(Object.assign(new Error('x'), { status: 404 }))).toBe('permanent')
-  expect(classifyError(new TypeError('bad code'))).toBe('programming_error')
+  expect(classifyError(new SyntaxError('bad code'))).toBe('programming_error')
   expect(classifyError(Object.assign(new Error('x'), { name: 'AbortError' }))).toBe('cancelled')
   expect(classifyError(Object.assign(new Error('x'), { status: 503 }))).toBe('provider_temporary')
   expect(classifyError(new Error('socket hang up'))).toBe('transient') // unknown failures retry like transient ones
