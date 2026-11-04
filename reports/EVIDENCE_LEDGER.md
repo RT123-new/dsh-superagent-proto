@@ -49,3 +49,5 @@ Issue20 selective stats/flow index optimization adopted for tested large-history
 * UIlabels/processd70850d;11focusedgreen and typecheck. Supplementary lifecycle-ui pixels are server-rendered fixtures with minimal CSS, not external deployment.
 * ec99708slotwait,4b42ac4independent injectedclockred,f675f71repair,5green. Further rollback/full-success review pending.
 * f675f71full1442/1442 tests92files plus typecheck; combined build timeout, standalone build passes. Evidence integration-full-lifecycle.log and lifecycle-build.log. No paid tests, budget unchanged.
+
+* Atomic slot API reviewer1129d39/2955934 integratedcddecb7/ea5035d. Own1red before fix;31metrics/hooks/atomic tests andtypecheckgreen. Validation precedes clockread; complete disjoint state+capacity replace atoneboundary, older optionalcollector fallback explicitlyapproximate. Rawatomic-red/green/type.log.
