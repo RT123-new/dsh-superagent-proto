@@ -216,7 +216,8 @@ export class Runtime extends Service implements SourceHost {
   idle(): Promise<void> { return this.passes.idle() }
   pump(): Promise<void> { return this.passes.pump() }
   sendReplies(): Promise<void> { return this.outbox.sent() }
-  private closing(): boolean { return this.closingFlag }
+  /** Stopping, or the state lock was lost: both abort `lifetime`, and a runtime that may no longer own its directory must not accept work. */
+  private closing(): boolean { return this.closingFlag || this.stopped.signal.aborted }
   /** Hold evaluation, dispatch, and outbound delivery while paused or awaiting setup; sources still record incoming triggers. */
   private paused(): boolean { return !this.setup.configured() || this.store.settings().paused }
   private async initialize(): Promise<void> {

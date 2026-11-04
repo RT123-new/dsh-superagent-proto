@@ -11,19 +11,20 @@ let host: Host | undefined
 afterEach(async () => { await host?.stop(); host = undefined })
 
 /**
- * CHARACTERISATION (de50174): the state directory lock is what keeps one process the only writer. When the lock library reports it compromised
- * (for example the lock was not refreshed within the 30 s stale window and another process may now hold it), the runtime marks health
- * as error and aborts its `lifetime` signal, but nothing fences its SQLite writes or its effect dispatch. This test records that it still accepts and
- * stores new work afterwards. It documents a single-writer gap; it does not claim another process was actually allowed in.
+ * Fail-closed contract: once the state lock is reported compromised another process may own the directory, so the runtime must stop accepting
+ * runtime-authorised mutations (receive, dispatch, launch, outbox) rather than keep writing. Raw `Store` use by a caller who holds the
+ * handle is outside this contract. Red on de50174: receive() still persisted the trigger. No distributed fence is claimed.
  */
-it('after the state lock is reported compromised, the runtime keeps persisting new triggers', async () => {
+it('after the state lock is reported compromised, receive refuses and stores nothing', async () => {
   host = await startRuntime()
-  expect(lock.onCompromised).toBeTypeOf('function')
   lock.onCompromised!(new Error('Unable to update lock within the stale threshold'))
   expect(host.runtime.lifetime.aborted).toBe(true)
-  expect(host.runtime.health.runtime?.state).toBe('error')
   const trigger = feishu('990', '@bot something after the lock was lost')
-  host.runtime.receive(trigger)
-  await host.runtime.idle()
-  expect(host.runtime.store.triggers.get(trigger.id)).toBeDefined()
+  expect(() => host!.runtime.receive(trigger)).toThrow(/stopping/)
+  expect(host.runtime.store.triggers.get(trigger.id)).toBeUndefined()
+})
+it('stop() still completes after the lock was reported compromised', async () => {
+  host = await startRuntime()
+  lock.onCompromised!(new Error('lock lost'))
+  await host.runtime.stop()
 })
