@@ -161,6 +161,9 @@ async function watch(ctx: SourceContext, signal: AbortSignal): Promise<void> {
   // Setup restarts dsh-superagent once it resolves the accounts; until then nothing is polled.
   if (!ctx.configured()) { ctx.report('github', health('paused', 'setupPending')); return }
   // A plain start or restart never rearms: a parked read stays blocked until the owner switches the Source off and on.
+  // A trusted server not-before from a failure survives a restart: nothing is read inside a known embargo.
+  const embargo = Number(ctx.state.get(KV.github.notBefore))
+  if (Number.isFinite(embargo) && embargo > Date.now()) await pause(embargo - Date.now(), signal)
   let wasOn = true
   while (!signal.aborted) {
     const config = ctx.config<GithubConfig>(SOURCE)
@@ -170,8 +173,11 @@ async function watch(ctx: SourceContext, signal: AbortSignal): Promise<void> {
       if (config) interval = await pollRound(ctx, signal)
       else ctx.report('github', health('paused', 'sourceOff'))
       failures = 0; lastError = undefined
+      if (ctx.state.get(KV.github.notBefore) !== undefined) ctx.state.set(KV.github.notBefore, undefined)
     } catch (error) {
       failures += 1; lastError = error
+      const notBefore = serverNotBeforeOf(error)
+      if (notBefore !== undefined && Number.isFinite(notBefore) && notBefore > Date.now()) ctx.state.set(KV.github.notBefore, String(Math.min(Math.floor(notBefore), 8.64e15)))
       const failed = pollFailure(failures, config?.failuresBeforeError ?? 1, error)
       if (!signal.aborted && failed) ctx.report('github', failed)
     }

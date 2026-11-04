@@ -572,6 +572,24 @@ describe('github source', () => {
     expect(h.store.tickets.get('t9')).toMatchObject({ ended: { outcome: 'merged' } })
     h.store.close()
   })
+  it('an oversized check-runs read for a ticket PR makes the round fail with a visible, permanent error each round (no bounded-page fallback exists)', async () => {
+    const h = host()
+    h.store.tickets.save({ ...openTicket('t9'), ...pulled(9) })
+    h.store.threads.save({ key: 'github:9', ref: { source: 'github', id: '9' }, createdAt: '', lastAt: new Date().toISOString(),
+      subscriptions: ['t9'], correlated: [], pending: [], meta: { number: 9, isPr: true, title: 'Fix' } })
+    const pr = { number: 9, title: 'Fix', state: 'open', html_url: 'https://github.com/acme/widgets/pull/9', user: { login: 'agent-bot' },
+      head: { sha: 'abc', ref: 'agent/nine', repo: { full_name: 'acme/widgets' } } }
+    const oversized = commandError({ code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' })
+    github(h, { notifications: [], 'pulls/9': pr, 'commits/abc/check-runs': oversized })
+    for (let round = 0; round < 2; round++) {
+      const error = await pollRound(h).catch((e: unknown) => e)
+      expect(error).toBeInstanceOf(Error)
+      expect(String(error)).toContain('GitHub reads failed')
+      expect(String(error)).toContain('printed more output than it may')
+    }
+    expect((oversized as { oversized?: boolean }).oversized).toBe(true)
+    h.store.close()
+  })
   it('reads each notified Issue alone and reads a failed one again next round, from where it was', async () => {
     const h = host()
     h.store.set('github-since', '2026-09-08T00:00:00.000Z')
@@ -793,7 +811,7 @@ describe('github source', () => {
       await run.stop(); run.value.store.close()
     } finally { vi.useRealTimers() }
   })
-  it('CHARACTERIZATION: a typed server embargo holds within one process but a restart polls at once (the embargo is not persisted)', async () => {
+  it('a typed server embargo holds across a restart: the second watch on the same store reads nothing inside it and polls after it', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     try {
       const { TransportFailure } = await import('../src/infra/transport-failure.ts')
@@ -818,6 +836,9 @@ describe('github source', () => {
       expect(calls).toBe(1)
       await first()
       const second = launch()
+      await vi.advanceTimersByTimeAsync(1_000_000)
+      expect(calls).toBe(1)
+      await vi.advanceTimersByTimeAsync(2_700_000)
       await vi.waitFor(() => expect(calls).toBe(2))
       await second(); value.store.close()
     } finally { vi.useRealTimers() }
