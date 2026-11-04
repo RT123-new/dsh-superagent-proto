@@ -1,6 +1,6 @@
 # Adversarial review
 
-Independent author/reviewer work and integration reproductions are required before acceptance. Later sections include adopted repairs and explicitly held experiment dispositions; final report refresh is separate from code-test acceptance.
+Independent author/reviewer work and integration reproductions are required before acceptance. Adopted repairs and held experiment dispositions are recorded below. Final code review verified exact source/test tree equivalence to independently green90e6d47 and found no new code blocker; no report content was treated as user authority.
 
 ## Correctness review outcomes
 
@@ -32,7 +32,7 @@ Original Issue6–8 author failing-first evidence contains17tests10red/7green, n
 
 ## Acceptance gates
 
-Production hooks/dashboard and measured storage20 are adopted. Pool, retention and general slotwake remain held after independent review; final report refresh remains before delivery. No acceptance of a performance change follows merely from a passing functional suite. Required measured gains/uncertainty, migration/crash semantics and relevant resource costs must be reviewed before adoption. Main remains untouched and no auto-merge is permitted.
+Production hooks/dashboard and measured storage20 are adopted. Pool, retention and general slotwake remain held after independent review; final document acceptance and actualPRpublication remain delivery steps. No acceptance of a performance change follows merely from a passing functional suite. Required measured gains/uncertainty, migration/crash semantics and relevant resource costs must be reviewed before adoption. Main remains untouched and no auto-merge is permitted.
 
 ## Latest lifecycle independent integration
 
@@ -40,7 +40,7 @@ Reproduced all3 causal/receipt failures from557adf6 before33a9d0e. Integrated re
 
 ## Final cross-scope discoveries and current repair
 
-Independent reviewer f0fc44a found ordinary follow-up after pause and pre-create cancellation bypass through deleted-worker recreation. Own2/2red on currentintegration reproduced;90e6d47 applies deliveryCurrent at ensure and prompt async boundaries.26targeted and full1498/typecheck/build pass. Independent refresh is still required. Two disposed idle-continuation defects also reproduced without slotwake and repaired separately(c25187b). No general slotwake adopted. Normal tests no longer rewrite archived StageD evidence.
+Independent reviewer f0fc44a found ordinary follow-up after pause and pre-create cancellation bypass through deleted-worker recreation. Own2/2red on currentintegration reproduced;90e6d47 applies deliveryCurrent at ensure and prompt async boundaries.26targeted and full1498/typecheck/build pass. Independent refresh accepted90e6d47 inbb4b9bb, integratedc9a190c; final source/test equivalence was independently rechecked ona4f1812 with no new code blocker. Two disposed idle-continuation defects also reproduced without slotwake and repaired separately(c25187b). No general slotwake adopted. Normal tests no longer rewrite archived StageD evidence.
 
 
 ## Adoption boundary after candidate review

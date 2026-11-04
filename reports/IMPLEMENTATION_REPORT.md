@@ -34,7 +34,7 @@ Optional isolated published DSH provider adapter +actual Source/Store/Engine/set
 - Collector+context code a5c5b6f:1368/1368tests78files +typecheck/build.
 - Independent optional local provider/SSE seam pass; optional v2 suite16/16.
 
-Later sections record integrated hooks/dashboard/storage and the independently replicated1498full check. Unsupported performance candidates are held, not counted as implementation progress. Final report refresh and unmerged PR publication remain separate delivery steps.
+Later sections record integrated hooks/dashboard/storage and the independently replicated1498full check. Unsupported performance candidates are held, not counted as implementation progress. Independent final code review accepted source/test equivalence and held dispositions; final document acceptance and unmerged PR publication remain delivery steps.
 
 ## Integration checkpoint: lifecycle and measured storage
 
@@ -57,6 +57,6 @@ Slotwake optimization remains unadopted because broad-profile evidence missed ta
 
 ## Final code freeze and held candidates
 
-Source/test/scripts/config at candidatea4f1812 are byte-equivalent to tested90e6d47 (git diff --exit-code over src/tests/scripts/package/lock/config returned0). Subsequent commits only add reports/raw evidence. Thus1498full/typecheck/build and independent1498full apply to the frozen implementation without inventing a rerun. Final report review and PR publication are separate completion steps.
+Source/test/scripts/config at candidatea4f1812 are byte-equivalent to tested90e6d47 (git diff --exit-code over src/tests/scripts/package/lock/config returned0). Subsequent commits only add reports/raw evidence. Thus1498full/typecheck/build and independent1498full apply to the frozen implementation without inventing a rerun. Final read-only code review accepted the identical source/test trees and all24dispositions with no code blocker; document acceptance and PR publication are delivery steps.
 
 No production source from optionalpoolb270676, retentionf921a28 or general slotwake15ed8e3 is adopted. Their reports and raw failures/repairs are retained with explicit held dispositions. Production has no retention module/tombstones, no subscription concurrency setting and no slotFreed/kick optimization. Minimal disposal guard from independent no-slotwake failure remains a correctness repair.

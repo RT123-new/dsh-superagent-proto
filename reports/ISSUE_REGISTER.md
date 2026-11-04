@@ -4,6 +4,8 @@ Every issue in Reg's mandate (2026-11-04, iMessage) plus pre-existing findings.
 Dispositions stay alive to programme end, including REFUTED and NOT TESTED.
 Classifications: CONFIRMED / SOURCE-SUPPORTED / HYPOTHESIS / REFUTED / NOT TESTED.
 
+The original discovery sections through the StageB baseline are HISTORICAL, not current pending work. The final disposition matrix supersedes their OPEN/NOT TESTED/root-cause placeholders.
+
 Legend for workstream ownership: W13 = ingestion (1-3), W45 = workspace/cancellation (4-5), W68 = app safety (6-8), INT = integration (this branch).
 
 ## PRE-1 — Feishu health race on malformed event line (pre-existing, found at baseline)
@@ -169,7 +171,7 @@ Latest integrated correctness checkpoint3f1a8cf: `pnpm check` PASS: typecheck +1
 
 Tag `reviewed/correctness-stage-b` includes all reviewed Issue1-8 repairs and PRE-1. Earlier OPEN/NOT ACCEPTED narrative records intermediate findings; the acceptance ledger supersedes it. Issue5 remains partial because an already-running framework create cannot be interrupted or rolled back, and compound unobservable-process/persistence/crash risk remains. Issue8 only covers observed managed lineage; universal pre-upgrade missing-parent classification remains unproven. Performance and product stages are not accepted by this tag.
 
-## Current programme disposition checkpoint (supersedes stale stage-only rows above)
+## Final programme disposition matrix (supersedes historical stage-only rows above)
 
 Latest implementation90e6d47 passes1498/1498tests102files/typecheck/build, independently replicated with clean tracked evidence. All six stale retry/HOL characterizations are repaired without reverting reviewed production semantics. Every issue has the disposition below; final report refresh and unmerged PR publication are separate remaining delivery steps.
 
