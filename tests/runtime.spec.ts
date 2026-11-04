@@ -36,6 +36,7 @@ import { decisionList, search, threadDetail, threadList } from '../src/app/views
 import { executorLoad, ticketDetail, ticketList } from '../src/app/views/tickets.ts'
 
 let runtime: Runtime
+let unregisterFeishu: () => void = () => {}
 const viewsOf = (value: Runtime) => ({ store: value.store, sources: value.sources, links: value.links() })
 const overviewOf = (value: Runtime) => overview(viewsOf(value), value.health, policyVersion(value.store.settings()), executorLoad(value.store, value.executor.activeCount()), value.setupProblem ?? value.feishuProblem)
 let directory: string
@@ -210,7 +211,7 @@ beforeEach(async () => {
   runtime = new Runtime(ctx, testMachine({ stateDir: directory }), restarts)
   await runtime.ready
   // Source kinds are normally registered by plugins that are not loaded in unit tests.
-  runtime.sources.register(feishuKind); runtime.sources.register(githubKind)
+  unregisterFeishu = runtime.sources.register(feishuKind); runtime.sources.register(githubKind)
   runtime.store.saveSettings({ ...runtime.store.settings(), policy: { ...runtime.store.settings().policy, sources: { feishu: { allowed: [{ id: MEMBER, name: 'Alice' }], syncChat: CHAT }, github: { allowed: [{ id: 'alice' }] } } }, eval: { ...runtime.store.settings().eval, mode: 'auto' }, sources: { github: { enabled: true, config: { repository: 'acme/widgets', cli: AGENT() } }, feishu: { enabled: true, config: { cli: BOT(), chats: [{ chatId: CHAT, listen: 'all' }], directMessages: true } } } })
   deliveries.mockClear()
 })
@@ -1929,3 +1930,25 @@ it('final review 2.2: a disabled Source (plugin installed) denies a recreated wo
   await new Promise(resolve => setTimeout(resolve, 400)); await runtime.idle()
   expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(0)
 }, 20000)
+
+for (const enabled of [true, false]) {
+  it(`final review 2.2: with the Source plugin really unregistered and the stored Source ${enabled ? 'enabled' : 'disabled'}, a recreated worker Session gets no grant while waiting, and is granted only once the plugin registers (real registry, no spy)`, async () => {
+    const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+    const { ticket, sessionId } = await acceptedTicket()
+    await runtime.idle()
+    const settings = runtime.store.settings()
+    runtime.store.saveSettings({ ...settings, sources: { ...settings.sources, feishu: { ...settings.sources.feishu!, enabled } } })
+    unregisterFeishu()
+    expect(runtime.sources.kind('feishu')).toBeUndefined()
+    agents.delete(sessionId); presets.mockClear()
+    const follow = feishu('23', '再加一个', { root_id: undefined, mentions: [{ id: 'ou_bot' }] })
+    await receive(follow).catch(() => {})
+    void route({ kind: 'attach', ticket_id: ticket.id, trigger_id: follow.id, note: 'x' }).catch(() => {})
+    await new Promise(resolve => setTimeout(resolve, 600))
+    expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(0)
+    unregisterFeishu = runtime.sources.register(feishuKind)
+    await new Promise(resolve => setTimeout(resolve, 800)); await runtime.idle()
+    const grants = presets.mock.calls.filter(call => call[1] === 'danger-full-access').length
+    expect(grants).toBe(enabled ? 1 : 0)
+  }, 30000)
+}
