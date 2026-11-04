@@ -1,0 +1,4 @@
+[31m   [31m×[31m M9: the slot snapshot and panel expose the CURRENT disjoint slot states (busy / preparing) from the real slot source, not only time integrals[39m[32m 6[2mms[22m[39m
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+[31m[1mAssertionError[22m: expected undefined to deeply equal { busy: 2, preparing: 1 }[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[33m5 skipped[39m[90m (6)[39m

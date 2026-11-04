@@ -58,3 +58,15 @@ it('M8: utilization above 100% is shown with an explicit over-capacity marker, n
   expect(node.textContent).toContain('150%')
   expect(node.textContent).toContain('over capacity')
 })
+it('M9: the slot snapshot and panel expose the CURRENT disjoint slot states (busy / preparing) from the real slot source, not only time integrals', () => {
+  let mono = 0
+  const m = new Metrics({ mono: () => mono }); const p = m.slotPool('worker', 4, ['busy', 'preparing'])
+  p.transition(4, { busy: 2, preparing: 1 }); mono = 1000
+  const snap = m.snapshot()
+  expect((snap.slots.worker as { counts?: Record<string, number> }).counts).toEqual({ busy: 2, preparing: 1 })
+  const node = document.createElement('div'); document.body.append(node)
+  const root = createRoot(node); roots.push(root)
+  act(() => { root.render(<MetricsPanel metrics={snap} t={translate(en)} />) })
+  expect(node.textContent).toContain('preparing 1')
+  expect(node.textContent).toContain('busy 2')
+})

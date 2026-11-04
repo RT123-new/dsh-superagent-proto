@@ -12,6 +12,7 @@ const wall = (ms: number | null | undefined, unknown: string) => {
   const date = typeof ms === 'number' ? new Date(ms) : undefined
   return date && Number.isFinite(date.getTime()) ? <time dateTime={date.toISOString()}>{date.toISOString()}</time> : <span>{unknown}</span>
 }
+const slotState = (t: T, state: string) => { const key = `metricsSlotState.${state}` as DshSuperagentKey; const value = t(key); return value === key ? state : value }
 export function MetricsPanel({ metrics: m, t }: { metrics: MetricsSnapshot; t: T }) {
   const unknown = t('metricsUnknown')
   const rowsFor = (durations: MetricsSnapshot['durations'], placeholders: boolean) => {
@@ -42,7 +43,7 @@ export function MetricsPanel({ metrics: m, t }: { metrics: MetricsSnapshot; t: T
     <Hint>{t('metricsQueueCoverage')}</Hint><h3>{t('metricsSlots')}</h3>
     {Object.entries(m.slots).length ? <ul className="dt-metrics-list">{Object.entries(m.slots).map(([key, pool]) => <li key={key}>
       {key}: {number(pool.utilization === null ? null : pool.utilization * 100, unknown, '%')}
-      {pool.integrals.overLimitSlotMs > 0 && ` [${t('metricsOverLimit')}]`}{' ('}{pool.capacity}{' '}{t('metricsSlotsUnit')}{'; '}{number(pool.integrals.observedMs, unknown, ' ms')}{')'}</li>)}</ul> : <Hint>{t('metricsNoSamples')}</Hint>}
+      {pool.counts && ` · ${t('metricsSlotNow')}: ${Object.entries(pool.counts).map(([state, n]) => `${slotState(t, state)} ${n}`).join(', ')}`}{pool.integrals.overLimitSlotMs > 0 && ` [${t('metricsOverLimit')}]`}{' ('}{pool.capacity}{' '}{t('metricsSlotsUnit')}{'; '}{number(pool.integrals.observedMs, unknown, ' ms')}{')'}</li>)}</ul> : <Hint>{t('metricsNoSamples')}</Hint>}
     <h3>{t('metricsUsage')}</h3><Hint>{t('metricsUsageNote')}</Hint>
     <dl className="dt-metrics-usage">{([
       ['metricsInputMiss', m.tokens.inputCacheMiss], ['metricsInputHit', m.tokens.inputCacheHit], ['metricsOutput', m.tokens.output],
