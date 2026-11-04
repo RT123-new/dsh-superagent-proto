@@ -144,3 +144,17 @@ The regression of b57bbce (linear growth, 1.1 ms at 40k) is gone: repaired cost 
 ### Still not done
 - triggerStats "since all" and flow remain O(window); at 1M a 24h window depends on arrival rate. No claim for production windows.
 - No claim on P95/CI, power-loss, concurrent writers, or production-shaped data. Upgrade time/disk are single runs on synthetic data.
+
+## Paired representative query sample (task-pair identity; scripts/storage/paired-query.ts + paired-analyze.py)
+Design: 5 workload seeds (different source count/skew, filtered share, decision share, thread count), each a 100k-trigger store built once with the BASE schema, copied, the copy opened (upgraded) by the repaired tree (06ad576). Per seed 40 selective windows (1%-20% of the timeline, same list for both trees) x triggerStats and flow = 200 task pairs per query; each pair is the median of 3 inner reps. Nearest-rank P50/P95 over pairs; 10,000-resample bootstrap that resamples task pairs (base and repaired values kept together). Results compared per pair: 0 mismatches in 200 pairs x 2 queries.
+pairs=200 seeds=5 result-mismatches=0
+
+| query | stat | baseline ms | repaired ms | paired ratio base/rep | 95% bootstrap CI of ratio (10k) |
+|---|---|---|---|---|---|
+| triggerStats | P50 | 146.50 | 7.00 | 20.9x | 18.6x - 24.7x |
+| triggerStats | P95 | 152.43 | 13.70 | 11.1x | 10.9x - 11.8x |
+| stats | per-pair ratio min/median/max | | | 9.9 / 20.7 / 257.4 | pairs where repaired slower: 0 |
+| flow | P50 | 109.20 | 15.13 | 7.2x | 6.4x - 8.0x |
+| flow | P95 | 119.16 | 27.51 | 4.3x | 4.3x - 4.5x |
+| flow | per-pair ratio min/median/max | | | 3.0 / 6.6 / 77.0 | pairs where repaired slower: 0 |
+Caveats: pairs within a seed share a dataset (bootstrap resamples pairs, not seeds, so the CI is narrower than a cluster bootstrap with only 5 seeds would give); synthetic data, one machine; warm cache; the thresholds in the user's preregistration are not restated here, so no pass/fail on them is claimed.
