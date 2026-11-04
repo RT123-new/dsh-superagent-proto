@@ -431,7 +431,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/health.spec.ts` | One health entry per part, each cleared by its own next success |
 | `tests/issue-22-dashboard.spec.tsx` | Metrics component coverage, outcome separation, unknown usage and locale tests |
 | `tests/issue-22-http-review.spec.ts` | Optional overview metrics adapter serialization, backward compatibility and bounded populated payload measurement |
-| `tests/issue-9-adversarial.spec.ts` | Independent metric reconciliation, validation, bounds and snapshot tests. |
+| `tests/issue-22-runtime-proof.spec.ts` | Actual Runtime-to-HTTP metrics snapshot composition |
 | `tests/issue-9-adversarial.spec.ts` | Independent metric reconciliation, validation, bounds and snapshot tests |
 | `tests/issue-9-hooks-adversarial.spec.ts` | Independent production metric hook boundaries and isolation tests. |
 | `tests/issue-9-hooks.spec.ts` | The metrics hooks: failure isolation, disjoint slot states, effect timings, intake timing and usage attribution |

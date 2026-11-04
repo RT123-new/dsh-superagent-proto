@@ -1,0 +1,108 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/home/sandbox/work/dsh-superagent-proto[39m
+
+(node:14963) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [31m❯[39m tests/issue-9-hooks-adversarial.spec.ts [2m([22m[2m5 tests[22m[2m | [22m[31m5 failed[39m[2m)[22m[32m 134[2mms[22m[39m
+[31m   [31m×[31m observes never-used configured worker capacity from Runtime start[39m[32m 45[2mms[22m[39m
+[31m   [31m×[31m collector snapshot failure does not escape actual Runtime GET[39m[32m 24[2mms[22m[39m
+[31m   [31m×[31m actual Runtime GET returns live metrics, not merely private host callback[39m[32m 17[2mms[22m[39m
+[31m   [31m×[31m reconstructed terminal usage events are counted once per stable message identity[39m[32m 21[2mms[22m[39m
+[31m   [31m×[31m effect waiting depth excludes an attempt actively running[39m[32m 25[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 5 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/issue-9-hooks-adversarial.spec.ts[2m > [22mobserves never-used configured worker capacity from Runtime start
+[31m[1mAssertionError[22m: expected undefined to be defined[39m
+[36m [2m❯[22m tests/issue-9-hooks-adversarial.spec.ts:[2m13:15[22m[39m
+    [90m 11|[39m  h[33m=[39m[35mawait[39m [34mstartRuntime[39m()
+    [90m 12|[39m  [35mconst[39m slot[33m=[39mh[33m.[39mruntime[33m.[39m[34mmetricsSnapshot[39m()[33m![39m[33m.[39mslots[33m.[39mworker
+    [90m 13|[39m  [34mexpect[39m(slot)[33m.[39m[34mtoBeDefined[39m()
+    [90m   |[39m               [31m^[39m
+    [90m 14|[39m  expect(slot!.capacity).toBe(h.runtime.store.settings().executor.maxWo…
+    [90m 15|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-9-hooks-adversarial.spec.ts[2m > [22mcollector snapshot failure does not escape actual Runtime GET
+[31m[1mAssertionError[22m: expected 404 to be 200 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 404[39m
+
+[36m [2m❯[22m tests/issue-9-hooks-adversarial.spec.ts:[2m21:26[22m[39m
+    [90m 19|[39m  metrics[33m.[39msnapshot[33m=[39m()[33m=>[39m{[35mthrow[39m [35mnew[39m [33mError[39m([32m'collector failed'[39m)}
+    [90m 20|[39m  [35mconst[39m response[33m=[39m[35mawait[39m h[33m.[39m[34mapi[39m([32m'GET'[39m[33m,[39m[32m'metrics'[39m)
+    [90m 21|[39m  [34mexpect[39m(response[33m.[39mstatus)[33m.[39m[34mtoBe[39m([34m200[39m)
+    [90m   |[39m                          [31m^[39m
+    [90m 22|[39m  [34mexpect[39m(response[33m.[39mbody)[33m.[39m[34mtoEqual[39m({enabled[33m:[39m[35mfalse[39m})
+    [90m 23|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-9-hooks-adversarial.spec.ts[2m > [22mactual Runtime GET returns live metrics, not merely private host callback
+[31m[1mAssertionError[22m: expected 404 to be 200 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 200[39m
+[31m+ 404[39m
+
+[36m [2m❯[22m tests/issue-9-hooks-adversarial.spec.ts:[2m27:26[22m[39m
+    [90m 25|[39m  h[33m=[39m[35mawait[39m [34mstartRuntime[39m()
+    [90m 26|[39m  [35mconst[39m response[33m=[39m[35mawait[39m h[33m.[39m[34mapi[39m([32m'GET'[39m[33m,[39m[32m'metrics'[39m)
+    [90m 27|[39m  [34mexpect[39m(response[33m.[39mstatus)[33m.[39m[34mtoBe[39m([34m200[39m)
+    [90m   |[39m                          [31m^[39m
+    [90m 28|[39m  [34mexpect[39m(response[33m.[39mbody[33m.[39mversion)[33m.[39m[34mtoBe[39m([34m1[39m)
+    [90m 29|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-9-hooks-adversarial.spec.ts[2m > [22mreconstructed terminal usage events are counted once per stable message identity
+[31m[1mAssertionError[22m: expected 2 to be 1 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 2[39m
+
+[36m [2m❯[22m tests/issue-9-hooks-adversarial.spec.ts:[2m36:54[22m[39m
+    [90m 34|[39m  h.ctx.emit('session/event',session as never,{type:'assistant/message'…
+    [90m 35|[39m  h.ctx.emit('session/event',session as never,{type:'assistant/message'…
+    [90m 36|[39m  [34mexpect[39m(h[33m.[39mruntime[33m.[39m[34mmetricsSnapshot[39m()[33m![39m[33m.[39mtokens[33m.[39mreports)[33m.[39m[34mtoBe[39m([34m1[39m)
+    [90m   |[39m                                                      [31m^[39m
+    [90m 37|[39m })
+    [90m 38|[39m it('effect waiting depth excludes an attempt actively running',async()…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-9-hooks-adversarial.spec.ts[2m > [22meffect waiting depth excludes an attempt actively running
+[31m[1mAssertionError[22m: expected 1 to be +0 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 1[39m
+
+[36m [2m❯[22m tests/issue-9-hooks-adversarial.spec.ts:[2m50:16[22m[39m
+    [90m 48|[39m  [35mconst[39m depth[33m=[39mmetrics[33m.[39m[34msnapshot[39m()[33m.[39mqueues[33m.[39meffect[33m![39m[33m.[39mdepth
+    [90m 49|[39m  [34mrelease[39m()[33m;[39m[35mawait[39m effects[33m.[39m[34mdrain[39m()
+    [90m 50|[39m  [34mexpect[39m(depth)[33m.[39m[34mtoBe[39m([34m0[39m)
+    [90m   |[39m                [31m^[39m
+    [90m 51|[39m })
+    [90m 52|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m5 failed[39m[22m[90m (5)[39m
+[2m   Start at [22m 07:06:32
+[2m   Duration [22m 909ms[2m (transform 512ms, setup 0ms, import 677ms, tests 134ms, environment 0ms)[22m
+
