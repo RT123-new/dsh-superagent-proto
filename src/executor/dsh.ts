@@ -362,7 +362,7 @@ export class DshExecutor implements Executor {
   }
   /** Enqueues a `launch` effect for an accepted or resumed assignment; launches start in queue order as worker slots free up. */
   start(ticket: Ticket, assignment: Assignment): void {
-    this.stampLaunch(assignment.id)
+    this.host.store.afterCommit(() => this.stampLaunch(assignment.id))
     this.host.effects.enqueue('launch', assignment.id, { ticketId: ticket.id, assignmentId: assignment.id })
   }
   /** Stamps the first enqueue of an assignment's launch; a full map drops the oldest stamp, counted as `launch_stamp_dropped` (its wait goes unmeasured). */
@@ -391,7 +391,7 @@ export class DshExecutor implements Executor {
     const queuedAt = this.launchStamps.get(assignmentId)
     this.launchStamps.delete(assignmentId)
     const reservedAt = this.probe.now()
-    if (queuedAt !== undefined && reservedAt !== undefined) this.probe.observe('slot_wait', 'internal', reservedAt - queuedAt)
+    if (queuedAt !== undefined && reservedAt !== undefined) this.probe.observe('launch_slot_wait', 'internal', reservedAt - queuedAt)
     try { await this.launch(ticket, assignment); this.transient.delete(`launch:${assignmentId}`) }
     catch (error) {
       // Shutdown or pause re-queues the launch for resume, and transient network/provider errors retry with backoff.
@@ -488,7 +488,7 @@ export class DshExecutor implements Executor {
    * report with no Input delivered since, and stops its shell jobs and subagents, including jobs it left to a person.
    */
   stop(ticket: Ticket, assignment: Assignment, reason: string): void {
-    this.transient.delete(assignment.id); this.transient.delete(`launch:${assignment.id}`); this.launchStamps.delete(assignment.id)
+    this.transient.delete(assignment.id); this.transient.delete(`launch:${assignment.id}`); this.host.store.afterCommit(() => this.launchStamps.delete(assignment.id))
     const report = assignment.report
     const busy = !!assignment.deliveredAt && !!report && assignment.deliveredAt >= report.at
     const ownTurn = (report?.state === 'ready' || report?.state === 'dropped') && !busy
