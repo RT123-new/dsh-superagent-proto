@@ -80,6 +80,12 @@ export class AgentDelivery {
       else if (mode === 'steer') agent.steer(message)
       else agent.followup(message)
     }
+    // A message already pending in an idle agent's inbox (restored from the log after a restart) would otherwise never wake it: the claim above is skipped,
+    // and the agent stays parked until some other message arrives. Re-queue it through the waking path (final review, phase 2.2).
+    else if (pending && !seen.ids.has(id) && typeof mode !== 'object' && agent.status === 'idle') {
+      const queued = [...agent.inbox.nextTurn, ...agent.inbox.nextStep].find(message => deliveryId(message) === id)
+      if (queued && agent.inbox.remove(id)) { if (mode === 'steer') agent.steer(queued); else agent.followup(queued) }
+    }
     accepted?.()
     await this.ctx.sessionPersistence.flush()
   }
