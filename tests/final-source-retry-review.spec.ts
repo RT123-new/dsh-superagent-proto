@@ -141,3 +141,16 @@ describe('3.4 malformed remote items', () => {
     expect(tally.skipped).toBe(0)
   })
 })
+
+describe('4.3 polling loop backs off under a rate limit', () => {
+  it('keeps the interval for other failures and grows (bounded, jittered) for rate-limited ones', async () => {
+    const { pollPauseSeconds } = await import('../src/sources/github.ts')
+    const limited = failure('gh: API rate limit exceeded for user ID 1. (HTTP 403)')
+    expect(pollPauseSeconds(60, 3, failure('gh: Service Unavailable (HTTP 503)'))).toBe(60)
+    expect(pollPauseSeconds(60, 0, undefined)).toBe(60)
+    const waits = [1, 2, 3, 4, 8, 40].map(n => pollPauseSeconds(60, n, limited, () => 1))
+    expect(waits).toEqual([60, 120, 240, 480, 3600, 3600])
+    for (const w of waits) expect(w).toBeLessThanOrEqual(3600)
+    expect(pollPauseSeconds(60, 3, limited, () => 0)).toBeGreaterThanOrEqual(60)
+  })
+})

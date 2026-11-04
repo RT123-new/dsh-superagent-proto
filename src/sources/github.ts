@@ -3,6 +3,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { key, type Thread } from '../core/index.ts'
 import { sameName } from '../infra/text.ts'
 import { GithubAccountsSchema } from '../deployment.ts'
+import { classifyError, retryDecision } from '../app/retry-policy.ts'
 import { CliError, validItems, type Commands, type Tally } from '../infra/commands.ts'
 import { ciCounts, ciFact, ciFailures, ciSummary, githubThreadContext, pullChecks } from './github-read.ts'
 import { branchCiTrigger, ciTrigger, commentTrigger, CommentSchema, githubAddress, issueTrigger, IssueSchema, pullTrigger, SOURCE }
@@ -130,9 +131,19 @@ export function apply(ctx: Context): void {
 export function pollFailure(failures: number, threshold: number, error: unknown): Health | undefined {
   return failures >= threshold ? health('error', 'pollFailures', { count: String(failures), error: String(error) }) : undefined
 }
+/**
+ * Seconds to wait before the next poll. A rate-limited failure backs off exponentially with jitter (via the shared retry policy, capped at one hour)
+ * instead of re-polling every interval into the same limit; no delay is ever read from error text, and other outcomes keep the configured interval.
+ */
+export function pollPauseSeconds(base: number, failures: number, error: unknown, rng: () => number = Math.random): number {
+  if (!error || classifyError(error) !== 'rate_limited') return base
+  const decision = retryDecision(error, Math.max(0, failures - 1), base * 1000, 3600_000, rng, Date.now())
+  return decision.retry ? Math.max(base, Math.ceil(decision.delay / 1000)) : base
+}
 async function watch(ctx: SourceContext, signal: AbortSignal): Promise<void> {
   let interval = 60
   let failures = 0
+  let lastError: unknown
   await ctx.ready
   // Setup restarts dsh-superagent once it resolves the accounts; until then nothing is polled.
   if (!ctx.configured()) { ctx.report('github', health('paused', 'setupPending')); return }
@@ -141,13 +152,13 @@ async function watch(ctx: SourceContext, signal: AbortSignal): Promise<void> {
     try {
       if (config) interval = await pollRound(ctx, signal)
       else ctx.report('github', health('paused', 'sourceOff'))
-      failures = 0
+      failures = 0; lastError = undefined
     } catch (error) {
-      failures += 1
+      failures += 1; lastError = error
       const failed = pollFailure(failures, config?.failuresBeforeError ?? 1, error)
       if (!signal.aborted && failed) ctx.report('github', failed)
     }
-    await pause(Math.max(interval, ctx.config<GithubConfig>(SOURCE)?.pollSeconds ?? 60) * 1000, signal)
+    await pause(pollPauseSeconds(Math.max(interval, ctx.config<GithubConfig>(SOURCE)?.pollSeconds ?? 60), failures, lastError) * 1000, signal)
   }
 }
 interface Round {
