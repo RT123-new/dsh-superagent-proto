@@ -12,7 +12,8 @@ export type SendIdempotency =
   | 'marker'
 /** Thrown by a channel that can prove no provider request was made (validation or pre-send checks). */
 export class SendNotAttempted extends Error {
-  constructor(message: string, readonly permanent = false) { super(message); this.name = 'SendNotAttempted' }
+  /** `cause` is the original provider failure when one exists, so scheduling keeps its classification and typed embargo. */
+  constructor(message: string, readonly permanent = false, readonly cause?: unknown) { super(message); this.name = 'SendNotAttempted' }
 }
 /**
  * Thrown when a send was invoked, its outcome is unknown, and the channel has no proven idempotency: Effects parks the

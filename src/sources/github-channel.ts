@@ -34,7 +34,7 @@ export async function sendGithub(host: Pick<SourceContext, 'commands'>, message:
           if (missing(error)) return undefined
           // A permanently gone target keeps its settlement; every other pre-POST read failure is provably not-attempted.
           if (gone(error)) throw error
-          throw new SendNotAttempted(error instanceof Error ? error.message : String(error))
+          throw new SendNotAttempted(error instanceof Error ? error.message : String(error), false, error)
         })
       rootId = source ? source.in_reply_to_id ?? source.id : undefined
     }
@@ -46,7 +46,7 @@ export async function sendGithub(host: Pick<SourceContext, 'commands'>, message:
     catch (error) {
       // A permanently gone target keeps its settlement; every other pre-POST failure is provably not-attempted.
       if (gone(error)) throw error
-      throw new SendNotAttempted(error instanceof Error ? error.message : String(error))
+      throw new SendNotAttempted(error instanceof Error ? error.message : String(error), false, error)
     }
     if (posted) return 'sent'
     const target = rootId === undefined ? path : `${path}/${rootId}/replies`

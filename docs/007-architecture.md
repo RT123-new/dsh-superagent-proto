@@ -495,6 +495,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/review-phase2-effects-rearm.spec.ts` | Final review: blocked ordered head listing, explicit rearm and discard |
 | `tests/ci-workflow.spec.ts` | The CI workflow's failure propagation: the explicit bash shell contract, the canonical result past the evidence tee, and the tested-SHA record surviving checkout |
 | `tests/review-phase2-effects-routes.spec.ts` | Final review: blocked-effects operator routes (safe class only, same-origin, explicit rearm, in-flight refusal) |
+| `tests/review-phase2-presend-classification.spec.ts` | Final review: a pre-POST provider read failure keeps its policy (401 parks blocked:unauthorized; a typed 429 embargo floors the next attempt) while the reply stays provably not attempted |
 | `tests/review-final-outbox-recovery.spec.ts` | Final review Gate 1: ambiguous live sends park without proven idempotency, safe idempotent retries, server-validated rearm acknowledgement and the enqueue guard |
 | `tests/review-phase2-jsonl-kill.spec.ts` | Final review: delivery history over the real JSONL backend with a real SIGKILL of the writer |
 | `tests/review-phase2-agent-loop-kill.spec.ts` | Final review: real agent loop + real JSONL backend, real SIGKILL, restart resume and delivery; prefix sweep over the log (offline model) |
