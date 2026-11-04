@@ -92,8 +92,8 @@ export interface ExecutorHost {
   closing(): boolean
   /** Current policy permission for a new automated retry; does not revoke already active work. */
   authorized(ticket: Ticket): boolean
-  /** Current policy permission for a NEW privileged Session grant; an uninstalled Source kind (startup) is not a denial. Falls back to `authorized`. */
-  grantAuthorized?(ticket: Ticket): boolean
+  /** Resolves true once the ticket's Source kind is installed (startup order), false on timeout or abort. A grant waits for it, never guesses. */
+  sourceInstalled?(ticket: Ticket, signal?: AbortSignal): Promise<boolean>
   /** Whether processing is paused, which holds launches and input deliveries. */
   paused(): boolean
   /** Execution environment variables for `ticket`, passed to its workspace prepare command. */
@@ -441,6 +441,7 @@ export class DshExecutor implements Executor {
         try {
           // Recreate the worker session if it was externally deleted.
           if (!this.host.context.agents.get(sessionId as SessionId)) {
+            await this.policyKnown(ticket.id)
             await this.host.sessions.ensure(sessionId, ticket.execution?.directory ?? '', ticket.title, 'worker', () => { this.deliveryCurrent(ticket.id, assignment.id); this.privilegeCurrent(ticket.id) })
           }
           if (input) await this.deliverInput(ticket, assignment, input)
@@ -481,7 +482,12 @@ export class DshExecutor implements Executor {
    */
   private privilegeCurrent(ticketId: string): void {
     const ticket = this.host.store.tickets.get(ticketId)
-    if (ticket && !(this.host.grantAuthorized ?? this.host.authorized)(ticket)) throw new Error('The requester is no longer authorized under the current policy; no new privileged Session is granted')
+    if (ticket && !this.host.authorized(ticket)) throw new Error('The requester is no longer authorized under the current policy; no new privileged Session is granted')
+  }
+  /** Fail closed until the ticket's Source kind is registered: its policy cannot be judged before. Later retries durably. */
+  private async policyKnown(ticketId: string, signal?: AbortSignal): Promise<void> {
+    const ticket = this.host.store.tickets.get(ticketId)
+    if (ticket && this.host.sourceInstalled && !await this.host.sourceInstalled(ticket, signal)) throw new Later('The ticket\'s Source is not installed yet; no privileged Session is granted before its policy is known')
   }
   private async deliverInput(ticket: Ticket, assignment: Assignment, input: TicketInput): Promise<void> {
     // Re-check right before session delivery because the ticket may have ended while awaiting `sourceLink`.
@@ -622,6 +628,8 @@ export class DshExecutor implements Executor {
     }
     if (!current()) return
     const sessionId = workerSessionId(ticket.id)
+    await this.policyKnown(ticket.id, controller.signal)
+    if (!current()) return
     const agent = await this.host.sessions.ensure(sessionId, workspace, ticket.title, 'worker', () => {
       controller.signal.throwIfAborted()
       if (!current()) throw new PreparationCancelled()

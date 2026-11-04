@@ -1764,6 +1764,8 @@ it('gives the Assignment a restart starts the messages the replaced one had deli
   const inbox = (agents.get(sessionId)! as unknown as { inbox: { nextTurn: unknown[]; nextStep: unknown[] } }).inbox
   inbox.nextTurn.length = 0; inbox.nextStep.length = 0
   const next = await restart()
+  // Migration (final review 2.2): a relaunch grants a privileged Session only once its Source kind is installed, as in production.
+  next.sources.register(feishuKind); next.sources.register(githubKind)
   await next.ready; await next.idle()
   expect(next.store.tickets.get(ticket.id)!.assignments.map(item => item.state)).toEqual(['ended', 'running'])
   expect(sent()).toBe(2)
@@ -1893,5 +1895,37 @@ it('final review 2.2: a requester removed from the allowed list cannot get a rec
   await receive(follow)
   await route({ kind: 'attach', ticket_id: ticket.id, trigger_id: follow.id, note: 'x' }).catch(() => {})
   await new Promise(resolve => setTimeout(resolve, 500)); await runtime.idle()
+  expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(0)
+}, 20000)
+
+it('final review 2.2: while the ticket\'s Source kind is not installed, a recreated worker Session gets no grant (fail closed), and it is granted once installed', async () => {
+  const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+  const { ticket, sessionId } = await acceptedTicket()
+  await runtime.idle()
+  agents.delete(sessionId)
+  presets.mockClear()
+  const gate = Promise.withResolvers<boolean>()
+  vi.spyOn(runtime.sources, 'installed').mockImplementation(() => gate.promise)
+  const follow = feishu('21', '再加一个', { root_id: undefined, mentions: [{ id: 'ou_bot' }] })
+  await receive(follow)
+  const attached = route({ kind: 'attach', ticket_id: ticket.id, trigger_id: follow.id, note: 'x' }).catch(() => {})
+  await new Promise(resolve => setTimeout(resolve, 300))
+  expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(0)     // waiting, nothing granted
+  gate.resolve(true)
+  await attached
+  await vi.waitFor(() => expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(1))
+}, 20000)
+
+it('final review 2.2: a disabled Source (plugin installed) denies a recreated worker Session grant', async () => {
+  const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+  const { ticket, sessionId } = await acceptedTicket()
+  await runtime.idle()
+  const settings = runtime.store.settings()
+  runtime.store.saveSettings({ ...settings, sources: { ...settings.sources, feishu: { ...settings.sources.feishu!, enabled: false } } })
+  agents.delete(sessionId); presets.mockClear()
+  const follow = feishu('22', '再加一个', { root_id: undefined, mentions: [{ id: 'ou_bot' }] })
+  await receive(follow).catch(() => {})
+  await route({ kind: 'attach', ticket_id: ticket.id, trigger_id: follow.id, note: 'x' }).catch(() => {})
+  await new Promise(resolve => setTimeout(resolve, 400)); await runtime.idle()
   expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(0)
 }, 20000)

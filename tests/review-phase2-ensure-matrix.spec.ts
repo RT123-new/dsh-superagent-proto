@@ -51,3 +51,14 @@ it('an externally deleted worker session is recreated only when authorized, and 
   await expect((h.runtime.sessions.ensure.bind(h.runtime.sessions) as Ensure)('deleted-1', h.directory, 't', 'worker', () => { throw new Error('ended') })).rejects.toThrow('ended')
   expect(created.has('deleted-1')).toBe(false)       // no recreation while unauthorized: authorize runs before create
 })
+
+import { SourceRegistry } from '../src/sources/registry.ts'
+it('SourceRegistry.installed resolves false on timeout or abort and true on registration', async () => {
+  const registry = new SourceRegistry(() => ({} as never))
+  expect(await registry.installed('feishu', undefined, 20)).toBe(false)
+  const controller = new AbortController(); const aborted = registry.installed('feishu', controller.signal, 5000); controller.abort()
+  expect(await aborted).toBe(false)
+  const waiting = registry.installed('feishu', undefined, 5000)
+  registry.register({ kind: 'feishu', health: [] } as never)
+  expect(await waiting).toBe(true)
+})

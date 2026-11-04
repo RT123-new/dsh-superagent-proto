@@ -13,9 +13,21 @@ import type { ChannelLink, ChannelLinks, SourceInstance, SourceKind, TriggerCont
 export class SourceRegistry implements SourceScope {
   private readonly kinds = new Map<string, SourceKind>()
   private readonly health = new Map<string, HealthEntry>()
+  private readonly waiters = new Map<string, Set<() => void>>()
   constructor(private readonly settings: () => Settings, private readonly board: Pick<HealthBoard, 'claim'> = new HealthBoard(),
     private readonly registered: (kind: SourceKind) => () => void = () => () => {}) {}
 
+  /** Resolves true once the kind is registered (at once if it is), false after `ms` or when `signal` aborts. Fail-closed waiting, never a guess. */
+  installed(source: string, signal?: AbortSignal, ms = 30_000): Promise<boolean> {
+    if (this.kinds.has(source)) return Promise.resolve(true)
+    return new Promise<boolean>(resolve => {
+      const set = this.waiters.get(source) ?? new Set<() => void>(); this.waiters.set(source, set)
+      const done = (value: boolean) => { clearTimeout(timer); signal?.removeEventListener('abort', onAbort); set.delete(wake); resolve(value) }
+      const wake = () => done(true), onAbort = () => done(false)
+      const timer = setTimeout(() => done(false), ms)
+      set.add(wake); signal?.addEventListener('abort', onAbort, { once: true })
+    })
+  }
   /** Registers a SourceKind, claims its health entries on HealthBoard (rejecting `sync:` prefixes owned by Settings), and returns an unregister disposer. */
   register<C extends Record<string, unknown>>(kind: SourceKind<C>): () => void {
     if (this.kinds.has(kind.kind)) throw new Error(`Source kind already registered: ${kind.kind}`)
@@ -30,6 +42,7 @@ export class SourceRegistry implements SourceScope {
     }
     for (const [name, entry] of entries) this.health.set(name, entry)
     this.kinds.set(kind.kind, kind as unknown as SourceKind)
+    for (const wake of this.waiters.get(kind.kind) ?? []) wake()
     const unregistered = this.registered(kind as unknown as SourceKind)
     return () => { this.kinds.delete(kind.kind); release(); unregistered() }
   }

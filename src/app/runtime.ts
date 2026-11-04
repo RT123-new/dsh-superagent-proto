@@ -137,10 +137,7 @@ export class Runtime extends Service implements SourceHost {
       this.executor = new DshExecutor({ context: ctx, get engine() { return runtime.engine }, store, effects, health: board.claim('worker'), machine,
         lifetime: this.lifetime, probe, sessions, closing: () => this.closing(), paused: () => this.paused(),
         authorized: ticket => settingsPolicy(store.settings(), sources).revalidate(ticket.mandate),
-        // For a NEW privileged grant: the current policy, except that a Source kind not installed yet (startup, before its plugin
-        // registers) is not a denial, so a restart does not fail every relaunch. Setting the same ticket's requester or chat
-        // out of the policy still denies.
-        grantAuthorized: ticket => settingsPolicy(store.settings(), { scope: input => { const result = sources.scope(input); return !result.listened && result.reason === 'source_not_installed' ? { listened: true, observed: false } : result } } as typeof sources).revalidate(ticket.mandate),
+        sourceInstalled: (ticket, signal) => { const source = ticket.mandate.basis.source; return source ? sources.installed(source, signal) : Promise.resolve(true) },
         environment, sourceLink: link,
         repository: () => setup.deployment.repository, repliedTo: trigger => repliedTo({ store, sources }, trigger) })
       this.assessor = new MasterAssessor({ get engine() { return runtime.engine }, commands, get deployment() { return setup.deployment }, effects,
