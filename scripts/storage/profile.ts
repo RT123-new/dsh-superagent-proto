@@ -29,6 +29,7 @@ const insTh = db.prepare('INSERT INTO thread (key,value) VALUES (?,?)')
 const insTk = db.prepare('INSERT INTO ticket (id,value) VALUES (?,?)')
 const insO = db.prepare('INSERT INTO outbox (id,value) VALUES (?,?)')
 const insE = db.prepare('INSERT INTO effect (kind,key,value,seq,due,since) VALUES (?,?,?,?,?,?)')
+const insL = (() => { try { return db.prepare('INSERT OR IGNORE INTO decision_trigger VALUES (?,?)') } catch { return undefined } })() // baseline schema has no link table
 const insK = db.prepare('INSERT INTO kv VALUES (?,?)')
 for (let th = 0; th < T; th++) {
   const source = sources[th % 2]!, tk = `${source}:${th}`
@@ -42,7 +43,7 @@ for (let i = 0; i < N; i++) {
     text: `message ${i} about deployment ${i % 1013} with some typical body text `.repeat(4), url: `https://github.com/o/r/issues/${th}#c${i}`, meta: { messageId: `m${i}` } }
   insT.run(id, JSON.stringify(trig), at); insX.run(tk, id, at, trig.human ? 1 : 0)
   insD.run(id, JSON.stringify(i % 4 === 0 ? { filtered: { code: 'scope' } } : { decisionId: `d${i}` }))
-  if (i % 2 === 0) insDec.run(`d${i}`, tk, JSON.stringify({ id: `d${i}`, thread: tk, kind: ['ignore', 'accept', 'reopen', 'ask'][i % 4], triggerIds: [id], at }))
+  if (i % 2 === 0) { insDec.run(`d${i}`, tk, JSON.stringify({ id: `d${i}`, thread: tk, kind: ['ignore', 'accept', 'reopen', 'ask'][i % 4], triggerIds: [id], at })); insL?.run(id, `d${i}`) }
   if (i % 20 === 0) {
     insTk.run(`k${i}`, JSON.stringify({ id: `k${i}`, title: 'x', assignments: [{ id: 'a', state: i % 400 === 0 ? 'running' : 'done' }], undelivered: [], ...i % 200 === 0 ? {} : { ended: { at, by: 'executor' } } }))
     insO.run(`o${i}`, JSON.stringify({ id: `o${i}`, status: i % 40 === 0 ? 'dropped' : 'sent', ticketId: `k${i}`, channel: { thread: tk }, ...i % 40 === 0 ? { dropped: { at, reason: 'channelGone' } } : {} }))
