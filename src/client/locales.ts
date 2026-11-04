@@ -809,6 +809,7 @@ const TEXT = {
   "metricsHeap": ["堆内存（字节）", "Heap used (bytes)"],
   "metricsElu": ["进程启动后的事件循环利用率", "Event-loop utilization since process start"],
   "metricsPartialProgram": ["生命周期覆盖仍不完整。未观测的阶段不代表零等待；未计费的报告不是零费用。", "Lifecycle coverage is still partial. Unobserved stages do not mean zero wait; unpriced reports are not free."],
+  "metricsStage.launch_slot_wait": ["启动调度等待（含暂停/重试/拒绝）", "Launch scheduling wait (includes pause/retry/denial)"],
 } as const satisfies Record<string, readonly [string, string]>
 export type DshSuperagentKey = keyof typeof TEXT
 const language = (index: 0 | 1) => Object.fromEntries(Object.entries(TEXT).map(([key, pair]) => [key, pair[index]])) as Record<DshSuperagentKey, string>

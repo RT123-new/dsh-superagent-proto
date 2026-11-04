@@ -51,3 +51,8 @@ Issue20 selective stats/flow index optimization adopted for tested large-history
 * f675f71full1442/1442 tests92files plus typecheck; combined build timeout, standalone build passes. Evidence integration-full-lifecycle.log and lifecycle-build.log. No paid tests, budget unchanged.
 
 * Atomic slot API reviewer1129d39/2955934 integratedcddecb7/ea5035d. Own1red before fix;31metrics/hooks/atomic tests andtypecheckgreen. Validation precedes clockread; complete disjoint state+capacity replace atoneboundary, older optionalcollector fallback explicitlyapproximate. Rawatomic-red/green/type.log.
+
+* Coordinator evidence1cc27ab/452be2b/6e780ef/5328291 independently rerun:13fasttests green,explicit `pnpm bench` twoofflinebenchcases green100s, typecheckgreen. Ownrawlogs+JSON retained in integration/coordination. No partition adopted; single mainSession semantic order stays.
+* Poll actual-Source/Engine/SQLite matched-gate experiment c881b64 independently11green/explicit script tscgreen26c6442. Virtualclock/syntheticnetwork, not real network gain. No production pool adopted.
+* SlotwaitafterCommit e448ad3/dc11c24 independently3red beforefix,8greenafter; includesactualsuccessfulRuntime launch. Name launch_slot_wait: launch scheduling, pause/retry/denial included.
+* Retry candidateb9c2dc4,11redfa49929/strictboundary704e05f,reviewedrepair34f9ad6. Independent11/11red reproduced;36currentproduction/effects/adversarialgreen. Five older characterization tests still assume old production retry behavior/ducktypeheaders and need explicit frozenbaseline/newsemantics repair. Integration not declaredgreen atthischeckpoint.

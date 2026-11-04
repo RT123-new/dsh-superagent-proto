@@ -1,0 +1,56 @@
+{
+  "generatedAt": "2026-11-04T07:26:47.651Z",
+  "base": "reviewed/correctness-stage-b@5752c4c",
+  "seeds": [
+    11,
+    29,
+    47,
+    83,
+    131
+  ],
+  "outage": {
+    "start": 240000,
+    "end": 300000
+  },
+  "relayBurst": {
+    "at": 241000,
+    "count": 300,
+    "acrossTickets": 50
+  },
+  "pairs": 1500,
+  "bootstrapPairs": 1500,
+  "perSeed": {
+    "seed-11": {
+      "baselineP95": 426075,
+      "candidateP95": 61491.46875,
+      "relays": 300
+    },
+    "seed-29": {
+      "baselineP95": 426075,
+      "candidateP95": 73775.7177734375,
+      "relays": 300
+    },
+    "seed-47": {
+      "baselineP95": 426075,
+      "candidateP95": 37600.155029296875,
+      "relays": 300
+    },
+    "seed-83": {
+      "baselineP95": 426075,
+      "candidateP95": 37877.027099609375,
+      "relays": 300
+    },
+    "seed-131": {
+      "baselineP95": 426075,
+      "candidateP95": 54210.70361328125,
+      "relays": 300
+    }
+  },
+  "baselineP95QueueAge": 426074.99999999994,
+  "candidateP95QueueAge": 61491.46875,
+  "relativeImprovement": 0.8556792378102447,
+  "ci95": [
+    0.8541127669039146,
+    0.8576586371527778
+  ]
+}
