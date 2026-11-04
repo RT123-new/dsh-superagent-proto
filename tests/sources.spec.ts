@@ -860,8 +860,8 @@ describe('github source', () => {
           checks += 1
           if (broken) throw commandError({ code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' })
           body = [{ check_runs: [] }]
-        } else if (!args.includes('--include') && args.includes('--slurp')) body = [[]]
-        if (args.includes('--include')) return 'HTTP/2.0 200 OK\r\nX-Poll-Interval: 60\r\n\r\n[]'
+        } else if (args.includes('--slurp')) body = [[]]
+        if (args.includes('--include')) return `HTTP/2.0 200 OK\r\nX-Poll-Interval: 60\r\n\r\n${JSON.stringify(body)}`
         return JSON.stringify(body)
       })
       const disposers: (() => unknown)[] = []

@@ -14,7 +14,7 @@ it('an interrupted assistant surface is a failed interval, not a successful mode
 })
 it('duplicate sent receipts and withdrawn receipts create no pending response timer',()=>{
  const metrics=new Metrics(), receipts={add:vi.fn(()=>false),withdraw:vi.fn(()=>true)}
- const outbox=new Outbox({store:{atomic:(f:()=>void)=>f(),afterCommit:(f:()=>void)=>f(),receipts},effects:{handle:()=>{},enqueue:()=>{},cancel:()=>{}},probe:new Probe(metrics)} as never)
+ const outbox=new Outbox({store:{atomic:(f:()=>void)=>f(),afterCommit:(f:()=>void)=>f(),receipts},effects:{handle:()=>{},enqueue:()=>{},cancel:()=>{}},sources:{instance:()=>undefined,channelAllowed:()=>false,channelIdempotency:()=>undefined,channelIdempotencyWindow:()=>undefined,send:async()=>'sent'},probe:new Probe(metrics)} as never)
  const message={id:'sent',kind:'acknowledgement',channel:{source:'github'},text:'ok'}
  outbox.send(message as never)
  expect((outbox as unknown as {queued:Map<string,number>}).queued.size).toBe(0)
@@ -48,7 +48,7 @@ it('receipt timing uses injected clock and does not label acknowledgements as re
  const metrics=new Metrics({mono:()=>mono})
  const receipt={id:'ack',status:'pending',channel:{source:'github'}}
  const host={store:{atomic:(f:()=>void)=>f(),afterCommit:(f:()=>void)=>f(),receipts:{add:()=>true,get:()=>receipt,behind:()=>false,settle:()=>{}}},
- effects:{enqueue:()=>{},handle:(_kind:unknown,handler:typeof run)=>{run=handler}}, sources:{instance:()=>({enabled:true}),channelAllowed:()=>true,send:async()=>{mono=75;return 'sent'}},probe:new Probe(metrics)}
+ effects:{enqueue:()=>{},handle:(_kind:unknown,handler:typeof run)=>{run=handler}}, sources:{instance:()=>({enabled:true}),channelAllowed:()=>true,channelIdempotency:()=>undefined,channelIdempotencyWindow:()=>undefined,send:async()=>{mono=75;return 'sent'}},probe:new Probe(metrics)}
  const outbox=new Outbox(host as never)
  outbox.send({id:'ack',kind:'acknowledgement',channel:{source:'github'},text:'ok'} as never);mono=50
  await run({},'ack')
