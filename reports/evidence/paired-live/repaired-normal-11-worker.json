@@ -1,0 +1,237 @@
+{
+  "id": "repaired-normal-11-worker",
+  "prompt": "{\"task\":\"Repair clamp by returning JSON {\\\"expression\\\": AST}. AST leaves only n, low, high. Internal node exactly {\\\"op\\\":\\\"min\\\" or \\\"max\\\",\\\"args\\\":[AST,AST]}. Return only JSON, no code or prose. Requirements: clamp below low to low, above high to high, preserve interior.\",\"brokenCode\":\"export const clamp = (n, low, high) => Math.min(low, Math.max(n, high));\\n\",\"seed\":11}",
+  "chunks": [
+    {
+      "type": "block-start",
+      "index": 0,
+      "blockType": "text"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "{\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "expression"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\":{\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "op"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\":\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "max"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\",\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "args"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\":["
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "{\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "op"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\":\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "min"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\",\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "args"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\":["
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "{\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "n"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\":\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "n"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\"},"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "{\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "n"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\":\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "high"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "}]"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "},{\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "n"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\":\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "low"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "\""
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "}]"
+    },
+    {
+      "type": "text-delta",
+      "index": 0,
+      "text": "}}"
+    },
+    {
+      "type": "block-end",
+      "index": 0,
+      "block": {
+        "type": "text",
+        "text": "{\"expression\":{\"op\":\"max\",\"args\":[{\"op\":\"min\",\"args\":[{\"n\":\"n\"},{\"n\":\"high\"}]},{\"n\":\"low\"}]}}"
+      }
+    },
+    {
+      "type": "usage",
+      "usage": {
+        "inputTokens": 110,
+        "outputTokens": 34,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 144
+      }
+    },
+    {
+      "type": "finish",
+      "reason": {
+        "kind": "stop"
+      },
+      "replayState": {
+        "response": {
+          "kind": "deepseek-messages",
+          "version": 1,
+          "model": "deepseek-flash"
+        },
+        "blocks": [
+          {
+            "type": "text"
+          }
+        ]
+      }
+    }
+  ],
+  "text": "{\"expression\":{\"op\":\"max\",\"args\":[{\"op\":\"min\",\"args\":[{\"n\":\"n\"},{\"n\":\"high\"}]},{\"n\":\"low\"}]}}",
+  "latencyMs": 1008.3604740000001,
+  "usage": {
+    "inputTokens": 110,
+    "outputTokens": 34,
+    "cacheReadTokens": 0,
+    "cacheWriteTokens": 0,
+    "totalTokens": 144
+  },
+  "baselineTag": "8c32a9d",
+  "repairedTag": "5752c4c99778ba5a0abe59ace4988270e4612855",
+  "pricing": {
+    "url": "https://api-docs.deepseek.com/quick_start/pricing.md",
+    "verified": "2026-11-04",
+    "inputMiss": 0.3,
+    "inputHit": 0.006,
+    "output": 1.2,
+    "unit": 1000000,
+    "currency": "USD"
+  }
+}

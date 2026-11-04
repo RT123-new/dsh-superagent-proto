@@ -1,0 +1,32 @@
+{
+  "limit": 1,
+  "charged": 0.00022769999999999995,
+  "pending": null,
+  "calls": [
+    {
+      "id": "repaired-normal-11-route",
+      "maximum": 0.6012288,
+      "usage": {
+        "inputTokens": 105,
+        "outputTokens": 102,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 207
+      },
+      "cost": 0.00015389999999999997
+    },
+    {
+      "id": "repaired-normal-11-worker",
+      "maximum": 0.6012288,
+      "usage": {
+        "inputTokens": 110,
+        "outputTokens": 34,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 144
+      },
+      "cost": 0.00007379999999999999
+    }
+  ],
+  "stopped": true
+}
