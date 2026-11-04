@@ -163,7 +163,11 @@ export class Settings {
     const previous = block === 'eval' ? current.eval.model : block === 'executor' ? current.executor.model : null
     if (model && JSON.stringify(model) !== JSON.stringify(previous)) {
       try { await resolveRoleModel(this.host.context, model) }
-      catch (error) { throw new UserError('modelUnavailable', { block, error: error instanceof Error ? error.message : String(error) }) }
+      catch (error) {
+        // Never interpolate upstream prose: it can carry remote text or a credential. Only a wire-stable LlmError code is shown.
+        const reason = error && typeof error === 'object' && 'code' in error && typeof error.code === 'string' ? error.code : 'unavailable'
+        throw new UserError('modelUnavailable', { block, error: reason })
+      }
     }
     rules.guard?.(current, candidate, origin)
     if (setupChanged(current, candidate)) await this.host.setup.checkAccounts(block, candidate)

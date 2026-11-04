@@ -1309,10 +1309,15 @@ it('refuses a settings save with an unknown model or a Source kind that is not i
     await http(req, { writeHead: (code: number) => { status = code }, end: (data: string) => { text = data } })
     return { status, body: JSON.parse(text) as Record<string, unknown> }
   }
-  vi.mocked(services.llm as { resolveCallConfig: ReturnType<typeof vi.fn> }).resolveCallConfig.mockRejectedValueOnce(new Error('unknown provider nowhere'))
+  // A wire-stable LlmError code is interpolated; arbitrary upstream prose (possibly remote text or a credential) never is.
+  vi.mocked(services.llm as { resolveCallConfig: ReturnType<typeof vi.fn> }).resolveCallConfig
+    .mockRejectedValueOnce(Object.assign(new Error('provider "nowhere" answered: sk-live-9f8e7d body'), { code: 'NO_ADAPTER' }))
+    .mockRejectedValueOnce(new Error('provider "nowhere" answered: sk-live-9f8e7d body'))
   const evalBlock = { ...runtime.store.settings().eval, model: { provider: 'nowhere', model: 'x' } }
   expect(await request('PUT', 'settings/eval', { value: evalBlock, revision: runtime.store.blockRevision('eval') }))
-    .toMatchObject({ status: 400, body: { code: 'modelUnavailable', values: { block: 'eval', error: 'unknown provider nowhere' } } })
+    .toMatchObject({ status: 400, body: { code: 'modelUnavailable', values: { block: 'eval', error: 'NO_ADAPTER' } } })
+  expect(await request('PUT', 'settings/eval', { value: evalBlock, revision: runtime.store.blockRevision('eval') }))
+    .toMatchObject({ status: 400, body: { code: 'modelUnavailable', values: { block: 'eval', error: 'unavailable' } } })
   const stored = runtime.store.settings()
   runtime.store.saveSettings({ ...stored, sources: { ...stored.sources, slack: { enabled: false, config: {} } } })
   expect(await request('PUT', 'settings/source:slack', { value: { enabled: true, config: {} }, revision: 0 }))
