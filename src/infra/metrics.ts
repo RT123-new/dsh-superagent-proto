@@ -33,6 +33,7 @@ export function nearestRank(sorted: readonly number[], p: number): number | unde
 
 export interface DurationSummary { count: number; sumMs: number; maxMs: number; windowSize: number; p50Ms: number | null; p95Ms: number | null }
 
+/** Bounded ring of recent samples plus exact count, sum and max for one stage and source key. */
 class Series {
   private readonly ring: number[] = []
   private next = 0
@@ -116,6 +117,7 @@ const CATS = ['inputCacheHit', 'inputCacheMiss', 'output'] as const
 
 export interface MetricsOptions { mono?: MonoClock; wall?: WallClock; window?: number }
 
+/** The collector: bounded stage series, counters, queue gauges, slot pools and token accounting behind one snapshot. */
 export class Metrics {
   readonly mono: MonoClock
   readonly wall: WallClock
