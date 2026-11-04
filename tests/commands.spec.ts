@@ -156,7 +156,7 @@ describe('GitHub calls', () => {
     const run = vi.spyOn(value, 'run').mockResolvedValue('[[{"id":1}],[{"id":2}]]')
     expect(await value.pages(z.looseObject({ id: z.number() }), 'issues/12/comments?per_page=100')).toEqual([{ id: 1 }, { id: 2 }])
     expect(run).toHaveBeenLastCalledWith('/path/agent-gh', ['api', `repos/${REPOSITORY}/issues/12/comments?per_page=100`, '--paginate',
-      '--slurp'], undefined, { responseHeaders: false })
+      '--slurp', '--include'], undefined, { responseHeaders: true })
     run.mockResolvedValue('[[{"id":1}],[{"id":"two"}]]')
     const tally = { skipped: 0 }
     expect(await value.pages(z.looseObject({ id: z.number() }), 'issues/12/comments', tally)).toEqual([{ id: 1 }])
@@ -264,7 +264,7 @@ describe('trusted transport metadata: real provider Retry-After at the gh bounda
     expect(serverNotBeforeOf(failure2)).toBeUndefined()
   })
   it('uses the last page header block when a paginated gh api call fails mid-way', async () => {
-    const cli = failingGh("HTTP/2.0 200 OK\r\n\r\n[{\"id\":1}]HTTP/2.0 403 Forbidden\r\nRetry-After: 30\r\n\r\n{\"message\":\"API rate limit exceeded\"}", 'gh: API rate limit exceeded (HTTP 403)')
+    const cli = failingGh("HTTP/2.0 200 OK\r\n\r\n[{\"id\":1}]\nHTTP/2.0 403 Forbidden\r\nRetry-After: 30\r\n\r\n{\"message\":\"API rate limit exceeded\"}", 'gh: API rate limit exceeded (HTTP 403)')
     const before = Date.now()
     const failure = await commandsFor(cli).gh(['api', 'repos/acme/widgets/issues', '--paginate', '--slurp']).catch((error: unknown) => error)
     const notBefore = serverNotBeforeOf(failure)
@@ -308,7 +308,7 @@ describe('trusted transport metadata: real provider Retry-After at the gh bounda
     await expect(commands.gh(['api', 'repos/acme/widgets/issues'])).resolves.toEqual({ ok: true })
     expect(run).toHaveBeenCalledWith('/path/agent-gh', ['api', 'repos/acme/widgets/issues', '--include'], undefined, { responseHeaders: true })
     run.mockClear()
-    run.mockResolvedValue('HTTP/2.0 200 OK\r\n\r\n[{"id":1}]HTTP/2.0 200 OK\r\n\r\n[{"id":2}]')
+    run.mockResolvedValue('HTTP/2.0 200 OK\r\n\r\n[[{"id":1}],\nHTTP/2.0 200 OK\r\n\r\n[{"id":2}]]\n')
     await expect(commands.gh(['api', 'repos/acme/widgets/issues', '--paginate', '--slurp'])).resolves.toEqual([[{ id: 1 }], [{ id: 2 }]])
     expect(run).toHaveBeenCalledWith('/path/agent-gh', ['api', 'repos/acme/widgets/issues', '--paginate', '--slurp', '--include'], undefined, { responseHeaders: true })
   })

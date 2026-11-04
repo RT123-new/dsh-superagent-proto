@@ -25,16 +25,30 @@ export class CliError extends Error {
   transportFailure?: TransportFailure
   constructor(message: string, readonly code?: number, readonly exitCode?: number) { super(message) }
 }
-/** Splits a leading `gh api --include` response-header block from the body; values stay raw for the typed transport parser. */
+/** Splits `gh api --include` response-header blocks from the body (`--paginate` interleaves one per page); the LAST block's values describe the final response and stay raw for the typed transport parser. */
 function splitResponseHeaders(output: string): { status?: number; retryAfter?: string; body: string } {
-  if (!output.startsWith('HTTP/')) return { body: output }
   const normalized = output.replace(/\r\n/g, '\n')
-  const end = normalized.indexOf('\n\n')
-  if (end < 0) return { body: output }
-  const head = normalized.slice(0, end)
-  const status = Number(/^HTTP\/\S+ (\d{3})\b/.exec(head)?.[1]) || undefined
-  const retryAfter = /^Retry-After:[ \t]*(.*?)[ \t]*$/im.exec(head)?.[1]
-  return { status, retryAfter, body: normalized.slice(end + 2) }
+  let rest = normalized
+  let status: number | undefined
+  let retryAfter: string | undefined
+  let body = ''
+  for (;;) {
+    if (rest.startsWith('HTTP/')) {
+      const end = rest.indexOf('\n\n')
+      if (end < 0) { body += rest; break }
+      const head = rest.slice(0, end)
+      status = Number(/^HTTP\/\S+ (\d{3})\b/.exec(head)?.[1]) || status
+      retryAfter = /^Retry-After:[ \t]*(.*?)[ \t]*$/im.exec(head)?.[1] ?? retryAfter
+      rest = rest.slice(end + 2)
+      continue
+    }
+    // A body chunk up to the next page's header block (blocks start at a line boundary; JSON strings hold no raw newlines).
+    const next = rest.indexOf('\nHTTP/')
+    if (next < 0) { body += rest; break }
+    body += rest.slice(0, next + 1)
+    rest = rest.slice(next + 1)
+  }
+  return { status, retryAfter, body }
 }
 /**
  * Reads the wire-stable retry metadata of a lark-cli typed stderr envelope (lark-cli 1.0.84+, errs/ERROR_CONTRACT.md:
@@ -162,9 +176,9 @@ export class Commands {
   }
   /** Runs the agent's GitHub CLI and parses its JSON output; callers should prefer `api`, which is restricted to the configured repository and validates output. */
   async gh<T>(args: string[]): Promise<T> {
-    // `--include` exposes the real response headers at this boundary; `--paginate` interleaves a header block per
-    // page, so paginated reads keep the headerless form.
-    const headers = args[0] === 'api' && !args.includes('--paginate')
+    // `--include` exposes the real response headers at this boundary; with `--paginate` gh interleaves one block per
+    // page and splitResponseHeaders strips them all, so paginated reads get the same typed metadata on failure.
+    const headers = args[0] === 'api'
     const output = await this.run(this.deployment.github.cli, headers ? [...args, '--include'] : args, undefined, { responseHeaders: headers })
     try { return JSON.parse(headers ? splitResponseHeaders(output).body : output) as T }
     catch {
