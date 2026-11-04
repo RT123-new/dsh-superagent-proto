@@ -9,7 +9,7 @@ Base: author fix cda2328, baseline 8c32a9d, author failing-first 17e4a14. Review
 - Tested: six new adversarial cases on cda2328, committed29aa358. Failed all six: permission loss during delivery; permission loss during backoff; missing master losing notice; same-millisecond repeated policy transition loss; unrelated unloaded parent denied; unrelated deeply nested chain denied. Other29 tests passed.
 - Tested: immutable revision duplicate with different serialization/changed-path payload. Failed before identity repair; passed after.
 - Tested: real SQLite close/reopen and history replay, coalesced waiting revisions, in-flight generation replacement, injection failure/retry, simultaneous saves, runtime current-policy permission loss, persisted managed provenance across SQLite reopen, bounded record size per Session.
-- Passed: final scoped tests and typecheck/build. See evidence logs. Final full suite:1240 passed/1241 total, sole failure PRE-1 Feishu health-state expectation. Final focused suite:50/50, including docs and43 issue-specific tests.
+- Passed: final scoped tests and typecheck/build. See evidence logs. Final full suite:1240 passed/1241 total, sole failure PRE-1 Feishu health-state expectation. Final focused suite:50/50, including docs and44 issue-specific tests.
 
 ## Findings and repairs
 
