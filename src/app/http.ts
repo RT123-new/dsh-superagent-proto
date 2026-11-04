@@ -210,8 +210,9 @@ function routes(runtime: HttpHost): Routes {
     'POST effects/:kind/rearm': async ({ params, body }) => {
       const kind = z.enum(EFFECT_KINDS).safeParse(params.kind)
       if (!kind.success) throw new RouteError(404, 'Unknown effect kind')
-      const { key } = z.object({ key: z.string().min(1).max(512) }).strict().parse(await body())
-      return { rearmed: runtime.effects.rearm(kind.data, key) }
+      // The server independently validates an explicit acknowledgement before rearming an unknown-outcome row.
+      const { key, acknowledgeUnknownOutcome } = z.object({ key: z.string().min(1).max(512), acknowledgeUnknownOutcome: z.boolean().optional() }).strict().parse(await body())
+      return runtime.effects.rearm(kind.data, key, { acknowledgeUnknownOutcome })
     },
     'POST tickets/:id/stop': ({ params }) => { const id = ticket(params.id); runtime.engine.stopTicket(id); return { stopped: true } },
     'POST executor/pause': async ({ body }) => runtime.settings.pause(z.object({ paused: z.boolean() }).parse(await body()).paused, 'panel'),

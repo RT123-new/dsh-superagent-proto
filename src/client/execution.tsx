@@ -49,7 +49,7 @@ export function ExecutionStatus({ filter: current, state, reload }: {
         {item.attemptUnknown && <Hint>{t('blockedEffectUnknown')}</Hint>}
         <div className="dt-row-meta dt-row-buttons"><ConfirmButton variant="outline" icon="refresh" label={t('rearmEffect')} title={t('rearmEffect')}
           message={item.attemptUnknown ? `${t('rearmEffectConfirm')} ${t('blockedEffectUnknown')}` : t('rearmEffectConfirm')}
-          onConfirm={async () => { await call('POST effects/:kind/rearm', { kind: item.kind, body: { key: item.key } }); await blocked.reload() }} /></div>
+          onConfirm={async () => { await call('POST effects/:kind/rearm', { kind: item.kind, body: { key: item.key, ...(item.attemptUnknown ? { acknowledgeUnknownOutcome: true } : {}) } }); await blocked.reload() }} /></div>
       </div></li>)}</ul></section> : null}
     <LoadState error={error} loading={!data} />
     {data && (data.items.length ? <ul className="dt-list">{data.items.map(ticket => ticket.stage === 'person'

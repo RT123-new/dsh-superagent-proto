@@ -37,7 +37,7 @@ export interface Api {
   'GET tickets/:id': { response: TicketPageView }
   'POST tickets/:id/retry': { response: { retried: true } }
   'GET effects/blocked': { response: { items: BlockedEffect[] } }
-  'POST effects/:kind/rearm': { body: { key: string }; response: { rearmed: boolean } }
+  'POST effects/:kind/rearm': { body: { key: string; acknowledgeUnknownOutcome?: boolean }; response: { rearmed: boolean; requiresAcknowledgement?: boolean } }
   'POST tickets/:id/stop': { response: { stopped: true } }
   'POST executor/pause': { body: { paused: boolean }; response: { paused: boolean } }
   'PUT settings/:block': { body: { value: unknown; revision: number }; response: { revision: number; restarting: boolean } }

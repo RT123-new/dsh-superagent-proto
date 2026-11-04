@@ -8,7 +8,8 @@ export const FAILURES_BEFORE_ERROR = 3
 import type { HealthBoard, HealthEntry } from '../infra/health.ts'
 import type { Store } from './store.ts'
 import { Probe } from '../infra/metrics-probe.ts'
-import { errorRecord, retryDecision } from './retry-policy.ts'
+import { errorRecord, retryDecision, classifyError } from './retry-policy.ts'
+import { AttemptUnknownError, SendNotAttempted } from '../sources/send.ts'
 
 export interface EffectPayloads {
   /** Build an Eval's candidate card and relay it to the main Session; the key is the Eval ID. */
@@ -82,6 +83,12 @@ export class Effects {
   }
   /** Upserts an effect in the caller's transaction, coalescing with any waiting row of the same kind and key while keeping its queue position. */
   enqueue<K extends EffectKind>(kind: K, key: string, payload: EffectPayloads[K]): void {
+    // A crash-uncertain reply recovers only through explicit operator rearm: an ordinary enqueue (such as a coalesced
+    // upsert) must never silently clear its block and make it automatically retryable. Other kinds keep coalescing.
+    if (kind === 'reply') {
+      const existing = this.store.db.prepare("SELECT error FROM effect WHERE kind = 'reply' AND key = ?").get(key) as { error: string } | undefined
+      if (typeof existing?.error === 'string' && existing.error.startsWith('blocked:unknown_outcome')) { this.kick(); return }
+    }
     this.store.db.prepare(`INSERT INTO effect (kind, key, value, seq, due, since) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(kind, key) DO UPDATE
       SET value = excluded.value, generation = generation + 1, attempts = 0, error = '', due = excluded.due`)
       .run(kind, key, JSON.stringify(payload), ++this.seq, this.now(), new Date(this.now()).toISOString())
@@ -117,15 +124,23 @@ export class Effects {
    * Never called automatically. A sticky `[attempt-unknown]` marker is kept, since the earlier attempt's outcome is still not known.
    * Returns false when the row does not exist or is not blocked. The alternative, dropping the row, is `cancel`.
    */
-  rearm(kind: EffectKind, key: string): boolean {
+  rearm(kind: EffectKind, key: string, acknowledgement?: { acknowledgeUnknownOutcome?: boolean }): { rearmed: boolean; requiresAcknowledgement?: boolean } {
     const row = this.store.db.prepare("SELECT error FROM effect WHERE kind = ? AND key = ? AND error LIKE 'blocked:%'").get(kind, key)
-    if (typeof row?.error !== 'string') return false
+    if (typeof row?.error !== 'string') return { rearmed: false }
     // Refuse while an attempt is (or may be) in flight: rearming would drop its started marker and could run a concurrent duplicate.
-    if (hasMarker(row.error, ATTEMPT_STARTED) || [...this.tasks].some(task => task.kind === kind && task.key === key)) return false
-    const error = hasMarker(row.error, ATTEMPT_UNKNOWN) ? ATTEMPT_UNKNOWN : ''
-    this.store.db.prepare('UPDATE effect SET error = ?, attempts = 0, due = ?, generation = generation + 1 WHERE kind = ? AND key = ?').run(error, this.now(), kind, key)
+    if (hasMarker(row.error, ATTEMPT_STARTED) || [...this.tasks].some(task => task.kind === kind && task.key === key)) return { rearmed: false }
+    const unknown = hasMarker(row.error, ATTEMPT_UNKNOWN)
+    // An unknown-outcome row may duplicate a remote send when retried: the operator must explicitly acknowledge that risk,
+    // and the server validates it here rather than trusting a client-side dialog.
+    if (unknown && acknowledgement?.acknowledgeUnknownOutcome !== true) return { rearmed: false, requiresAcknowledgement: true }
+    const error = unknown ? ATTEMPT_UNKNOWN : ''
+    // Conditional update on the exact blocked state read above: a stale rearm cannot modify a row that changed since
+    // (a newer generation, a fresh block, or a row another path already rearmed).
+    const result = this.store.db.prepare('UPDATE effect SET error = ?, attempts = 0, due = ?, generation = generation + 1 WHERE kind = ? AND key = ? AND error = ?')
+      .run(error, this.now(), kind, key, row.error)
+    if (Number(result.changes) !== 1) return { rearmed: false }
     this.kick()
-    return true
+    return { rearmed: true }
   }
   /** Drops a queued row by kind and key; if it is already running, that attempt finishes normally. */
   cancel(kind: EffectKind, key: string): void {
@@ -238,6 +253,19 @@ export class Effects {
     else if (failure.error instanceof Later) {
       // `Later` means nothing was sent: drop only the in-flight marker, keep a sticky unknown one.
       this.store.db.prepare(`UPDATE effect SET due = ?, error = ? WHERE ${own}`).run(this.now() + handler.retry[0], row.error, ...ownRow)
+    } else if (failure.error instanceof SendNotAttempted && !failure.error.permanent) {
+      // Proven not attempted (pre-send check failed transiently): same treatment as Later.
+      this.store.db.prepare(`UPDATE effect SET due = ?, error = ? WHERE ${own}`).run(this.now() + handler.retry[0], row.error, ...ownRow)
+    } else if (failure.error instanceof SendNotAttempted) {
+      // Proven not attempted and permanently invalid: park visibly without an attempt marker; no retry can succeed.
+      this.store.db.prepare(`UPDATE effect SET attempts = attempts + 1, error = ?, due = ? WHERE ${own}`)
+        .run(keep(neutralise(`blocked:permanent: ${errorRecord(failure.error, 'permanent')}`)), this.now() + BLOCKED_RECHECK_MS, ...ownRow)
+    } else if (failure.error instanceof AttemptUnknownError) {
+      // A provider may have accepted the send and the channel has no proven idempotency: park exactly like the crash
+      // path (blocked, unknown marker, explicit acknowledged rearm is the only recovery), never an automatic retry.
+      this.probe.count('effect_attempt_unknown')
+      this.store.db.prepare(`UPDATE effect SET attempts = attempts + 1, error = ?, due = ? WHERE ${own}`)
+        .run(withMarker(neutralise(`blocked:unknown_outcome: ${errorRecord(failure.error.cause, classifyError(failure.error.cause))}`), ATTEMPT_UNKNOWN), this.now() + BLOCKED_RECHECK_MS, ...ownRow)
     } else {
       const decision = retryDecision(failure.error, row.attempts, handler.retry[0], handler.retry[1], this.rng, this.now())
       if (decision.retry) {

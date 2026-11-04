@@ -48,9 +48,16 @@ export interface SourceChannel<C> {
   allowed?(address: Record<string, string>, config: C): boolean
   /**
    * Sends a message idempotently by ID; returns `'gone'` when the target conversation no longer accepts replies.
-   * @throws when delivery failed but may succeed on a later retry.
+   * @throws SendNotAttempted when it can prove that no provider request was made.
+   * @throws when delivery failed but may succeed on a later retry; without `idempotency`, such an ambiguous failure parks the reply for explicit operator recovery.
    */
   send(host: Pick<SourceContext, 'commands'>, message: OutboundMessage): Promise<'sent' | 'gone'>
+  /**
+   * How a retried send after an ambiguous failure is made safe: 'provider' means the provider dedupes on the durable
+   * message id (its documented idempotency key), 'marker' means this adapter checks for its own persisted message-id
+   * marker before posting. Undeclared means unproven: ambiguous post-attempt failures park instead of auto-retrying.
+   */
+  idempotency?: 'provider' | 'marker'
   /** Returns the URL and label for `address`; `url` is empty when `links` lack the required deployment info. */
   link(address: Record<string, string>, links: ChannelLinks): ChannelLink
 }

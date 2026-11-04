@@ -368,6 +368,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/infra/metrics-probe.ts` | The failure-isolated optional `Probe` that production hooks record through, never changing effect control flow |
 | `src/infra/metrics.ts` | The bounded Stage C `Metrics` collector: stage durations with nearest-rank quantiles, slot-state integrals, queue depth and oldest age, token and cost categories (not yet hooked into production code) |
 | `src/sources/kind.ts` | The `SourceKind` protocol |
+| `src/sources/send.ts` | Outbound send outcome contracts: `SendIdempotency`, `SendNotAttempted`, `AttemptUnknownError` and the message-id validation every idempotency key passes |
 | `src/sources/registry.ts` | `SourceRegistry` |
 | `src/sources/host.ts` | `SourceHost`, `SourceContext`, `Health`, `health` and the fixed health texts |
 | `src/sources/poll.ts` | What GitHub and Feishu polling share: `POLL_HORIZON_MS`, `polled`, `cursorAt`, and `pollThreads`, which keeps a failure on its Thread as `pollError` |
@@ -493,6 +494,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/review-phase2-ensure-matrix.spec.ts` | Final review: ensure authorization sweep over pause, shutdown, ended ticket, replacement and external delete |
 | `tests/review-phase2-effects-rearm.spec.ts` | Final review: blocked ordered head listing, explicit rearm and discard |
 | `tests/review-phase2-effects-routes.spec.ts` | Final review: blocked-effects operator routes (safe class only, same-origin, explicit rearm, in-flight refusal) |
+| `tests/review-final-outbox-recovery.spec.ts` | Final review Gate 1: ambiguous live sends park without proven idempotency, safe idempotent retries, server-validated rearm acknowledgement and the enqueue guard |
 | `tests/review-phase2-jsonl-kill.spec.ts` | Final review: delivery history over the real JSONL backend with a real SIGKILL of the writer |
 | `tests/review-phase2-agent-loop-kill.spec.ts` | Final review: real agent loop + real JSONL backend, real SIGKILL, restart resume and delivery; prefix sweep over the log (offline model) |
 | `tests/review-phase2-delivery-requeue.spec.ts` | Final review: AgentDelivery re-queue branches (idle, running, inject, throw-after-remove retry, revoked retry) on a fake agent |

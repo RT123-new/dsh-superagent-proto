@@ -3,6 +3,7 @@ import type { OutboundMessage, Outbox as OutboxPort, ReplyStatus } from '../core
 import type { Commands } from '../infra/commands.ts'
 import { checkedImText } from '../infra/text.ts'
 import type { SourceRegistry } from '../sources/registry.ts'
+import { AttemptUnknownError, checkedMessageId, SendNotAttempted } from '../sources/send.ts'
 import { FAILURES_BEFORE_ERROR, Later, type Effects } from './effects.ts'
 import type { Store } from './store.ts'
 import type { Probe } from '../infra/metrics-probe.ts'
@@ -10,7 +11,7 @@ import type { Probe } from '../infra/metrics-probe.ts'
 export interface OutboxHost {
   readonly store: Pick<Store, 'atomic' | 'afterCommit' | 'receipts'>
   readonly effects: Pick<Effects, 'enqueue' | 'cancel' | 'handle' | 'idle'> & Partial<Pick<Effects, 'attemptUnknown'>>
-  readonly sources: Pick<SourceRegistry, 'instance' | 'channelAllowed' | 'send'>
+  readonly sources: Pick<SourceRegistry, 'instance' | 'channelAllowed' | 'send' | 'channelIdempotency'>
   readonly commands: Commands
   paused(): boolean
   /** Optional instrumentation; absent means none. */
@@ -61,12 +62,23 @@ export class Outbox implements OutboxPort {
     const { store, sources, commands } = this.host
     const receipt = store.receipts.get(id)
     if (receipt?.status !== 'pending') { this.queued.delete(id); return }
+    // The durable message id is every channel's idempotency key; an invalid one can never reach a provider.
+    checkedMessageId(id)
     if (!sources.instance(receipt.channel.source)?.enabled) throw new Later('The Source is off or not installed')
     // Hold later messages for the same ticket and conversation behind an earlier pending message until it exceeds the failure threshold.
     if (store.receipts.behind(id, FAILURES_BEFORE_ERROR)) throw new Later('An earlier message of this ticket to this conversation waits')
     if (!sources.channelAllowed(receipt.channel)) { store.receipts.settle(receipt, 'channelIgnored'); this.queued.delete(id); return }
     // A permanently unreachable target (such as a recalled message or deleted Issue) settles as `channelGone` so its receipt prevents retries.
-    const result = await sources.send(receipt, commands)
+    let result: 'sent' | 'gone' | 'waiting'
+    try { result = await sources.send(receipt, commands) }
+    catch (error) {
+      // SendNotAttempted proves nothing reached the provider. Anything else after a possible provider invocation is an
+      // unknown outcome: only a channel with a proven idempotency contract may retry it automatically; otherwise park it
+      // exactly like the crash path instead of risking an external duplicate.
+      if (error instanceof SendNotAttempted) throw error
+      if (sources.channelIdempotency(receipt.channel.source) === undefined) throw new AttemptUnknownError(error)
+      throw error
+    }
     if (result === 'waiting') throw new Later('The Source is not installed')
     store.receipts.settle(receipt, result === 'gone' ? 'channelGone' : 'sent')
     // Receipt queued -> the Source acknowledged the send; a `gone` target is counted apart, never as a response.

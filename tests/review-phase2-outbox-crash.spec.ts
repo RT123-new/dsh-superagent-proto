@@ -13,7 +13,7 @@ async function at(ms: number) {
   try { await h.runtime.pump(); await h.runtime.sendReplies() } finally { vi.useRealTimers() }
 }
 
-it('a send the provider accepted but the host never saw confirmed is retried with the same message id and then settles', async () => {
+it('a send the provider accepted but the host never saw confirmed parks without idempotency, then settles after an acknowledged rearm', async () => {
   const accepted: string[] = []
   let calls = 0
   const kind: SourceKind<Record<string, never>> = { kind: 'crashy', title: { zh: 'x', en: 'x' }, description: { zh: '', en: '' }, health: [],
@@ -27,10 +27,15 @@ it('a send the provider accepted but the host never saw confirmed is retried wit
   h.runtime.outbox.send({ id: 'dup-risk', channel: { source: 'crashy', thread: 'c:1', address: {} }, text: 'Done', kind: 'reply' })
   await h.runtime.sendReplies()
   expect(h.runtime.outbox.status('dup-risk')).toBe('pending')
-  await at(5000)
+  await at(5000); await at(300_000)
+  // No proven idempotency: no automatic retransmission; the uncertain reply is parked for explicit recovery.
+  expect(accepted).toEqual(['dup-risk'])
+  expect(h.runtime.outbox.outcome('dup-risk')).toBe('attempted-unknown')
+  expect(h.runtime.effects.rearm('reply', 'dup-risk')).toEqual({ rearmed: false, requiresAcknowledgement: true })
+  expect(h.runtime.effects.rearm('reply', 'dup-risk', { acknowledgeUnknownOutcome: true })).toEqual({ rearmed: true })
+  await at(10)
   expect(h.runtime.outbox.status('dup-risk')).toBe('sent')
-  // The retransmission is the documented duplicate risk; the stable id is what a provider can dedupe on.
-  expect(accepted).toEqual(['dup-risk', 'dup-risk'])
+  expect(accepted).toEqual(['dup-risk', 'dup-risk'])   // the second send was explicitly authorised by the operator
 })
 
 it('a permanently failing send stays pending (never silently dropped or marked sent)', async () => {

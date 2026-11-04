@@ -32,7 +32,7 @@ it('a blocked ordered head stalls followers; blocked() lists it; rearm resumes i
   expect(effects.blocked('relay')[0]!.error).toMatch(/^blocked:/)
   fail.on = false; await tick()
   expect(ran).toEqual([])                                           // nothing rearms automatically
-  expect(effects.rearm('relay', 'head')).toBe(true)
+  expect(effects.rearm('relay', 'head')).toEqual({ rearmed: true })
   await tick(); await tick()
   expect(ran).toEqual(['head', 'next'])
   expect(effects.blocked('relay')).toEqual([])
@@ -41,7 +41,7 @@ it('a blocked ordered head stalls followers; blocked() lists it; rearm resumes i
 it('rearm refuses a row that is not blocked; explicit cancel (discard) releases followers', async () => {
   const fail = { on: true }; const { store, effects, ran, tick } = setup(fail)
   store.atomic(() => { effects.enqueue('relay', 'head', { text: 'a' }); effects.enqueue('relay', 'next', { text: 'b' }) })
-  expect(effects.rearm('relay', 'next')).toBe(false)
+  expect(effects.rearm('relay', 'next')).toEqual({ rearmed: false })
   effects.start(); await tick(); await tick()
   effects.cancel('relay', 'head'); await tick()
   expect(ran).toEqual(['next'])
@@ -60,6 +60,6 @@ it('rearm refuses a blocked row whose recheck attempt is in flight, keeping its 
   // Simulate an in-flight attempt on the parked row (as a recheck would be): marker present and a task running.
   store.db.prepare("UPDATE effect SET error = error || ' [attempt-started]' WHERE key = 'head'").run()
   const before = store.db.prepare("SELECT error, generation FROM effect WHERE key = 'head'").get()
-  expect(effects.rearm('relay', 'head')).toBe(false)
+  expect(effects.rearm('relay', 'head')).toEqual({ rearmed: false })
   expect(store.db.prepare("SELECT error, generation FROM effect WHERE key = 'head'").get()).toEqual(before)
 })

@@ -64,7 +64,8 @@ export const feishuKind: SourceKind<FeishuConfig> = {
   channel: {
     allowed: (address, config) =>
       feishuKind.scope!({ meta: { chatId: address.chatId ?? '', direct: address.direct === 'true' } }, config).listened,
-    send: sendFeishu, link: feishuLink,
+    // Idempotent retries: Feishu keeps at most one reply per idempotency key, which is the durable message id.
+    send: sendFeishu, link: feishuLink, idempotency: 'provider',
   },
   threadContext: feishuThreadContext,
   find: query => ({ threads: [], terms: [...new Set(query.match(/om_[A-Za-z0-9_-]+/g) ?? [])] }),

@@ -2,6 +2,7 @@
 import { z } from 'zod'
 import type { OutboundMessage } from '../core/index.ts'
 import { CliError } from '../infra/commands.ts'
+import { checkedMessageId, SendNotAttempted } from './send.ts'
 import { sameName } from '../infra/text.ts'
 import type { SourceContext } from './host.ts'
 import type { ChannelLink, ChannelLinks } from './kind.ts'
@@ -19,7 +20,8 @@ export async function sendGithub(host: Pick<SourceContext, 'commands'>, message:
   const { commands } = host
   const { repository, github } = commands.deployment
   const number = Number(message.channel.address.number)
-  if (!number) throw new Error('Missing GitHub reply target')
+  if (!number) throw new SendNotAttempted('Missing GitHub reply target', true)
+  const marker = `<!-- dsh-superagent:${checkedMessageId(message.id)} -->`
   try {
     // Retained trigger URLs also route replies queued before thread-aware delivery.
     const address = githubAddress(message.channel.address.url ?? '', repository)
@@ -31,7 +33,6 @@ export async function sendGithub(host: Pick<SourceContext, 'commands'>, message:
       rootId = source ? source.in_reply_to_id ?? source.id : undefined
     }
     const path = rootId === undefined ? `issues/${number}/comments` : `pulls/${number}/comments`
-    const marker = `<!-- dsh-superagent:${message.id} -->`
     const mine = (comment: z.infer<typeof CommentSchema>) => sameName(comment.user?.login ?? '', github.login)
       && (rootId === undefined || comment.in_reply_to_id === rootId) && (comment.body ?? '').includes(marker)
     if ((await commands.pages(CommentSchema, path)).some(mine)) return 'sent'

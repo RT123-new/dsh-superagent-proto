@@ -60,6 +60,8 @@ it('a crashed reply is reported as unknown without exposing remote text and requ
   }] })
   expect(blocked.text).not.toContain('remote send may have succeeded')
   expect(await call('POST', 'effects/reply/rearm', { key: 'remote-1' }))
+    .toMatchObject({ status: 200, body: { rearmed: false, requiresAcknowledgement: true } })
+  expect(await call('POST', 'effects/reply/rearm', { key: 'remote-1', acknowledgeUnknownOutcome: true }))
     .toMatchObject({ status: 200, body: { rearmed: true } })
   expect((await call('GET', 'effects/blocked')).body).toEqual({ items: [] })
 })

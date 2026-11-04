@@ -65,7 +65,8 @@ export const githubKind: SourceKind<GithubConfig> = {
     return { listened: true, observed: row !== undefined && config[OBSERVED[row]], ...row ? { row } : {} }
   },
   health: ['github'],
-  channel: { send: sendGithub, link: githubLink },
+  // Idempotent retries: sendGithub checks for its own durable message-id marker before posting (single-flight per key).
+  channel: { send: sendGithub, link: githubLink, idempotency: 'marker' },
   threadContext: githubThreadContext,
   // Bare numbers are local shorthand; qualified URLs must name this instance's repository.
   find: (query, config) => {

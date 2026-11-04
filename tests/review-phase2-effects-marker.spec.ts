@@ -54,7 +54,7 @@ describe('effect attempt marker sequences', () => {
     drive(b.effects, ['fail'])
     await advance(b.effects)
     expect(row(b.store)?.error).toContain('blocked:unknown_outcome') // no replay without operator consent
-    expect(b.effects.rearm('reply', 'k')).toBe(true)
+    expect(b.effects.rearm('reply', 'k', { acknowledgeUnknownOutcome: true })).toEqual({ rearmed: true })
     await advance(b.effects)                                        // explicit rearm permits a retry
     expect(row(b.store)?.error).toContain('503')
     expect((row(b.store)?.error.match(/\[attempt-unknown\]/g) ?? []).length).toBe(1)   // still unknown: the earlier attempt's outcome is not known
@@ -62,14 +62,14 @@ describe('effect attempt marker sequences', () => {
     const hung: (() => void)[] = []
     const c = open(a.file); drive(c.effects, ['hang'], hung); c.effects.start()
     expect(c.effects.blocked('reply')).toHaveLength(1)
-    expect(c.effects.rearm('reply', 'k')).toBe(true)
+    expect(c.effects.rearm('reply', 'k', { acknowledgeUnknownOutcome: true })).toEqual({ rearmed: true })
     await advance(c.effects)
     const d = open(a.file); d.effects.start()                        // second crash during another attempt
     expect((row(d.store)?.error.match(/\[attempt-unknown\]/g) ?? []).length).toBe(1)
     expect(row(d.store)?.error).not.toContain(ATTEMPT_STARTED)
     drive(d.effects, ['ok']); await advance(d.effects)
     expect(row(d.store)?.error).toContain('blocked:unknown_outcome')
-    expect(d.effects.rearm('reply', 'k')).toBe(true)
+    expect(d.effects.rearm('reply', 'k', { acknowledgeUnknownOutcome: true })).toEqual({ rearmed: true })
     await advance(d.effects)
     expect(row(d.store)).toBeUndefined()                             // a recorded success clears it
   })
@@ -109,7 +109,7 @@ describe('effect attempt marker sequences', () => {
     expect(sent).toEqual([])
     expect(a.effects.blocked('reply').map(item => item.key)).toEqual(['k'])
     expect(a.effects.attemptUnknown('reply', 'k')).toBe(true)
-    expect(a.effects.rearm('reply', 'k')).toBe(true)
+    expect(a.effects.rearm('reply', 'k', { acknowledgeUnknownOutcome: true })).toEqual({ rearmed: true })
     await a.effects.idle('reply')
     expect(sent).toEqual(['sent'])
     expect(row(a.store)).toBeUndefined()
