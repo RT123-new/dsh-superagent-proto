@@ -36,13 +36,17 @@ export class Passes {
     clearInterval(this.timer)
     return Promise.allSettled([this.pumping, this.pumpAgain])
   }
+  /** Receipt bookkeeping must not affect domain intake, including when a custom hook throws. */
+  private arrival(kind: 'note' | 'drop', triggerId: string): void {
+    try { this.host.arrival?.[kind](triggerId) } catch { this.host.probe?.count('metrics_error') }
+  }
   receive(trigger: Trigger): ReceiveResult {
     if (this.host.closing()) throw new Error('Orchestrator is stopping')
     const stop = this.host.probe?.timer('trigger_intake', 'internal')
-    this.host.arrival?.note(trigger.id)
+    this.arrival('note', trigger.id)
     let result: ReceiveResult
-    try { result = this.host.engine.receive(trigger) } catch (error) { stop?.('failed'); this.host.arrival?.drop(trigger.id); throw error }
-    if (result !== 'stored') this.host.arrival?.drop(trigger.id)
+    try { result = this.host.engine.receive(trigger) } catch (error) { stop?.('failed'); this.arrival('drop', trigger.id); throw error }
+    if (result !== 'stored') this.arrival('drop', trigger.id)
     stop?.()
     this.host.probe?.count(`trigger_${result}`)
     if (result === 'stored') this.request()
