@@ -24,6 +24,8 @@ export interface PreparationRecord {
   at: string
   /** What happened, for `failed` and `cancelled` records and adopted legacy workspaces. */
   detail?: string
+  /** A provider could not prove all owned processes stopped. Automatic workspace reuse is forbidden. */
+  quiescence?: 'unknown'
 }
 
 /** Bumped when what "prepared" means changes, so records written under other semantics never count. */

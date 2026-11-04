@@ -1,0 +1,210 @@
+$ vitest run
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/review45/repo[39m
+
+(node:3468) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [31m❯[39m tests/sources.spec.ts [2m([22m[2m71 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 3584[2mms[22m[39m
+     [32m✓[39m registers its kind without a bot, and names on its health what setup still needs[32m 21[2mms[22m[39m
+     [32m✓[39m translates live events into triggers keyed by root message, and drops the bot's own messages[32m 2[2mms[22m[39m
+     [32m✓[39m polls subscribed threads and stores unseen replies as triggers on that thread[32m 15[2mms[22m[39m
+     [32m✓[39m translates a polled topic reply as the event consumer translates the live event[32m 13[2mms[22m[39m
+     [32m✓[39m reads message times given as epoch milliseconds or as local times, and refuses others[32m 1[2mms[22m[39m
+     [32m✓[39m polls a subscribed topic while a live ticket follows it or it had a message in the last two weeks[32m 8[2mms[22m[39m
+     [32m✓[39m keeps a quiet topic in history recovery while a subscribed Thread that is polled follows it[32m 8[2mms[22m[39m
+     [32m✓[39m refuses a history page with a message outside its chat or topic, and a page token that does not advance[32m 8[2mms[22m[39m
+     [32m✓[39m stops reading a polled topic at the first message it knew, once the topic's first poll ran[32m 11[2mms[22m[39m
+     [32m✓[39m recovers the topics of a chat while they had a message in the last two weeks, and forgets quieter ones[32m 95[2mms[22m[39m
+     [32m✓[39m skips and counts a history message it cannot read, and takes in the others[32m 9[2mms[22m[39m
+     [32m✓[39m waits a second before restarting the event consumer after a run that stayed up for a minute, and backs off otherwise[32m 0[2mms[22m[39m
+     [32m✓[39m syncs its part of the Policy from the sync chat: people who left are removed, names follow the chat, new people are appended[32m 6[2mms[22m[39m
+     [32m✓[39m normalizes comments and reviews into triggers with review-thread channels, and marks only GitHub Apps and machine accounts as automated[32m 1[2mms[22m[39m
+     [32m✓[39m reads the address of an Issue, a PR or a review comment of the repository, and nothing else[32m 1[2mms[22m[39m
+     [32m✓[39m matches a branch to a ticket by its short name as the last path segment[32m 0[2mms[22m[39m
+     [32m✓[39m describes CI as one fact: failed checks first, then unfinished ones, otherwise passed[32m 0[2mms[22m[39m
+     [32m✓[39m starts a review comment's text with its file, line and diff lines, and keeps them and the comment it answers[32m 0[2mms[22m[39m
+     [32m✓[39m gives an assessment of a review comment the earlier comments of its review thread[32m 9[2mms[22m[39m
+     [32m✓[39m starts a CI Trigger's text with what failed or still runs, so its preview says it[32m 0[2mms[22m[39m
+     [32m✓[39m binds a PR to the unique live ticket on its branch and ends tickets when the PR closes[32m 11[2mms[22m[39m
+     [32m✓[39m keeps a ticket working on its other open PR when one of its PRs merges[32m 10[2mms[22m[39m
+     [32m✓[39m follows a PR it opened again when it reopens, while another PR it opened is open[32m 6[2mms[22m[39m
+     [32m✓[39m ends a ticket when its own PR merges, though the PR it started from is still open[32m 7[2mms[22m[39m
+     [32m✓[39m writes the terminal notice in English for a request without Han characters[32m 6[2mms[22m[39m
+     [32m✓[39m polls subscribed PR threads since their checkpoint and skips the bot's own comments[32m 14[2mms[22m[39m
+     [32m✓[39m polls a subscribed Thread for two weeks after the Ticket that follows it ended[32m 8[2mms[22m[39m
+     [32m✓[39m polls a subscribed Thread while a live ticket follows it or its last Trigger is under two weeks old[32m 8[2mms[22m[39m
+     [32m✓[39m takes in a review decision without a body and skips a plain review comment without one[32m 9[2mms[22m[39m
+     [32m✓[39m reads each PR once per round and takes its end, auto-merge and CI from that read[32m 21[2mms[22m[39m
+     [32m✓[39m reads each notified Issue alone and reads a failed one again next round, from where it was[32m 17[2mms[22m[39m
+     [32m✓[39m drops an Issue GitHub reports as deleted after recording it, and reads one it answers 404 for again[32m 11[2mms[22m[39m
+     [32m✓[39m skips and counts a notification or comment it cannot read, and names the count in the health[32m 9[2mms[22m[39m
+     [32m✓[39m reads every page of the notifications when GitHub says there are more, and waits as long as GitHub asks[32m 8[2mms[22m[39m
+     [32m✓[39m drops a notified Issue whose reads fail for a day, so the Source leaves the error, and keeps its read position[32m 13[2mms[22m[39m
+     [32m✓[39m polls the PRs of open tickets and subscribed Threads although the notifications fail, and then fails the round[32m 9[2mms[22m[39m
+     [32m✓[39m takes in the description of a notified PR someone opened since the cursor, as a new PR's stream does[32m 14[2mms[22m[39m
+     [32m✓[39m reads a subscribed default-branch CI Thread as no Issue, and keeps no poll error on it[32m 6[2mms[22m[39m
+     [32m✓[39m drops an Issue or a ticket's PR that GitHub answers 410 for, and keeps a failed PR read on its Thread[32m 12[2mms[22m[39m
+     [32m✓[39m waits for setup, pauses while the Source is off, and counts only consecutive failed polls towards an error[32m 18[2mms[22m[39m
+     [32m✓[39m reports a failure that escapes the polling loop as its health instead of an unhandled rejection[32m 56[2mms[22m[39m
+     [32m✓[39m takes in a new Issue from its notification as a Trigger with its body, addressed to the agent when the body mentions it[32m 12[2mms[22m[39m
+     [32m✓[39m takes in a comment on an earlier Issue from its notification, without the Issue body[32m 9[2mms[22m[39m
+     [32m✓[39m keeps one body Trigger for an Issue that a later poll reads again[32m 11[2mms[22m[39m
+     [32m✓[39m takes in an Issue without a mention as a Trigger that is not addressed, and a bot's Issue as automated[32m 12[2mms[22m[39m
+     [32m✓[39m keeps an Issue body the unclaimed-Issue Source stored before as the one Trigger of that body[32m 7[2mms[22m[39m
+     [32m✓[39m takes in an Issue body only when the Issue was opened since the cursor, not when an edit or a comment changed it[32m 7[2mms[22m[39m
+     [32m✓[39m reads a PR that a notification names by its Issue address as the PR[32m 10[2mms[22m[39m
+     [32m✓[39m moves no read position when the Source is turned off during a read[32m 8[2mms[22m[39m
+     [32m✓[39m lets a ticket follow its source PR or the agent's PR from its branch, and refuses others[32m 8[2mms[22m[39m
+     [32m✓[39m gives each kind the setup problem whose place it is[32m 4[2mms[22m[39m
+     [32m✓[39m lets a kind report only its own health entries[32m 5[2mms[22m[39m
+     [32m✓[39m patches a Thread's meta as it is now, so a change another writer made meanwhile stays[32m 6[2mms[22m[39m
+     [32m✓[39m reads the configuration of an instance that is on, removes a record set to undefined, and merges ticket meta[32m 7[2mms[22m[39m
+   [32m✓[39m reports GitHub as failing only after the configured number of consecutive failed polls[32m 0[2mms[22m[39m
+[31m     [31m×[31m takes in the event lines it reads, records each chat as direct or not, and reports a malformed line without stopping[39m[32m 66[2mms[22m[39m
+     [33m[2m✓[22m[39m drops the events it reads once the Source is off [33m 1359[2mms[22m[39m
+     [32m✓[39m keeps a chat's history cursor when its read fails, and recovers known direct chats only while direct messages are on[32m 116[2mms[22m[39m
+     [32m✓[39m reports an error when the consumer is not ready within 45 seconds[32m 107[2mms[22m[39m
+     [32m✓[39m reports a warning the consumer prints as an error[32m 56[2mms[22m[39m
+     [32m✓[39m stops the consumer within five seconds once the Source is off[32m 107[2mms[22m[39m
+     [33m[2m✓[22m[39m starts the consumer again after it exits, and is ready once the next run listens [33m 1058[2mms[22m[39m
+     [32m✓[39m takes in the new Issues and PRs from when it started observing them, and asks again with the ETag while nothing is newer[32m 20[2mms[22m[39m
+     [32m✓[39m takes in the repository's conversation and review comments, on the Issue or PR each is on[32m 13[2mms[22m[39m
+     [32m✓[39m fails the round for a stream whose read fails, keeps its cursor, and still reads the other streams[32m 11[2mms[22m[39m
+     [32m✓[39m reads a stream whose cursor is older than the polling horizon from the horizon, without the ETag of the older request[32m 7[2mms[22m[39m
+     [32m✓[39m starts the default branch's CI afresh when the default branch is renamed, without a Trigger[32m 8[2mms[22m[39m
+     [32m✓[39m takes in new PRs only from when their switch turned on, apart from when new Issues were[32m 15[2mms[22m[39m
+     [32m✓[39m keeps a stream's cursor five seconds before its newest item, and a stale cursor on the hour, so the ETag is sent again[32m 12[2mms[22m[39m
+     [32m✓[39m gives each change of the default branch's CI its own id, also when one commit fails, passes and fails again[32m 25[2mms[22m[39m
+     [32m✓[39m tells of the default branch's CI when its failed checks change and once it passes again, after a first look[32m 16[2mms[22m[39m
+(node:3513) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/runtime-concurrency.spec.ts [2m([22m[2m56 tests[22m[2m)[22m[33m 8028[2mms[22m[39m
+     [33m[2m✓[22m[39m holds a delivery that reached a worker while a hand-off stopped its subagents until the stop ended [33m 4023[2mms[22m[39m
+ [32m✓[39m tests/service-script.spec.ts [2m([22m[2m15 tests[22m[2m)[22m[33m 5315[2mms[22m[39m
+   [33m[2m✓[22m[39m restarts the service, and a restart whose graceful stop timed out does not keep recovery off [33m 1149[2mms[22m[39m
+   [33m[2m✓[22m[39m exits 1 when the started service does not answer in time, and leaves its process running [33m 2058[2mms[22m[39m
+   [33m[2m✓[22m[39m does not signal a process that took the recorded service PID, and keeps a stop that timed out [33m 1094[2mms[22m[39m
+(node:3654) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/runtime.spec.ts [2m([22m[2m91 tests[22m[2m)[22m[33m 3989[2mms[22m[39m
+ [32m✓[39m tests/panel-source.spec.tsx [2m([22m[2m15 tests[22m[2m)[22m[33m 1148[2mms[22m[39m
+(node:3673) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/tools.spec.ts [2m([22m[2m26 tests[22m[2m)[22m[33m 1133[2mms[22m[39m
+ [32m✓[39m tests/panel-trigger.spec.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 922[2mms[22m[39m
+   [33m[2m✓[22m[39m reads back the Triggers between the newest page and the earlier ones it shows, once more arrive than a page holds [33m 449[2mms[22m[39m
+ [32m✓[39m tests/panel-eval.spec.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 907[2mms[22m[39m
+(node:3700) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/followups.spec.ts [2m([22m[2m16 tests[22m[2m)[22m[33m 873[2mms[22m[39m
+ [32m✓[39m tests/panel-execution.spec.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 730[2mms[22m[39m
+ [32m✓[39m tests/panel-deployment.spec.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 700[2mms[22m[39m
+ [32m✓[39m tests/panel-prompts.spec.tsx [2m([22m[2m15 tests[22m[2m)[22m[33m 681[2mms[22m[39m
+ [32m✓[39m tests/panel-settings.spec.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 672[2mms[22m[39m
+ [32m✓[39m tests/panel-overview.spec.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 557[2mms[22m[39m
+ [32m✓[39m tests/issue-5-preparation-cancellation.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[33m 352[2mms[22m[39m
+ [32m✓[39m tests/panel-panel.spec.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 355[2mms[22m[39m
+(node:3770) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/effects.spec.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 341[2mms[22m[39m
+(node:3777) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/model-surface.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 254[2mms[22m[39m
+(node:3788) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/migration.spec.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 246[2mms[22m[39m
+ [32m✓[39m tests/issue-4-5-adversarial.spec.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 210[2mms[22m[39m
+(node:3806) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/settings.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 171[2mms[22m[39m
+ [32m✓[39m tests/core-engine.spec.ts [2m([22m[2m113 tests[22m[2m)[22m[32m 149[2mms[22m[39m
+(node:3824) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/store.spec.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 122[2mms[22m[39m
+(node:3831) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/views.spec.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 126[2mms[22m[39m
+(node:3838) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/health.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 118[2mms[22m[39m
+ [32m✓[39m tests/environment.spec.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 99[2mms[22m[39m
+ [32m✓[39m tests/issue-4-workspace-preparation.spec.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 87[2mms[22m[39m
+(node:3904) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/prompts.spec.ts [2m([22m[2m18 tests[22m[2m)[22m[32m 96[2mms[22m[39m
+ [32m✓[39m tests/client.spec.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 90[2mms[22m[39m
+ [32m✓[39m tests/deployment.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 82[2mms[22m[39m
+(node:3957) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/outbox.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 76[2mms[22m[39m
+(node:3968) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/queue.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 79[2mms[22m[39m
+ [32m✓[39m tests/policy.spec.ts [2m([22m[2m328 tests[22m[2m)[22m[32m 61[2mms[22m[39m
+ [32m✓[39m tests/controls.spec.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 57[2mms[22m[39m
+ [32m✓[39m tests/index.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 57[2mms[22m[39m
+(node:4001) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/timeline.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+ [32m✓[39m tests/bundle-patch.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32m✓[39m tests/commands.spec.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m tests/delivery.spec.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 31[2mms[22m[39m
+ [32m✓[39m tests/assessment.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 24[2mms[22m[39m
+ [32m✓[39m tests/styles.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 27[2mms[22m[39m
+ [32m✓[39m tests/feishu-image.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m tests/role-models.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 19[2mms[22m[39m
+ [32m✓[39m tests/feishu-read.spec.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m tests/registry.spec.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m tests/github-read.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/cards.spec.ts [2m([22m[2m55 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/http.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/admission-context.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/retry-health.spec.ts [2m([22m[2m29 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m tests/docs.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/class-docs.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 9[2mms[22m[39m
+(node:4132) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/background.spec.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/draft.spec.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/navigation.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/passes.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/stage.spec.ts [2m([22m[2m31 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/locales.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m tests/markdown.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m tests/prompt-config.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m tests/marks.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m tests/cache.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 2[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/sources.spec.ts[2m > [22mfeishu event consumer[2m > [22mtakes in the event lines it reads, records each chat as direct or not, and reports a malformed line without stopping
+[31m[1mAssertionError[22m: expected { state: 'ready', …(2) } to match object { state: 'error', …(1) }
+(1 matching property omitted from actual)[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "detail": StringContaining "JSON",[39m
+[32m-   "state": "error",[39m
+[31m+   "detail": "Listening for bot events",[39m
+[31m+   "state": "ready",[39m
+[2m  }[22m
+
+[36m [2m❯[22m tests/sources.spec.ts:[2m1097:27[22m[39m
+    [90m1095|[39m     expect(['om_1', 'om_2'].map(id => store.triggers.get(feishuTrigger…
+    [90m1096|[39m     expect(store.get(KV.feishu.chats)).toEqual({ oc_group: false, oc_d…
+    [90m1097|[39m     expect(health.feishu).toMatchObject({ state: 'error', detail: expe…
+    [90m   |[39m                           [31m^[39m
+    [90m1098|[39m     controller.abort(); await running; store.close()
+    [90m1099|[39m   }, 20_000)
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m61 passed[39m[22m[90m (62)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1224 passed[39m[22m[90m (1225)[39m
+[2m   Start at [22m 06:36:36
+[2m   Duration [22m 51.48s[2m (transform 2.02s, setup 0ms, import 8.46s, tests 32.84s, environment 5.05s)[22m
+
+[ELIFECYCLE] Test failed. See above for more details.
