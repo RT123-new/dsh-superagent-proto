@@ -6,6 +6,7 @@ import { serverNotBefore } from './transport-failure.ts'
 export class GithubPollBudget implements RequestControl {
   private inFlight = 0
   private next = 0
+  private lastGranted?: number
   private blocked = 0
   private remaining?: number
   private allowance?: number
@@ -37,9 +38,10 @@ export class GithubPollBudget implements RequestControl {
         if (rate === 0) this.blocked = Math.max(this.blocked, this.reset)
         else spacing = Math.max(spacing, 1000 / rate)
       }
-      const at = Math.max(this.next, this.blocked)
+      const at = Math.max(this.next, this.blocked, this.lastGranted === undefined ? 0 : this.lastGranted + spacing)
       if (at > now) { await this.sleep(Math.ceil(at - now), signal); continue }
       this.inFlight += 1
+      this.lastGranted = now
       this.next = now + spacing
       if (this.remaining !== undefined) this.remaining = Math.max(0, this.remaining - 1)
       return
@@ -49,6 +51,8 @@ export class GithubPollBudget implements RequestControl {
     this.inFlight = Math.max(0, this.inFlight - 1)
     const now=this.now(), h=response.headers
     const retry=serverNotBefore(h['retry-after'],now)
+    const pollInterval=serverNotBefore(h['x-poll-interval'],now)
+    if(pollInterval!==undefined)this.blocked=Math.max(this.blocked,pollInterval)
     if(retry!==undefined)this.blocked=Math.max(this.blocked,retry)
     const int=(s:string|undefined)=>s!==undefined&&/^\d+$/.test(s)&&Number.isSafeInteger(Number(s))?Number(s):undefined
     const remaining=int(h['x-ratelimit-remaining']),allowance=int(h['x-ratelimit-limit']),resetSeconds=int(h['x-ratelimit-reset'])

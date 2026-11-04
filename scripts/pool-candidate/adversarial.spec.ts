@@ -30,3 +30,14 @@ it('honors a server poll interval when supplied on a response',async()=>{
  vi.useFakeTimers();vi.setSystemTime(100000)
  try{const b=new GithubPollBudget(),s=new AbortController().signal;await b.before(s);b.after(response({'x-poll-interval':'2'}));let done=false;const p=b.before(s).then(()=>{done=true});await vi.advanceTimersByTimeAsync(100);expect(done).toBe(false);await vi.advanceTimersByTimeAsync(1900);await p}finally{vi.useRealTimers()}
 })
+it('does not replenish same-window reservations from an out-of-order response',async()=>{
+ vi.useFakeTimers();vi.setSystemTime(100000)
+ try{const b=new GithubPollBudget(),s=new AbortController().signal
+ b.after(response({'x-ratelimit-remaining':'10','x-ratelimit-limit':'100','x-ratelimit-reset':'110'}))
+ b.after(response({'x-ratelimit-remaining':'99','x-ratelimit-limit':'100','x-ratelimit-reset':'110'}))
+ let done=false;const p=b.before(s).then(()=>{done=true});await vi.advanceTimersByTimeAsync(9999);expect(done).toBe(false);await vi.advanceTimersByTimeAsync(1);await p
+ }finally{vi.useRealTimers()}
+})
+it.each(['https://api.github.com.evil.test/repos/acme/widgets/x','https://u:p@api.github.com/repos/acme/widgets/x','https://api.github.com/repos/acme/widgets-evil/x','https://api.github.com/repos/acme/widgets/x#fragment','https://api.github.com/repos/acme/widgets/%2e%2e/other/x'])('rejects hostile next link %s',url=>{
+ expect(()=>githubNext({link:`<${url}>; rel=next`},'acme/widgets')).toThrow()
+})
