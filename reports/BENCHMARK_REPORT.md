@@ -19,8 +19,27 @@ V2normal worker prompt bytes identical between source variants. Provider samplin
 
 ## Not yet accepted
 
-Independent StageDmeasurements10–18 and storage19–20 are still in flight. No concurrency/webhook/HTTPtransport/queuepartition/retry/workerpool/index/retention optimization is accepted by this report. Production metrics hooks/dashboard coverage, serialization payload cost and actual panel poll work remain pending. Every unsuccessful/refuted/not-tested experiment must survive into the final report. This file will be extended from returned raw paired evidence rather than inventing missing metrics.
+Storage20 query plan is adopted for its declared tested workload (below). Retry15 safety/jitter changes are reviewed correctness/operational repairs, not a demonstrated speed/cost improvement. Optional subscriptionpool and destructive retention remain under independent review. Webhooks, HTTP replacement, queue partition, generic background-slot release, capacity increase, extra caches and broad slotwake are not adopted. Production hooks/dashboard actual RuntimeHTTP proof now passes, but loaded runtime/panel overhead and full lifecycle completion denominators remain unmeasured.
 
 ## Accepted storage20 scope
 
 Review repair06ad576 and strict crash proof71c1b8f were integrated before adoptiona69705d. Independent copied-baseline100k-row paired rerun:40windows,zero result mismatches; P95statistics151.21→13.93ms andflow118.69→28.17ms. Author200pairs/fivedatasets recomputed: P95statistics152.43→13.70ms,flow119.16→27.51ms; pair bootstrap (not clustered CI), warm synthetic only. The15% gate is met for these query workloads. Approximate tradeoffs:0.03ms additional save cost,16%disk,2.2s blocking1M upgrade, bulkload overhead. No retention optimization adopted. See reports/evidence/integration/storage/ for own raw results and storage review reports for crash/migration evidence.
+
+
+## Completed StageD evaluations and excluded mechanisms
+
+| Scope | Paired evidence | Result / disposition |
+| --- | --- | --- |
+|10 subscriptionpool experiment | ActualSource/Engine/SQLite,matched requestgates,80roundsx200conversations, virtual network/clock; independent11checks+script tsc | Slow profiles suggest benefit; low latency below15% and ratebound0. Separate reviewed production candidate still held, five-round-pair exploratory uncertainty. |
+|11 signed wake |200eventsxfiveseeds/loss profile, stipulated60s polling fallback | ModeledP95poll57.08s vs2.11s nohookloss,30.94s at10%loss;50%loss below15%,total loss0gain. Not deployed, no observed reliable end-to-end claim. |
+|12 CLI/HTTP |200alternating sequential pairs/profile, loopback60ms request service | Notification26.19%P95 gainCI25.39–28.01;issue26.39%CI25.84–27.20;threepage10.45%CI10.00–11.39 below15%. Auth/wrapper semantics not equivalent, retain CLI. |
+|13–14 coordination |1/3/6/12workers, fiveseeds, Store+Effects virtualclock, two explicit benchcases independently rerun100s | Reports/notices/queue load conserved; isolated partition fixture improves an outage but violates current single-mainSession write semantics if adopted broadly. No partition/coordinator architecture. |
+|15 retries | Seeded jitter/class/error-persistence and block/rearm tests; baseline frozen explicitly | No latency/cost claim. Jitter spreads50correlated retries; permanent/auth failures stop until explicit samekey enqueue, blocked head stays visible.36production plus current/frozenfixture44focused green; unknownTypeError remains transient. |
+|16 background slots |14real executor fixture scenarios independently rerun on instrumented integration | Generic release unsafe without completion/ownership/cancel proof; no default capacity increase. Human+1 and existing handoff semantics preserved. |
+|17 capacity/FIFO |3/6/12capacities, failure/starvation fixtures | Match offered concurrency;12adds no benefit in tested trickle/burst;FIFO retained. Full model cost unmeasured. |
+|17 quiet-refill candidate |20paired seedruns,five/profile;25within-run refills atcap1;10k matched seed-cluster P95bootstrap | Cap1P951971→14ms,99.29%gainCI99.289–99.342. Cap3runP95gain11.48% below15%;6/12pointestimates worse withregression-allowingCIs. General slotwake deferred. Independent disposal correctness fix separated from optimization. |
+|18 creation/recovery |15paired real shell/fs cold-warm runs,restartstorm,pure decoration timings | ColdP959.4ms/warm0.68;prep reuse alreadyworks. No extra cache justified; provider/session-controller/modelselection not fully benchmarked. |
+
+Exact scope, oracle conservation, rejected fixtures and remaining checks live in stage-d-issues-10-12.md, issue-13-15-coordination-baseline.md, issue-16-18-executor-baseline.md and issue-17-independent-review.md. Raw own independent outputs are separated under evidence/integration; normal tests no longer overwrite archived evidence.
+
+Latest collector single-process microbench rerun:1Mobserve143.1ns/call,1Mtimerpair216.7ns,50serializationP501.544ms/max2.247ms,3294bytes,heap9.3MB. Not loaded panel/API overhead and not an end-to-end improvement estimate.
