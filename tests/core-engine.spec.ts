@@ -1619,3 +1619,41 @@ describe('ignores from the card', () => {
     expect(() => h.engine.decide('5', { kind: 'accept', title: 'Fix', scope: 'small', reason: 'chat' })).toThrow(new UserError('notExplicit'))
   })
 })
+
+describe('resume snapshot lifecycle', () => {
+  const note = () => ({
+    currentState: 'Patch prepared.', nextAction: 'Run regression suite.', openQuestion: 'Unknown CI status.',
+    completedWork: ['Updated polling.'], testsPerformed: [], remainingWork: ['Run tests.'],
+    evidenceRefs: ['src/sources/github.ts'],
+  })
+  it('commits evidence with its report, deduplicates an unchanged note and retains it when omitted', () => {
+    const h = harness(), id = accepted(h).ticketId!
+    const assignmentId = runningAssignment(h.repo.tickets.get(id)!)!.id
+    h.tick(1); h.engine.report(id, { state: 'progress', summary: 'Milestone', assignmentId, resumeSnapshot: note() })
+    const first = h.repo.tickets.get(id)!.resumeSnapshot!
+    expect(first).toMatchObject({ schemaVersion: 1, ticketId: id, assignmentId, revision: 1,
+      currentState: 'Patch prepared.' })
+    h.tick(1); h.engine.report(id, { state: 'progress', summary: 'Again', assignmentId, resumeSnapshot: note() })
+    expect(h.repo.tickets.get(id)!.resumeSnapshot).toEqual(first)
+    h.tick(1); h.engine.report(id, { state: 'waiting', summary: 'Waiting for response.', assignmentId })
+    expect(h.repo.tickets.get(id)!.resumeSnapshot).toEqual(first)
+  })
+  it('rejects an old assignment report after restart without overwriting recovery state', () => {
+    const h = harness(), id = accepted(h).ticketId!
+    const old = runningAssignment(h.repo.tickets.get(id)!)!.id
+    h.engine.report(id, { state: 'progress', summary: 'Before crash.', assignmentId: old, resumeSnapshot: note() })
+    h.tick(1); h.engine.assignmentInterrupted(id, old); h.settle()
+    const fresh = runningAssignment(h.repo.tickets.get(id)!)!.id
+    expect(fresh).not.toBe(old)
+    expect(() => h.engine.report(id, { state: 'progress', summary: 'Old worker.',
+      assignmentId: old, resumeSnapshot: { ...note(), currentState: 'Invalid.' } })).toThrow()
+    expect(h.repo.tickets.get(id)!.resumeSnapshot?.currentState).toBe('Patch prepared.')
+    h.engine.report(id, { state: 'progress', summary: 'Recovered.', assignmentId: fresh,
+      resumeSnapshot: { ...note(), currentState: 'Resumed safely.' } })
+    expect(h.repo.tickets.get(id)!.resumeSnapshot).toMatchObject({ revision: 2,
+      assignmentId: fresh, currentState: 'Resumed safely.' })
+    h.engine.stopTicket(id)
+    expect(() => h.engine.report(id, { state: 'progress', summary: 'After stop', assignmentId: fresh,
+      resumeSnapshot: note() })).toThrow()
+  })
+})

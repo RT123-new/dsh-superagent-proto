@@ -489,3 +489,45 @@ it('gives a worker the other messages of the request its ticket was accepted fro
   expect(page).toMatchObject({ batch: [{ trigger_id: other, read: `trigger/${other}` }] })
   expect(await h.runTool(`worker-${ticket.id}`, 'orchestrator_read', { resource: `trigger/${other}` })).toMatchObject({ trigger_id: other })
 })
+
+it('stores optional worker resume hints only when enabled, without sacrificing a report if invalid', async () => {
+  const { ticket, sessionId } = await h.acceptedTicket(feishu('1', '@bot 修一下回归'))
+  const valid = { currentState: 'Verified changed source.', nextAction: 'Run regression tests.',
+    openQuestion: 'CI result not known.', completedWork: ['Updated source.'], testsPerformed: [],
+    remainingWork: ['Run tests.'], evidenceRefs: ['src/sources/github.ts'] }
+  const report = (resume_snapshot: unknown, summary = 'Progress') =>
+    h.runTool(sessionId, 'orchestrator_report', { state: 'progress', summary, resume_snapshot })
+  await report(valid)
+  expect(h.runtime.store.tickets.get(ticket.id)?.resumeSnapshot).toBeUndefined()
+  await expect(h.runTool(sessionId, 'orchestrator_read', {
+    resource: `ticket/${ticket.id}/resume-snapshot`,
+  })).rejects.toThrow()
+  const original = h.runtime.store.settings()
+  h.runtime.store.saveSettings({ ...original, executor: { ...original.executor, resumeSnapshotsEnabled: true } })
+  const result = await report(valid)
+  expect(result).toMatchObject({ reported: true })
+  const snapshot = h.runtime.store.tickets.get(ticket.id)?.resumeSnapshot
+  expect(snapshot).toMatchObject({ schemaVersion: 1, ticketId: ticket.id, revision: 1,
+    nextAction: 'Run regression tests.' })
+  expect(await h.runTool(sessionId, 'orchestrator_read', {
+    resource: `ticket/${ticket.id}/resume-snapshot`,
+  })).toMatchObject({ text: expect.stringContaining('Run regression tests.') })
+  const bad = await report({ ...valid, nextAction: 'Use token=abcdefghijklmnopqrstuvxyz' }, 'Still reporting')
+  expect(bad).toMatchObject({ reported: true, snapshot_ignored: 'invalid' })
+  expect(h.runtime.store.tickets.get(ticket.id)?.assignments.at(-1)?.report?.summary).toBe('Still reporting')
+  expect(h.runtime.store.tickets.get(ticket.id)?.resumeSnapshot).toEqual(snapshot)
+  await report(valid, 'Duplicate note')
+  expect(h.runtime.store.tickets.get(ticket.id)?.resumeSnapshot?.revision).toBe(1)
+  await report(undefined, 'No new snapshot')
+  expect(h.runtime.store.tickets.get(ticket.id)?.resumeSnapshot).toEqual(snapshot)
+  const changed = { ...valid, currentState: 'Additional check done.' }
+  await report(changed, 'Updated state')
+  expect(h.runtime.store.tickets.get(ticket.id)?.resumeSnapshot).toMatchObject({
+    revision: 2, currentState: 'Additional check done.',
+  })
+  h.runtime.store.saveSettings({ ...h.runtime.store.settings(),
+    executor: { ...h.runtime.store.settings().executor, resumeSnapshotsEnabled: false } })
+  await expect(h.runTool(sessionId, 'orchestrator_read', {
+    resource: `ticket/${ticket.id}/resume-snapshot`,
+  })).rejects.toThrow()
+})

@@ -74,6 +74,14 @@ export function ticketDetail(host: ViewHost, id: string) {
   return { ...ticketLine(view, ticket), mandate: { ...ticket.mandate, actor: view.actor(ticket.mandate.actor, human) },
     basis: basisFacts(ticket.mandate.basis, view.rule), paused: store.settings().paused,
     channels: ticket.channels.map(channel => channelLink(view, channel)),
+    ...(store.settings().executor.resumeSnapshotsEnabled && ticket.resumeSnapshot ? {
+      resumeSnapshot: {
+        ...ticket.resumeSnapshot,
+        potentiallyStale: ticket.resumeSnapshot.assignmentId !== ticket.assignments.at(-1)?.id
+          || ticket.inputs.some(input => input.at > ticket.resumeSnapshot!.capturedAt),
+        verified: false as const,
+      },
+    } : {}),
     decision: decision ? decisionView(view, decision) : undefined,
     // Every started Assignment ran in the ticket's one worker Session. A running assignment whose worker reported a non-progress state has finished its turn unless a human response resumed the ticket.
     assignments: ticket.assignments.map(assignment => ({ ...assignment, ...assignment.startedAt ? { ref: workerSessionId(ticket.id) } : {},

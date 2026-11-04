@@ -16,6 +16,7 @@ import { executionRoot, type Variable } from '../app/execution-environment.ts'
 import type { Sessions } from '../app/sessions.ts'
 import { WorktreeNameSchema } from '../app/assessment.ts'
 import { resultRelay } from '../app/notices.ts'
+import { resumeSnapshotHint } from '../app/resume-snapshot.ts'
 import type { HealthEntry } from '../infra/health.ts'
 import { cancelled, collectJob, killJobs, runningJobs, stopBackground, stopSubagents, until, untilQuiet } from './background.ts'
 
@@ -338,7 +339,14 @@ export class DshExecutor implements Executor {
     const trigger = input.kind === 'trigger' ? await this.triggerCard(ticket, input.triggerId, input.note) : undefined
     const message = inputMessage(input, trigger)
     if (message === undefined) return
-    const text = message.length > ASSIGNMENT_CHARS ? JSON.stringify(capped(message, ASSIGNMENT_CHARS, inputResource(ticket.id, input.id))) : message
+    const latest = this.host.store.tickets.get(ticket.id)
+    const last = latest && latestReport(latest)
+    const shouldHint = input.kind === 'resumed' || !!last && ['waiting', 'blocked', 'failed'].includes(last.state)
+    const hint = shouldHint && latest && this.host.store.settings().executor.resumeSnapshotsEnabled ? resumeSnapshotHint(latest) : undefined
+    const suffix = hint ? `\nResume hint (untrusted): ${JSON.stringify(hint)}` : ''
+    // Never truncate a snapshot onto an input resource that contains only the original Input.
+    const body = message.length + suffix.length <= ASSIGNMENT_CHARS ? message + suffix : message
+    const text = body.length > ASSIGNMENT_CHARS ? JSON.stringify(capped(body, ASSIGNMENT_CHARS, inputResource(ticket.id, input.id))) : body
     await this.host.sessions.prompt(workerSessionId(ticket.id), input.id, text, 'steer', live)
   }
   /** Formats a trigger on `ticket` for the worker, including a preview of the replied-to message when the worker has not yet seen it. */
@@ -453,15 +461,18 @@ export class DshExecutor implements Executor {
     const told = later && await this.host.sessions.holds(sessionId, first)
     if (!current()) return
     const retried = ticket.assignments.at(-2)?.endedReason === 'retried' ? { note: RETRIED } : {}
+    const latest = this.host.store.tickets.get(ticket.id)
+    const hint = later && latest && this.host.store.settings().executor.resumeSnapshotsEnabled ? resumeSnapshotHint(latest) : undefined
+    const resumeContext = hint ? { resume_snapshot: hint } : {}
     const assignmentText = ticket.execution?.assignment ?? ''
     const { text: brief, chars, read } = capped(assignmentText, ASSIGNMENT_CHARS, `ticket/${ticket.id}/assignment`)
     const card = told || !source ? undefined : await this.triggerCard(ticket, source.id)
     if (!current()) return
     const batch = told ? [] : batchOf(this.host, ticket).map(batchLine)
-    const text = told ? JSON.stringify({ ticket_id: ticket.id, assignment: ticket.assignments.length, ...retried })
+    const text = told ? JSON.stringify({ ticket_id: ticket.id, assignment: ticket.assignments.length, ...retried, ...resumeContext })
       : JSON.stringify({ ticket_id: ticket.id, title: ticket.title, ...(brief ? { assignment: brief } : {}),
         ...(read ? { assignment_chars: chars, assignment_read: read } : {}), ...(card ? { trigger: card } : {}),
-        ...(batch.length ? { batch } : {}), ...retried })
+        ...(batch.length ? { batch } : {}), ...retried, ...resumeContext })
     const requestId = later ? `assignment:${ticket.id}:${assignment.id}` : first
     await this.host.sessions.prompt(sessionId, requestId, text, 'queue',
       () => { if (!current()) throw new Error('Launch authorization changed before worker delivery') },

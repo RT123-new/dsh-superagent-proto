@@ -153,6 +153,17 @@ export function TicketPage({ id }: { id: string }) {
     {data.deliveryError && <p className="dt-banner dt-danger dt-mono">
       <span className="dt-banner-label">{t('deliveryFailedPrefix')}</span>{data.deliveryError}
     </p>}
+    {data.resumeSnapshot && <Section title={t('resumeSnapshotTitle')}>
+      <Hint>{t('resumeSnapshotDisclaimer')}</Hint>
+      <KeyValues rows={[
+        [t('resumeState'), data.resumeSnapshot.currentState],
+        [t('resumeNext'), data.resumeSnapshot.nextAction],
+        [t('resumeUnknown'), data.resumeSnapshot.openQuestion],
+        [t('resumeCaptured'), when(data.resumeSnapshot.capturedAt, t('lang'))],
+        [t('resumeRevision'), String(data.resumeSnapshot.revision)],
+      ]} />
+      {data.resumeSnapshot.potentiallyStale && <Hint>{t('resumeStale')}</Hint>}
+    </Section>}
     <MandateDetails ticket={data} actor={actor} />
     {undelivered.length > 0 && <Section title={t('undeliveredInputs')} count={undelivered.length}>
       <Hint>{data.deliveryError ? t('inputRetryHint') : data.paused ? t('inputPausedHint') : t('inputWaitingHint')}</Hint>

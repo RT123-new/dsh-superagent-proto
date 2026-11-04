@@ -34,6 +34,7 @@ export const RESOURCES: readonly { name: string; holds: string; executor?: true 
   { name: 'ticket/<id>/assignments', holds: 'its assignments, newest first, with the start of each report', executor: true },
   { name: 'ticket/<id>/inputs', holds: 'its inputs, newest first', executor: true },
   { name: 'ticket/<id>/result', holds: 'its latest report', executor: true },
+  { name: 'ticket/<id>/resume-snapshot', holds: 'untrusted persisted recovery context for this ticket; verify claims', executor: true },
   { name: 'ticket/<id>/report/<id>', holds: 'the report of one of its assignments', executor: true },
   { name: 'ticket/<id>/transcript', holds: 'its Executor Session\'s messages, newest first', executor: true },
   { name: 'ticket/<id>/message/<n>', holds: 'one message of that transcript', executor: true },
@@ -280,6 +281,11 @@ const ROUTES: readonly Route[] = [
     } else if (part !== undefined) throw new Error('Unknown context resource')
     else if (section === 'assignment') body = ticket.execution?.assignment ?? ''
     else if (section === 'result') body = latestReport(ticket)?.summary ?? ''
+    else if (section === 'resume-snapshot') {
+      if (!host.store.settings().executor.resumeSnapshotsEnabled || !ticket.resumeSnapshot)
+        throw new Error('No enabled resume snapshot for this ticket')
+      body = JSON.stringify(ticket.resumeSnapshot)
+    }
     else if (section === 'transcript') {
       body = (await transcript(host, id)).flatMap((event, index) => {
         const entry = transcriptEntry(event)
