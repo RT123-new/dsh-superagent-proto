@@ -497,6 +497,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/review-phase2-agent-loop-kill.spec.ts` | Final review: real agent loop + real JSONL backend, real SIGKILL, restart resume and delivery; prefix sweep over the log (offline model) |
 | `tests/review-phase2-delivery-requeue.spec.ts` | Final review: AgentDelivery re-queue branches (idle, running, inject, throw-after-remove retry, revoked retry) on a fake agent |
 | `tests/review-phase2-markunrelated-ended.spec.ts` | Final review (NF-3): a stale orchestrator_thread_unrelated on an ended ticket is refused (ticketEnded) and mutates nothing; live control drops the subscription |
+| `tests/review-phase2-late-tools.spec.ts` | Final review: a worker whose assignment stopped during decoration keeps no registered tools (real decorate on the host fixture) |
 | `tests/review-phase9-symlink-containment.spec.ts` | Final review: workspace symlink/alias containment - an existing workspace path resolving outside its execution root fails closed (ticket failed, files preserved); root-itself-symlink supported |
 | `tests/review-phase9-containment-falsifiers.spec.ts` | Final review phase 9 (independent adversary): 12-case workspace containment falsifiers - outside/prepare/prefix-sibling/parent/relative/two-hop/record-reuse denied, in-root sibling and root-symlink allowed |
 | `tests/review-phase9-boundaries.spec.ts` | Final review phase 9: GitHub path and repository boundaries (cross-repository address, read resource, Commands.api, file tool) and the workspace-root symlink containment check |
