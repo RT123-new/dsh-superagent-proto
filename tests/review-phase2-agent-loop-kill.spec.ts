@@ -50,7 +50,7 @@ async function restart(logs: string) {
   const ctx = new Context(); contexts.push(ctx)
   for (const name of ['dsh-llm', 'dsh-session', 'dsh-system-prompt', 'dsh-tools', 'dsh-agent', 'dsh-session-projection', 'dsh-session-persistence-jsonl', 'dsh-agent-loop']) {
     const m = await import(/* @vite-ignore */ `@deepseek-ai/${name}`) as { default?: never }
-    ctx.plugin((m.default ?? m) as never, name.endsWith('jsonl') ? { root: logs, compression: 'none' } : undefined)
+    ctx.plugin((m.default ?? m) as never, (name.endsWith('jsonl') ? { root: logs, compression: 'none' } : undefined) as never)
   }
   const anyCtx = ctx as unknown as { agents?: { resume(o: unknown): Promise<unknown>; get(id: string): Agent | undefined }; sessionPersistence?: unknown }
   for (let i = 0; i < 200 && !(anyCtx.agents && anyCtx.sessionPersistence); i++) await new Promise(resolve => setTimeout(resolve, 25))
