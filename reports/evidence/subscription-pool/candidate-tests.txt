@@ -1,0 +1,19 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/home/sandbox/staged/pool-production[39m
+
+(node:21697) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m scripts/pool-candidate/benchmark.spec.ts [2m([22m[2m1 test[22m[2m)[22m[33m 44666[2mms[22m[39m
+   [33m[2m✓[22m[39m executes actual Source/Engine/SQLite subscriptions with identical latency/rate gates [33m 44665[2mms[22m[39m
+(node:21704) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m scripts/pool-candidate/source.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 216[2mms[22m[39m
+ [32m✓[39m scripts/pool-candidate/commands.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m scripts/pool-candidate/budget.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m scripts/pool-candidate/response.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m5 passed[39m[22m[90m (5)[39m
+[2m      Tests [22m [1m[32m15 passed[39m[22m[90m (15)[39m
+[2m   Start at [22m 07:27:30
+[2m   Duration [22m 46.02s[2m (transform 399ms, setup 0ms, import 709ms, tests 44.91s, environment 0ms)[22m
+

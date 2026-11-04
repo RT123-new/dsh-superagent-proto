@@ -4,6 +4,8 @@ import { basename } from 'node:path'
 import { promisify } from 'node:util'
 import { z } from 'zod'
 import type { Deployment } from '../deployment.ts'
+import { githubResponse, githubNext, type GithubResponse } from './github-response.ts'
+import { TransportFailure } from './transport-failure.ts'
 import { Probe } from './metrics-probe.ts'
 
 const exec = promisify(execFile)
@@ -13,7 +15,7 @@ const TIMEOUT_MS = 90_000
  * Source channels and pollers inspect its code to distinguish deleted conversations from retryable failures.
  */
 export class CliError extends Error {
-  constructor(message: string, readonly code?: number, readonly exitCode?: number) { super(message) }
+  constructor(message: string, readonly code?: number, readonly exitCode?: number, readonly transportFailure?: TransportFailure) { super(message) }
 }
 /** Extracts a sanitized error from a failed subprocess without echoing argv, which may contain message text. */
 export function commandError(error: unknown, program = 'command'): Error {
@@ -57,24 +59,59 @@ function membership(error: unknown): unknown {
  * Executes gh, lark-cli, and git subprocesses with deployment account credentials, timeouts, and abort signals.
  * Restricts GitHub API calls to the configured repository and translates CLI failures into CliError instances for Sources, MasterAssessor, Outbox, and Settings.
  */
+export interface RequestControl {
+  before(signal: AbortSignal): Promise<void>
+  after(response: GithubResponse): void
+}
+/** Executes commands under the resolved deployment identity; opt-in controls preserve per-page HTTP metadata. */
 export class Commands {
   /**
    * @param resolved - returns the resolved deployment setup, or throws while setup is still pending.
    * @param environment - variables overriding `process.env` for every command (such as isolated git settings).
    */
-  constructor(private readonly resolved: () => Deployment, private readonly environment: Record<string, string | undefined>, private readonly signal: AbortSignal, private readonly probe: Probe = new Probe(undefined)) {}
+  constructor(private readonly resolved: () => Deployment, private readonly environment: Record<string, string | undefined>, private readonly signal: AbortSignal, private readonly probe: Probe = new Probe(undefined), private readonly requestControl?: RequestControl) {}
   get deployment(): Deployment { return this.resolved() }
   get repository(): string { return this.deployment.repository }
-  withSignal(signal?: AbortSignal): Commands { return signal ? new Commands(this.resolved, this.environment, AbortSignal.any([this.signal, signal]), this.probe) : this }
-  async run(program: string, args: string[], cwd?: string): Promise<string> {
-    // Whole subprocess latency: process start, network and the CLI's own work. Not pure API latency; the label never names the program or arguments.
+  withSignal(signal?: AbortSignal): Commands { return signal ? new Commands(this.resolved, this.environment, AbortSignal.any([this.signal, signal]), this.probe, this.requestControl) : this }
+  withRequestControl(control: RequestControl): Commands {
+    return new Commands(this.resolved, this.environment, this.signal, this.probe, control)
+  }
+  private async execute(program: string, args: string[], cwd?: string): Promise<string> {
     const stop = this.probe.timer('command_run', 'internal')
     try {
       const { stdout } = await exec(program, args, { cwd, signal: this.signal, timeout: TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024,
         env: { ...process.env, ...this.environment, GH_PROMPT_DISABLED: '1', LARKSUITE_CLI_NO_UPDATE_NOTIFIER: '1', LARKSUITE_CLI_NO_SKILLS_NOTIFIER: '1' } })
-      stop()
-      return stdout
-    } catch (error) { stop('failed'); throw commandError(error, program) }
+      stop(); return stdout
+    } catch (error) { stop('failed'); throw error }
+  }
+  async run(program: string, args: string[], cwd?: string): Promise<string> {
+    try { return await this.execute(program, args, cwd) }
+    catch (error) { throw commandError(error, program) }
+  }
+  /** Additive per-page metadata seam. Uses only the deployment's configured CLI/account. No automatic retry. */
+  async apiResponse(path: string, ...flags: string[]): Promise<GithubResponse> {
+    const scoped = this.path(path)
+    await this.requestControl?.before(this.signal)
+    this.signal.throwIfAborted()
+    let response: GithubResponse
+    try {
+      response = githubResponse(await this.execute(this.deployment.github.cli, ['api', scoped, '--include', ...flags.filter(f => f !== '--include')]))
+    } catch (error) {
+      const converted = commandError(error, this.deployment.github.cli)
+      if (converted.name === 'AbortError') throw converted
+      // gh includes the actual HTTP block in stdout on HTTP failures. stderr/body text alone grants no metadata.
+      const stdout = error && typeof error === 'object' && 'stdout' in error && typeof error.stdout === 'string' ? error.stdout : undefined
+      let failed: GithubResponse | undefined
+      try { if (stdout) failed = githubResponse(stdout) } catch { /* retain sanitized CLI error without invented headers */ }
+      if (!failed || failed.status < 300) throw converted
+      this.requestControl?.after(failed)
+      throw new CliError(converted.message, failed.status, converted instanceof CliError ? converted.exitCode : undefined,
+        new TransportFailure(converted.message, { status: failed.status, retryAfter: failed.headers['retry-after'] }, Date.now()))
+    }
+    this.requestControl?.after(response)
+    if (response.status >= 300) throw new CliError(`GitHub HTTP ${response.status}`, response.status, undefined,
+      new TransportFailure(`GitHub HTTP ${response.status}`, {status: response.status, retryAfter: response.headers['retry-after']}, Date.now()))
+    return response
   }
   /** Runs the agent's GitHub CLI and parses its JSON output; callers should prefer `api`, which is restricted to the configured repository and validates output. */
   async gh<T>(args: string[]): Promise<T> { return JSON.parse(await this.run(this.deployment.github.cli, args)) as T }
@@ -86,12 +123,30 @@ export class Commands {
   async api<T>(schema: z.ZodType<T>, path: string, ...flags: string[]): Promise<T>
   async api(path: string, ...flags: string[]): Promise<string>
   async api<T>(schema: z.ZodType<T> | string, ...rest: string[]): Promise<T | string> {
+    if (this.requestControl) {
+      const path = typeof schema === 'string' ? schema : rest.shift() ?? ''
+      const response = await this.apiResponse(path, ...rest)
+      if (typeof schema !== 'string') return schema.parse(JSON.parse(response.body))
+      return rest.includes('--include') ? `HTTP/2.0 ${response.status} OK\r\n${Object.entries(response.headers).map(([k,v]) => `${k}: ${v}`).join('\r\n')}\r\n\r\n${response.body}` : response.body
+    }
     if (typeof schema === 'string') return this.run(this.deployment.github.cli, ['api', this.path(schema), ...rest])
     const [path = '', ...flags] = rest
     return schema.parse(await this.gh(['api', this.path(path), ...flags]))
   }
   /** Fetches all pages of a GitHub API list within the configured repository, skipping items that fail schema validation. */
   async pages<T>(item: z.ZodType<T>, path: string, tally?: Tally): Promise<T[]> {
+    if (this.requestControl) {
+      const out: T[] = [], seen = new Set<string>()
+      let next: string | undefined = path
+      while (next !== undefined) {
+        if (seen.has(next)) throw new Error('GitHub repeated a pagination link')
+        seen.add(next)
+        const response = await this.apiResponse(next)
+        out.push(...validItems(item, z.array(z.unknown()).parse(JSON.parse(response.body)), tally))
+        next = githubNext(response.headers, this.repository)
+      }
+      return out
+    }
     const pages = z.array(z.array(z.unknown())).parse(await this.gh(['api', this.path(path), '--paginate', '--slurp']))
     return validItems(item, pages.flat(), tally)
   }

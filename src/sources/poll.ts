@@ -22,8 +22,14 @@ export const recoverySince = (cursor: string, started: string, reconcile: boolea
   reconcile ? new Date(Math.min(Date.parse(cursor), Date.parse(started) - horizonSeconds * 1000)).toISOString() : cursor
 /** Polls each subscribed Thread of `source` within the horizon independently; records failures on the Thread as `pollError` (unless `stopped()`) and clears `pollError` on success. */
 export async function pollThreads(ctx: SourceContext, source: string, stopped: () => boolean, poll: (thread: Thread) => Promise<void>,
-  skip: (thread: Thread) => boolean = () => false): Promise<void> {
-  for (const thread of ctx.threads.subscribed(source)) {
+  skip: (thread: Thread) => boolean = () => false, concurrency = 1): Promise<void> {
+  if (![1, 2, 4, 8].includes(concurrency)) throw new Error('Invalid polling concurrency')
+  const threads = [...new Map(ctx.threads.subscribed(source).map(thread => [thread.key, thread])).values()]
+  let next = 0
+  async function worker(): Promise<void> {
+    while (!stopped()) {
+    const thread = threads[next++]
+    if (!thread) return
     if (stopped()) return
     if (skip(thread) || !polled(ctx, thread)) continue
     try {
@@ -33,7 +39,9 @@ export async function pollThreads(ctx: SourceContext, source: string, stopped: (
       if (stopped()) return
       ctx.threads.patch(thread.key, { pollError: String(error) })
     }
+    }
   }
+  await Promise.all(Array.from({ length: Math.min(concurrency, threads.length) }, () => worker()))
 }
 /** Waits `ms` or until `signal` aborts using global `setTimeout` so test fake timers can drive polling loops. */
 export function pause(ms: number, signal: AbortSignal): Promise<void> {

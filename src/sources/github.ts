@@ -3,6 +3,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { key, type Thread } from '../core/index.ts'
 import { sameName } from '../infra/text.ts'
 import { GithubAccountsSchema } from '../deployment.ts'
+import { GithubPollBudget } from '../infra/github-poll-budget.ts'
 import { CliError, validItems, type Commands, type Tally } from '../infra/commands.ts'
 import { ciCounts, ciFact, ciFailures, ciSummary, githubThreadContext, pullChecks } from './github-read.ts'
 import { branchCiTrigger, ciTrigger, commentTrigger, CommentSchema, githubAddress, issueTrigger, IssueSchema, pullTrigger, SOURCE }
@@ -24,6 +25,7 @@ const NotificationSchema = z.looseObject({
 
 const GithubConfigSchema = GithubAccountsSchema.extend({ pollSeconds: z.number().int().min(60).max(3600).default(60),
   failuresBeforeError: z.number().int().min(1).max(20).default(3),
+  subscriptionConcurrency: z.union([z.literal(1), z.literal(2), z.literal(4), z.literal(8)]).optional(),
   replaySeconds: z.number().int().min(5).max(3600).default(120),
   reconcileMinutes: z.number().int().min(0).max(1440).default(30),
   reconcileHorizonSeconds: z.number().int().min(60).max(86400).default(3600),
@@ -489,7 +491,15 @@ function nameThread(ctx: SourceContext, number: number, title: string): void {
   ctx.threads.describe(`github:${number}`, { label: `#${number} ${title}`, facts: { number: { value: `#${number}` } } })
 }
 /** Polls subscribed Issue and PR Threads not already read in this round; a deleted (410) Issue is still polled within the horizon (costing one read) and does not fail the round. */
+const subscriptionBudgets = new WeakMap<Commands, GithubPollBudget>()
 export async function pollThreads(ctx: SourceContext, signal?: AbortSignal, round = newRound(signal)): Promise<void> {
+  const concurrency = ctx.config<GithubConfig>(SOURCE)?.subscriptionConcurrency ?? 1
+  // Default path unchanged. Opt-in requires one shared per-request budget across rounds and all pool workers.
+  if (ctx.config<GithubConfig>(SOURCE)?.subscriptionConcurrency !== undefined) {
+    let budget = subscriptionBudgets.get(ctx.commands)
+    if (!budget) { budget = new GithubPollBudget(); subscriptionBudgets.set(ctx.commands, budget) }
+    ctx = { ...ctx, commands: ctx.commands.withRequestControl(budget) }
+  }
   await pollEach(ctx, SOURCE, () => stopped(ctx, round), async thread => {
     try { await pollThread(ctx, round, thread) }
     catch (error) {
@@ -497,7 +507,7 @@ export async function pollThreads(ctx: SourceContext, signal?: AbortSignal, roun
       if (deleted(error)) round.dropped.push(Number(thread.ref.id)); else round.failures.push(`${thread.key}: ${String(error)}`)
       throw error
     }
-  }, thread => round.read.has(Number(thread.ref.id)))
+  }, thread => round.read.has(Number(thread.ref.id)), concurrency)
 }
 async function pollThread(ctx: SourceContext, round: Round, thread: Thread): Promise<void> {
   // The default branch's CI Thread has no Issue or PR to read; its CI arrives as Triggers.
@@ -517,6 +527,7 @@ async function pollThread(ctx: SourceContext, round: Round, thread: Thread): Pro
     const pr = await pull(ctx, round, number)
     await intakeComments(ctx, { number, isPr: true, url: pr.html_url, prAuthor: pr.user.login }, since, round)
   } else await intakeComments(ctx, { number, isPr: false }, since, round)
+  if (stopped(ctx, round)) return
   const replayMs = ((ctx.config<GithubConfig>(SOURCE)?.replaySeconds ?? 120) + 1) * 1000
   ctx.state.set(checkpoint, cursorAt(round.started, replayMs))
 }
