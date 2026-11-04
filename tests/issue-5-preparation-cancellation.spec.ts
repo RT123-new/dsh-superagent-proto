@@ -60,9 +60,10 @@ describe('issue 5: cancellation stops preparation at every asynchronous boundary
     const { ticket, assignment } = fixture.mkTicket('aaaa')
     const order: string[] = []
     const commands: ControlledSpawn[] = []
+    // ignoreAbort: the cancelled command exits slowly, as a real process can within the provider's grace period.
     fixture.intercept = spec => {
       if (spec.argv[0] !== 'sh') return undefined
-      const spawn = new ControlledSpawn(spec)
+      const spawn = new ControlledSpawn(spec, { ignoreAbort: true })
       spawn.handle.done.then(() => { order.push(`settled:${commands.indexOf(spawn)}`) })
       commands.push(spawn)
       order.push(`spawned:${commands.indexOf(spawn)}`)
@@ -73,16 +74,19 @@ describe('issue 5: cancellation stops preparation at every asynchronous boundary
 
     // The assignment is cancelled and retried; the replacement launches immediately (tickets.ts: stop, then start).
     fixture.cancelAssignment(ticket, assignment, 'retried')
+    // The cancellation reached the running command's signal...
+    expect(commands[0]!.spec.signal?.aborted).toBe(true)
     const replacement = fixture.newAssignment(ticket)
     const second = fixture.launch(ticket, replacement)
     await tick()
-    // While the cancelled command still runs, the replacement must not start preparing the same workspace.
+    // ...but while the cancelled command still runs, the replacement must not start preparing the same workspace.
     expect(commands).toHaveLength(1)
     commands[0]!.stop()
     await first
+    await vi.waitFor(() => { expect(commands).toHaveLength(2) })
+    commands[1]!.finish(0)
     await second
-    expect(commands).toHaveLength(2)
-    expect(order).toEqual(['spawned:0', 'settled:0', 'spawned:1'])
+    expect(order).toEqual(['spawned:0', 'settled:0', 'spawned:1', 'settled:1'])
     expect(fixture.engine.assignmentStarted).toHaveBeenCalledWith(ticket.id, replacement.id)
   })
 

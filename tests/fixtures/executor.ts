@@ -65,7 +65,7 @@ export class ExecutorFixture {
   private readonly lifetime = new AbortController()
   private launchRun!: (payload: { ticketId: string; assignmentId: string }) => Promise<void>
 
-  readonly engine = {
+  readonly engine: Record<string, ReturnType<typeof vi.fn>> = {
     assignmentStarted: vi.fn(), inputsDelivered: vi.fn(), inputsRead: vi.fn(), turnEnded: vi.fn(), deliveryFailed: vi.fn(),
     assignmentInterrupted: vi.fn(),
     report: vi.fn((ticketId: string, report: { state: 'progress' | 'waiting' | 'ready' | 'blocked' | 'failed' | 'dropped'; summary: string }) => {
@@ -77,7 +77,13 @@ export class ExecutorFixture {
       return ticket
     }),
   }
-  readonly sessions = {
+  readonly sessions: {
+    ensure: ReturnType<typeof vi.fn>
+    prompt: ReturnType<typeof vi.fn>
+    promptedId: (id: string) => string
+    relay: ReturnType<typeof vi.fn>
+    holds: ReturnType<typeof vi.fn>
+  } = {
     ensure: vi.fn(async (id: string) => ({ id, status: 'idle', inbox: { remove: vi.fn() }, cancel: vi.fn(),
       whenIdle: async () => {}, session: { snapshotEvents: () => [] } })),
     prompt: vi.fn(async (_id: string, _requestId: string, _text: string, _mode: unknown, authorize?: () => void, accepted?: () => void) => {

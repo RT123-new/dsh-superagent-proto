@@ -18,6 +18,7 @@ import { WorktreeNameSchema } from '../app/assessment.ts'
 import { resultRelay } from '../app/notices.ts'
 import type { HealthEntry } from '../infra/health.ts'
 import { cancelled, collectJob, killJobs, runningJobs, stopBackground, stopSubagents, until, untilQuiet } from './background.ts'
+import { preparationIdentity, readPreparation, writePreparation, type PreparationRecord } from './workspace.ts'
 
 const now = (): string => new Date().toISOString()
 /** Returns the worker session ID (`worker-<ticketId>`) for a ticket. */
@@ -37,10 +38,16 @@ const SLOT_WAIT_MS = 5000
 /** True when an input comes from a person (a non-context human trigger or a direct text input such as a status request). */
 const fromPerson = (input?: TicketInput): boolean => input?.kind === 'trigger' ? !!input.human && !input.context : input?.kind === 'text'
 /**
- * Internal error thrown when a ticket's workspace prepare command fails during launch.
- * DshExecutor catches it to mark the ticket failed immediately rather than retrying automatically, because an existing directory counts as prepared and an automatic retry would treat whatever a failed prepare command left behind in the directory as a prepared workspace.
+ * Internal error thrown when a ticket's workspace preparation fails during launch.
+ * DshExecutor catches it to mark the ticket failed immediately rather than retrying automatically; the preparation
+ * record marks the workspace `failed`, and a person's retry or message prepares it again.
  */
 class PrepareFailed extends Error {}
+/**
+ * Internal control-flow error: the assignment was cancelled (or the host stopped) while its workspace prepared.
+ * The launch returns silently: the ticket's end or its replacement assignment drives what happens next.
+ */
+class PreparationCancelled extends Error {}
 const PASSING = new RegExp(['ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'EAI_AGAIN', 'ENOTFOUND', 'EPIPE', 'UND_ERR', 'socket hang up', 'fetch failed',
   'network error', 'overloaded', 'rate limit', '\\b(?:408|429|50[0-4])\\b'].join('|'), 'i')
 /**
@@ -68,6 +75,10 @@ export interface ExecutorHost {
   /** The `worker` health entry, which reports whether background worker event handling failed. */
   readonly health: HealthEntry
   readonly machine: Pick<Machine, 'stateDir'>
+  /** The repository the deployment works on; part of the workspace preparation identity. */
+  repository(): string
+  /** Prepare-command timeout override for tests; defaults to `PREPARE_TIMEOUT_MS`. */
+  readonly prepareTimeoutMs?: number
   readonly lifetime: AbortSignal
   /** Session manager for worker sessions and for relaying worker reports to the main Session. */
   readonly sessions: Pick<Sessions, 'ensure' | 'prompt' | 'promptedId' | 'relay' | 'holds'>
@@ -224,6 +235,10 @@ export class DshExecutor implements Executor {
   private readonly personal = new Map<string, string>()
   /** The timers of workers that go on after a passing failure, which dispose clears. */
   private readonly timers = new Set<ReturnType<typeof setTimeout>>()
+  /** Cancellation controllers of in-flight launches, by assignment ID; `stop` aborts them once the ending commits. */
+  private readonly launching = new Map<string, AbortController>()
+  /** In-flight workspace preparations, by ticket, whose settle a replacement launch awaits before reusing the workspace. */
+  private readonly preparing = new Map<string, Promise<void>>()
   /** Registers the `launch` and `delivery` effect handlers; both are held (concurrency limit 0) while processing is paused. */
   constructor(private readonly host: ExecutorHost) {
     this.slots = new WorkerSlots(() => host.store.tickets.open().filter(ticket => this.running(ticket)).map(ticket => ticket.id),
@@ -238,27 +253,84 @@ export class DshExecutor implements Executor {
   prepare(ticket: Ticket, outcome: Extract<AssessmentOutcome, { kind: 'accept' }>): Ticket {
     return { ...ticket, execution: ticketExecution(ticket, outcome, this.host.store.settings(), this.host.machine.stateDir) }
   }
+  /** The workspace's preparation identity under the current configuration. */
+  private identity(): string {
+    return preparationIdentity({ repository: this.host.repository(), prepareCommand: this.host.store.settings().executor.prepare })
+  }
+  /**
+   * Whether the ticket's workspace verifiably prepared under the current configuration.
+   * A workspace from before preparation state existed keeps its work: it is adopted once it passes the same
+   * directory verification a fresh preparation runs. Anything else - a failed, cancelled or crash-interrupted
+   * (`preparing`) record, another configuration's record, or a record for another directory - prepares again.
+   */
+  private async prepared(ticket: Ticket): Promise<boolean> {
+    const directory = ticket.execution?.directory ?? ''
+    if (!await stat(directory).then(() => true, () => false)) return false
+    const record = await readPreparation(this.host.machine.stateDir, ticket.execution?.name ?? '')
+    // A record describes the directory it was written for; one for another directory says nothing about this one.
+    if (record && record.directory === directory) return record.state === 'prepared' && record.identity === this.identity()
+    try { await verifyDirectory(directory, this.host.context.subprocess, this.host.lifetime) }
+    catch { return false }
+    await writePreparation(this.host.machine.stateDir, ticket.execution?.name ?? '',
+      { state: 'prepared', identity: this.identity(), directory, at: now(), detail: 'Adopted a workspace that predates preparation state' })
+      .catch(() => { /* A lost adoption record only re-verifies the workspace at the next launch. */ })
+    return true
+  }
   /**
    * Runs the configured `executor.prepare` command for a new ticket workspace in its parent directory with the ticket's
-   * execution environment variables, then verifies the directory as the worker sees it.
+   * execution environment variables, then verifies the directory as the worker sees it, and only then records the
+   * workspace `prepared` (atomically) under the current preparation identity. Shutdown, the prepare timeout and the
+   * assignment's own cancellation all reach the command's process range through one combined signal; the launch waits
+   * for the command to settle, so a cancelled assignment never leaves work running against its workspace.
    * A failed prepare command throws `PrepareFailed`, which is not retried automatically; an empty directory it left is removed, a non-empty one kept.
    * @throws PrepareFailed with the command's output when the prepare command fails.
+   * @throws PreparationCancelled when the assignment was cancelled or the host stopped mid-preparation.
    */
-  private async prepareDirectory(ticket: Ticket): Promise<void> {
+  private async prepareDirectory(ticket: Ticket, cancel: AbortSignal): Promise<void> {
     const directory = ticket.execution?.directory ?? ''
+    const name = ticket.execution?.name ?? ''
+    const identity = this.identity()
+    // A lost `preparing`/`failed`/`cancelled` record reads as unprepared at the next launch, which is safe; the
+    // `prepared` record below must not be lost, so its write failure fails the preparation instead.
+    const mark = (record: PreparationRecord): Promise<void> =>
+      writePreparation(this.host.machine.stateDir, name, record).catch(() => {})
     await mkdir(dirname(directory), { recursive: true })
     const command = this.host.store.settings().executor.prepare.trim()
     const env = Object.fromEntries(this.host.environment(ticket).map(variable => [variable.key, variable.value]))
+    if (cancel.aborted) throw new PreparationCancelled()
+    await mark({ state: 'preparing', identity, directory, at: now() })
     // Enforce a timeout so a hung prepare command (such as on a credential prompt) fails the ticket instead of holding a worker slot indefinitely.
-    const signal = AbortSignal.any([this.host.lifetime, AbortSignal.timeout(PREPARE_TIMEOUT_MS)])
-    if (command) await runAsWorker(this.host.context.subprocess, ['sh', '-c', command], dirname(directory), signal, env)
-      .catch(async (error: unknown) => {
-        // Remove an empty directory left by a failed prepare command so a later retry does not treat it as already prepared.
-        await rmdir(directory).catch(() => { /* Absent, or holding what the command wrote, which the output explains. */ })
-        throw new PrepareFailed(`The prepare command failed: ${error instanceof Error ? error.message : String(error)}`)
-      })
-    await mkdir(directory, { recursive: true })
-    await verifyDirectory(directory, this.host.context.subprocess, this.host.lifetime)
+    const timeout = AbortSignal.timeout(this.host.prepareTimeoutMs ?? PREPARE_TIMEOUT_MS)
+    const signal = AbortSignal.any([this.host.lifetime, timeout, cancel])
+    try {
+      if (command) await runAsWorker(this.host.context.subprocess, ['sh', '-c', command], dirname(directory), signal, env)
+        .catch(async (error: unknown) => {
+          // Remove an empty directory left by a failed prepare command so a later retry does not treat it as already prepared.
+          await rmdir(directory).catch(() => { /* Absent, or holding what the command wrote, which the output explains. */ })
+          throw error
+        })
+      if (cancel.aborted) throw new PreparationCancelled()
+      await mkdir(directory, { recursive: true })
+      await verifyDirectory(directory, this.host.context.subprocess, this.host.lifetime)
+    } catch (error) {
+      if (error instanceof PreparationCancelled || cancel.aborted || this.host.lifetime.aborted) {
+        await mark({ state: 'cancelled', identity, directory, at: now(), detail: 'The assignment was cancelled or the host stopped' })
+        throw new PreparationCancelled()
+      }
+      const detail = timeout.aborted ? `The prepare command ran past its ${Math.round((this.host.prepareTimeoutMs ?? PREPARE_TIMEOUT_MS) / 1000)}s timeout`
+        : error instanceof Error ? error.message : String(error)
+      await mark({ state: 'failed', identity, directory, at: now(), detail })
+      throw error instanceof PrepareFailed ? error : new PrepareFailed(`The prepare command failed: ${detail}`)
+    }
+    // The workspace is prepared only while the configuration it prepared under is still current; if it changed
+    // mid-preparation, the launch waits and runs again under the new one rather than accepting a stale result.
+    if (this.identity() !== identity) throw new Later('The preparation configuration changed while the workspace prepared')
+    if (cancel.aborted) {
+      await mark({ state: 'cancelled', identity, directory, at: now(), detail: 'The assignment was cancelled or the host stopped' })
+      throw new PreparationCancelled()
+    }
+    await writePreparation(this.host.machine.stateDir, name, { state: 'prepared', identity, directory, at: now() })
+      .catch((error: unknown) => { throw new PrepareFailed(`The preparation state could not be persisted: ${String(error)}`) })
   }
   /** Enqueues a `launch` effect for an accepted or resumed assignment; launches start in queue order as worker slots free up. */
   start(ticket: Ticket, assignment: Assignment): void {
@@ -275,9 +347,8 @@ export class DshExecutor implements Executor {
     try { await this.launch(ticket, assignment); this.transient.delete(`launch:${assignmentId}`) }
     catch (error) {
       // Shutdown or pause re-queues the launch for resume, and transient network/provider errors retry with backoff.
-      // A failed prepare command is not retried automatically because an existing directory counts as prepared, so retrying
-      // would treat whatever a failed prepare command left behind in the directory as a prepared workspace; instead the
-      // ticket is marked failed and waits until new human input or an explicit retry arrives.
+      // A failed prepare command is not retried automatically; the ticket is marked failed and waits until new human
+      // input or an explicit retry arrives, and that retry prepares the workspace again from its `failed` record.
       if (this.host.closing() || error instanceof Later) throw error
       if (!(error instanceof PrepareFailed) && this.retries(`launch:${assignmentId}`, error)) throw error
       this.launchFailed(ticketId, assignmentId, error)
@@ -361,6 +432,8 @@ export class DshExecutor implements Executor {
     const ownTurn = (report?.state === 'ready' || report?.state === 'dropped') && !busy
     const sessionId = workerSessionId(ticket.id)
     this.host.store.afterCommit(() => {
+      // An in-flight launch of the ended assignment cancels: its prepare command's process range stops with it.
+      this.launching.get(assignment.id)?.abort()
       this.settling.get(ticket.id)?.abort()
       if (!ownTurn) this.host.context.agents.get(sessionId as SessionId)?.cancel({ kind: 'user' }, { keepInbox: false })
       // Its shell jobs and subagents stop with it, also those of a worker that ends its own turn.
@@ -428,12 +501,28 @@ export class DshExecutor implements Executor {
       const stored = this.host.store.tickets.get(ticket.id)
       return !!stored && liveTicket(stored) && latestAssignment(stored)?.id === assignment.id
     }
+    // The assignment's cancellation controller: `stop` aborts it, which reaches the prepare command's process range.
+    const controller = new AbortController()
+    this.launching.set(assignment.id, controller)
+    try {
     const source = sourceTrigger(this.host, ticket)
     const workspace = ticket.execution?.directory ?? ''
     if (!current()) return
-    // Prepare the workspace directory once; an existing directory counts as already prepared, including worktrees created before `prepare` commands existed.
-    if (!await stat(workspace).then(() => true, () => false)) {
-      await this.prepareDirectory(ticket)
+    // A cancelled or replaced assignment's preparation settles before this one may use the same workspace.
+    const prior = this.preparing.get(ticket.id)
+    if (prior) {
+      await prior.catch(() => {})
+      if (!current()) return
+    }
+    // Prepare the workspace unless it verifiably prepared under the current configuration (see `prepared`).
+    if (!await this.prepared(ticket)) {
+      const settle = this.prepareDirectory(ticket, controller.signal)
+      this.preparing.set(ticket.id, settle)
+      try { await settle }
+      catch (error) {
+        if (error instanceof PreparationCancelled) return
+        throw error
+      } finally { if (this.preparing.get(ticket.id) === settle) this.preparing.delete(ticket.id) }
       if (!current()) return
     }
     if (!current()) return
@@ -467,6 +556,7 @@ export class DshExecutor implements Executor {
       () => { if (!current()) throw new Error('Launch authorization changed before worker delivery') },
       () => { this.host.engine.assignmentStarted(ticket.id, assignment.id) })
     this.host.engine.assignmentStarted(ticket.id, assignment.id)
+    } finally { if (this.launching.get(assignment.id) === controller) this.launching.delete(assignment.id) }
   }
   /** Returns the stored ticket for `agent` when it is a worker session, or undefined otherwise. */
   private ticketOf(agent: Agent): Ticket | undefined {
@@ -515,6 +605,8 @@ export class DshExecutor implements Executor {
     for (const dispose of this.disposers.splice(0)) dispose()
     for (const timer of this.timers) clearTimeout(timer)
     this.timers.clear()
+    for (const controller of this.launching.values()) controller.abort()
+    this.launching.clear()
   }
   /**
    * Reconciles running and pending assignments across open tickets after a host restart: notifies Engine of interrupted
