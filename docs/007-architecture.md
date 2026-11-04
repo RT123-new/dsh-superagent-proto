@@ -493,6 +493,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/review-phase2-effects-bench.spec.ts` | Final review: measured per-attempt marker overhead |
 | `tests/review-phase2-ensure-matrix.spec.ts` | Final review: ensure authorization sweep over pause, shutdown, ended ticket, replacement and external delete |
 | `tests/review-phase2-effects-rearm.spec.ts` | Final review: blocked ordered head listing, explicit rearm and discard |
+| `tests/ci-workflow.spec.ts` | The CI workflow's failure propagation: the explicit bash shell contract, the canonical result past the evidence tee, and the tested-SHA record surviving checkout |
 | `tests/review-phase2-effects-routes.spec.ts` | Final review: blocked-effects operator routes (safe class only, same-origin, explicit rearm, in-flight refusal) |
 | `tests/review-final-outbox-recovery.spec.ts` | Final review Gate 1: ambiguous live sends park without proven idempotency, safe idempotent retries, server-validated rearm acknowledgement and the enqueue guard |
 | `tests/review-phase2-jsonl-kill.spec.ts` | Final review: delivery history over the real JSONL backend with a real SIGKILL of the writer |

@@ -20,9 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Record the exact tested SHA
-        run: echo "TESTED_SHA=${{ github.sha }}" | tee tested-sha.txt
       - uses: actions/checkout@v4
+      - name: Record the exact tested SHA
+        # After checkout: its default clean wipes untracked files, which dropped tested-sha.txt from the evidence artifact.
+        run: echo "TESTED_SHA=${{ github.sha }}" | tee tested-sha.txt
       - uses: actions/setup-node@v4
         with:
           node-version: 22.23.4
