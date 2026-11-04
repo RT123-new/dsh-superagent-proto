@@ -49,10 +49,25 @@ it('a failed schema 10 migration rolls back the link table and triggers with it,
 it('a schema 10 database holding a malformed decision row is refused with the file unchanged and the row id named', () => {
   const path = join(directory, 'o.sqlite')
   legacy(path, undefined, true)
-  expect(() => new Store(path)).toThrow(/unchanged at schema 10: its migration to schema 11 failed: decision bad: its stored value is not valid JSON$/)
+  expect(() => new Store(path)).toThrow(/unchanged at schema 10: its migration to schema 11 failed: decision "bad": its stored value is not valid JSON$/)
   const raw = new DatabaseSync(path)
   expect(names(raw)).toEqual([])
   expect(raw.prepare("SELECT value FROM kv WHERE key='schema'").get()).toEqual({ value: '10' })
   expect(raw.prepare('SELECT COUNT(*) AS n FROM decision').get()).toEqual({ n: 4 })
   raw.close()
+})
+
+it('a hostile decision id is escaped and bounded in the migration error, never interpolated raw', () => {
+  const path = join(directory, 'o.sqlite')
+  legacy(path)
+  const hostile = `x\u001b[31m\nTOKEN=ghp_${'A'.repeat(80)}`
+  const raw = new DatabaseSync(path)
+  raw.prepare('INSERT INTO decision VALUES (?,?,?)').run(hostile, 'th', '{bad'); raw.close()
+  let message = ''
+  try { new Store(path) } catch (error) { message = (error as Error).message }
+  expect(message).toMatch(/unchanged at schema 10/)
+  expect(message).not.toMatch(/[\u0000-\u001f]/)
+  expect(message).not.toContain('A'.repeat(70))
+  expect(message).toMatch(/sha256 [0-9a-f]{12}/)
+  expect(message).not.toContain('{bad')
 })
