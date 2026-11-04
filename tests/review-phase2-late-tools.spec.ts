@@ -4,6 +4,7 @@
  */
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import { afterEach, expect, it, vi } from 'vitest'
+import { Commands } from '../src/infra/commands.ts'
 import { feishu, startRuntime, type Host } from './fixtures/host.ts'
 
 let h: Host | undefined
@@ -114,4 +115,35 @@ it('characterization: on a LIVE ticket whose assignment was replaced, a report f
   expect(stored.assignments[0]!.state).toBe('ended')
   expect(JSON.stringify(stored)).toContain('from the old turn')
   expect(JSON.stringify(stored.assignments[0])).not.toContain('from the old turn')
+})
+/** A report whose PR lookup is still in flight while its assignment is replaced (the worker's turn was cancelled, the callback was not). */
+async function inFlightReport(replace: (ticketId: string, assignmentId: string) => Promise<void>) {
+  h = await startRuntime()
+  const { ticket, sessionId } = await h.acceptedTicket(feishu('1', '@bot fix'))
+  const gate = Promise.withResolvers<void>(), entered = Promise.withResolvers<void>()
+  vi.mocked(Commands.prototype.gh).mockImplementation((async (args: string[]) => {
+    if (args[1] === 'user') return { login: 'agent-bot' }
+    if (args[1]?.includes('/pulls/')) {
+      entered.resolve(); await gate.promise
+      return { state: 'open', user: { login: 'agent-bot' }, html_url: 'https://github.com/acme/widgets/pull/42', head: { ref: `agent/${ticket.execution?.name}`, sha: 'h1', repo: { full_name: 'acme/widgets' } } }
+    }
+    return { default_branch: 'master', permissions: { push: true } }
+  }) as never)
+  const first = h.runtime.store.tickets.get(ticket.id)!.assignments.at(-1)!
+  const report = h.runTool(sessionId, 'orchestrator_report', { state: 'progress', summary: 'late from the old turn', pr_number: 42 }).then(() => 'recorded', (e: Error) => `refused: ${e.message}`)
+  await entered.promise
+  await replace(ticket.id, first.id)
+  gate.resolve()
+  return { outcome: await report, ticket: h.runtime.store.tickets.get(ticket.id)! }
+}
+it('a report whose PR lookup was in flight when its assignment was replaced is refused and records nothing', async () => {
+  const { outcome, ticket } = await inFlightReport(async (id, assignment) => { h!.runtime.engine.assignmentInterrupted(id, assignment); await h!.runtime.idle() })
+  expect(ticket.assignments.length).toBe(2)
+  expect(JSON.stringify(ticket)).not.toContain('late from the old turn')
+  expect(outcome).toMatch(/^refused/)
+})
+it('a report whose PR lookup was in flight when its ticket ended is refused and records nothing', async () => {
+  const { outcome, ticket } = await inFlightReport(async id => { h!.runtime.engine.stopTicket(id) })
+  expect(JSON.stringify(ticket)).not.toContain('late from the old turn')
+  expect(outcome).toMatch(/^refused/)
 })
