@@ -1,0 +1,4 @@
+[31m   [31m×[31m GET overview reports metricsState ok, failed (snapshot throws) and off (instrumentation disabled) from the real runtime[39m[32m 52[2mms[22m[39m
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+[31m[1mAssertionError[22m: expected undefined to be 'ok' // Object.is equality[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[90m (1)[39m

@@ -55,6 +55,8 @@ export interface HttpHost {
   requestPass(): void
   /** A point-in-time metrics snapshot, or undefined when instrumentation is off or not wired. */
   metricsSnapshot?(): MetricsSnapshot | undefined
+  /** Optional: state of the latest metricsSnapshot() read, to explain a missing snapshot without a second read. */
+  metricsState?(): 'off' | 'ok' | 'failed'
   models(): Promise<ModelCatalog>
 }
 /**
@@ -151,6 +153,14 @@ const SourceBlock = z.templateLiteral(['source:', z.string().regex(/^[a-z][a-z0-
 const SettingsBlockSchema = z.union([z.enum(['policy', 'eval', 'executor']), SourceBlock])
 const SaveRequest = z.object({ value: z.unknown(), revision: z.number().int().nonnegative() })
 
+function metricsFields(runtime: HttpHost): { metrics?: MetricsSnapshot; metricsState: 'off' | 'ok' | 'failed' } {
+  // Exactly one read per request: metricsSnapshot() is authoritative (hosts may override it). A missing snapshot is explained by
+  // the state that same read recorded; a state of 'ok' without a snapshot (an override returned nothing) is reported as 'off'.
+  const metrics = runtime.metricsSnapshot?.()
+  if (metrics) return { metrics, metricsState: 'ok' }
+  const state = runtime.metricsState?.() ?? 'off'
+  return { metricsState: state === 'failed' ? 'failed' : 'off' }
+}
 function routes(runtime: HttpHost): Routes {
   const { store } = runtime
   const ticket = (id: string) => { if (!store.tickets.get(id)) throw new RouteError(404, 'Ticket not found'); return id }
@@ -158,7 +168,7 @@ function routes(runtime: HttpHost): Routes {
   return {
     'GET state': () => stateView(runtime),
     'GET overview': () => ({ ...overview(views(runtime), runtime.health, policyVersion(store.settings()),
-      executorLoad(store, runtime.executor.activeCount()), runtime.setupProblem ?? runtime.feishuProblem), metrics: runtime.metricsSnapshot?.() }),
+      executorLoad(store, runtime.executor.activeCount()), runtime.setupProblem ?? runtime.feishuProblem), ...metricsFields(runtime) }),
     'GET search': ({ query }) => search(views(runtime), query.q ?? '', runtime.sourceLinks),
     'GET sources': () => sourcesStatus(views(runtime), runtime.health, setupState(runtime)),
     'GET settings': () => settingsView(store, runtime.sources, runtime.health, setupState(runtime), runtime.machine.stateDir),

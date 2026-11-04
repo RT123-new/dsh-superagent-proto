@@ -436,6 +436,8 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/followups.spec.ts` | A person's follow-up on a Ticket's Thread: its notice to the main Session, the tools that act on it, what a burst costs; a worker's hand-back and context follow, and the main Session's note |
 | `tests/health.spec.ts` | One health entry per part, each cleared by its own next success |
 | `tests/issue-22-dashboard.spec.tsx` | Metrics component coverage, outcome separation, unknown usage and locale tests |
+| `tests/pr-final-metrics-review.spec.tsx` | PR final review: counter saturation, backwards-clock rejection, invalid wall bounds, nearest-rank oracle, over-capacity marker, current slot counts |
+| `tests/pr-final-metrics-state.spec.tsx` | Overview metricsState off / ok / failed through the real runtime and HTTP path |
 | `tests/issue-22-http-review.spec.ts` | Optional overview metrics adapter serialization, backward compatibility and bounded populated payload measurement |
 | `tests/issue-22-runtime-proof.spec.ts` | Actual Runtime-to-HTTP metrics snapshot composition |
 | `tests/issue-9-adversarial.spec.ts` | Independent metric reconciliation, validation, bounds and snapshot tests |
