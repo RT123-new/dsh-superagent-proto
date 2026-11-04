@@ -17,4 +17,6 @@ Ledger convention: conservative — every call is logged at PEAK rates when the 
 
 | # | Date (UTC) | Purpose | Model | Input tok (hit/miss) | Output tok | Assumed cost (USD) | Cumulative |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| — | — | no paid calls yet | — | — | — | $0.00 | $0.00 |
+| 1 | 2026-11-04 06:30 (peak) | Direct API probe: key + model verification, "Reply with exactly: ok", max_tokens 16 | deepseek-flash | 35 (0 hit / 35 miss) | 12 (10 reasoning) | $0.0001 (peak assumed: 35×$0.30/M + 12×$1.20/M = $0.0000249, rounded up) | $0.0001 |
+
+Probe evidence: reports/evidence/probe-001-deepseek-flash.json (HTTP 200, 1265 ms). /models listing (free) confirmed deepseek-flash + deepseek-v4-pro available on the key. Probe type: DIRECT PROVIDER PROBE, not end-to-end harness validation.
