@@ -489,6 +489,10 @@ Some generic modules still refer directly to GitHub or Feishu:
 
 `tests/fixtures/` holds what several tests share: `host.ts`, a simulated DeepSeek Harness host; `panel-server.ts` and `panel.tsx`, the fake management API and the panel around a page; `deployment.ts`, a resolved deployment; `git.ts`, the environment of every git the tests start, which names no repository; and `async.ts`.
 
+| `tests/issue-13-coordinator-load.spec.ts` | Coordinator conservation and deterministic workload invariants. |
+| `tests/issue-14-hol-blocking.spec.ts` | Ordered head-of-line characterization and isolated partition fixture. |
+| `tests/issue-15-retry-backoff.spec.ts` | Retry baseline characterization and proposed jitter formula (under integration update). |
+
 ## Persistence
 
 One SQLite file, `<stateDir>/orchestrator.sqlite`, which only the Store opens.
