@@ -42,3 +42,33 @@ it('a permanently failing send stays pending (never silently dropped or marked s
   await h.runtime.sendReplies(); await at(5000); await at(300_000)
   expect(h.runtime.outbox.status('rejected')).toBe('pending')
 })
+
+it('a failed attempt leaves a durable attempted-with-error marker on the effect row while the receipt stays pending', async () => {
+  const kind: SourceKind<Record<string, never>> = { kind: 'marker', title: { zh: 'x', en: 'x' }, description: { zh: '', en: '' }, health: [],
+    schema: z.object({}).strict(), fields: [],
+    channel: { send: async () => { throw new Error('connection reset after the request was written') }, link: () => ({ url: '', label: { zh: 'x', en: 'x' } }) } }
+  h.runtime.sources.register(kind)
+  h.runtime.outbox.send({ id: 'marked', channel: { source: 'marker', thread: 'm:1', address: {} }, text: 'Done', kind: 'reply' })
+  await h.runtime.sendReplies()
+  const row = h.runtime.store.db.prepare("SELECT attempts, error FROM effect WHERE kind = 'reply' AND key = ?").get('marked') as { attempts: number; error: string } | undefined
+  expect(h.runtime.outbox.status('marked')).toBe('pending')
+  expect(row?.attempts).toBeGreaterThan(0)
+  expect(row?.error).toContain('connection reset')
+})
+
+it('KNOWN GAP (characterization): the attempt count only advances after a failure is observed, so a host crash between provider acceptance and settlement is indistinguishable from never attempted', async () => {
+  let seen = 0
+  const kind: SourceKind<Record<string, never>> = { kind: 'inflight', title: { zh: 'x', en: 'x' }, description: { zh: '', en: '' }, health: [],
+    schema: z.object({}).strict(), fields: [],
+    channel: { send: async () => {
+      seen++
+      const row = h.runtime.store.db.prepare("SELECT attempts, error FROM effect WHERE kind = 'reply' AND key = ?").get('inflight-1') as { attempts: number; error: string }
+      // While the send is in flight (where a crash would land) the durable row shows no attempt.
+      expect(row.attempts).toBe(0); expect(row.error).toBe('')
+      return 'sent'
+    }, link: () => ({ url: '', label: { zh: 'x', en: 'x' } }) } }
+  h.runtime.sources.register(kind)
+  h.runtime.outbox.send({ id: 'inflight-1', channel: { source: 'inflight', thread: 'i:1', address: {} }, text: 'Done', kind: 'reply' })
+  await h.runtime.sendReplies()
+  expect(seen).toBe(1)
+})

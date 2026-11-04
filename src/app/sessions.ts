@@ -161,6 +161,23 @@ export class Sessions {
   }
   /** Resolves or creates session `id` in workspace `cwd`, initializes its role model, decorates it with prompts/skills/tools, sets `danger-full-access` permissions, and renames it to `title`. */
   async ensure(id: string, cwd: string, title: string, role: 'orchestrator' | 'worker', authorize: () => void = () => {}): Promise<Agent> {
+    let createIssued = false
+    try { return await this.ensureGuarded(id, cwd, title, role, authorize, () => { createIssued = true }) }
+    catch (error) {
+      // The framework cannot cancel or dispose a started create, so a session may now exist for an assignment that no longer
+      // holds authority. Surface it (log, counter, bounded list) instead of leaving it silent; delivery to it stays refused.
+      if (createIssued && !this.unresolved.has(id)) {
+        if (this.unresolved.size >= 256) this.unresolved.delete(this.unresolved.keys().next().value!)
+        this.unresolved.set(id, String(error)); this.host.probe?.count('session_create_unresolved')
+        this.ctx.logger.warn('dsh-superagent: session %s may exist after its assignment was cancelled during creation (%s); the framework offers no disposal', id, String(error))
+      }
+      throw error
+    }
+  }
+  /** Sessions whose creation overlapped a cancelled assignment and that were not later adopted by an authorized `ensure`. */
+  unresolvedSessions(): ReadonlyMap<string, string> { return this.unresolved }
+  private readonly unresolved = new Map<string, string>()
+  private async ensureGuarded(id: string, cwd: string, title: string, role: 'orchestrator' | 'worker', authorize: () => void, created: () => void): Promise<Agent> {
     const ctx = this.ctx
     authorize()
     let result = await ctx.sessionController.resolveAgent(id as SessionId)
@@ -169,6 +186,7 @@ export class Sessions {
       const workspace = await ctx.workspaceRegistry.create(cwd)
       authorize()
       // A Session keeps the preset it was created with, one of the bundle's own (cordis.patch.yml).
+      created()
       await ctx.sessionController.create({ sessionId: id as SessionId, workspaceId: workspace.id,
         agentPreset: role === 'worker' ? WORKER_PRESET : ROUTER_PRESET })
       authorize()
@@ -186,6 +204,7 @@ export class Sessions {
     // Grant the privileged preset only after the last asynchronous boundary has re-authorized this assignment, so a
     // cancelled or revoked assignment never leaves danger-full-access applied (final review, phase 2.2).
     ctx.permissionPresets.set(result.agent.session, 'danger-full-access')
+    this.unresolved.delete(id)
     return result.agent
   }
   /** Returns whether `sessionId` already holds the message delivered under `requestId`, or `false` if the session does not exist. */

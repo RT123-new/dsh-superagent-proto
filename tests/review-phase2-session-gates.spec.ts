@@ -48,6 +48,7 @@ it('the session an uncancelled-create left behind is reused by the next authoriz
   await entered.promise; revoked = true; wait.resolve()
   await expect(pending).rejects.toThrow('Assignment cancelled')
   expect(created.has('orphan-reuse')).toBe(true)          // the session exists after cancellation
+  expect([...h.runtime.sessions.unresolvedSessions().keys()]).toEqual(['orphan-reuse'])   // and is surfaced, not silent
   const creates = h.controller.create.mock.calls.length
   await h.runtime.sessions.ensure('orphan-reuse', h.directory, 'test', 'worker', () => {}).catch(() => {})
   expect(h.controller.create.mock.calls.length).toBe(creates)   // deterministic id: reused, not re-created
