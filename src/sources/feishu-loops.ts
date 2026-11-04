@@ -146,12 +146,18 @@ async function backfillLoop(ctx: SourceContext, signal: AbortSignal): Promise<vo
       const started = new Date().toISOString()
       const cursorKey = KV.feishu.history(chatId)
       const since = ctx.state.get(cursorKey)
-      if (since === undefined) { ctx.state.set(cursorKey, started); continue }
+      if (since === undefined) {
+        ctx.atomic(() => { ctx.state.set(cursorKey, started); ctx.state.set(KV.feishu.started(chatId), started) })
+        continue
+      }
+      // Legacy cursors have no first-seen boundary. Adopt conservatively, never authorizing older historical requests.
+      const floor = ctx.state.get(KV.feishu.started(chatId)) ?? since
+      if (ctx.state.get(KV.feishu.started(chatId)) === undefined) ctx.state.set(KV.feishu.started(chatId), floor)
       try {
         // The cursor trails each completed scan by the configured replay window so a message Feishu indexes late is
         // still scanned; when the reconciliation cadence is due, the round scans the wider horizon instead.
         const reconcile = reconcileDue(ctx.state.get(KV.feishu.reconcile(chatId)), started, config.reconcileMinutes)
-        const window = recoverySince(since, started, reconcile, config.reconcileHorizonSeconds)
+        const window = new Date(Math.max(Date.parse(floor), Date.parse(recoverySince(since, started, reconcile, config.reconcileHorizonSeconds)))).toISOString()
         await backfillChat(ctx, chatId, direct, window, started, signal, tally)
         if (!signal.aborted) {
           // The checkpoint advances only after the whole chat (and its active topics) completed durably.
@@ -192,6 +198,8 @@ export async function backfillChat(ctx: SourceContext, chatId: string, direct: b
         if (outside) throw new Error('Feishu history returned a message outside the requested chat or thread')
         if (message.deleted) continue
         const at = feishuTime(message.create_time)
+        const floor = ctx.state.get(KV.feishu.started(chatId))
+        if (floor && Date.parse(at) < Date.parse(floor)) continue
         if (message.thread_id && !(Date.parse(topics[message.thread_id] ?? '') >= Date.parse(at))) topics[message.thread_id] = at
         const trigger = feishuTrigger(historyEvent(message, chatId, direct), bot(ctx).botId, bot(ctx).appId)
         if (trigger) await receive(ctx, trigger)

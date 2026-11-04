@@ -408,6 +408,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/policy.spec.ts` | Source scope, the gate, the admission table, Mandate revalidation, the Policy version, settings migrations and assessment outcomes |
 | `tests/registry.spec.ts` | `SourceRegistry`: instances, validation, Policy parts, Channels and Thread context |
 | `tests/sources.spec.ts` | The Feishu and GitHub Sources on a `SourceContext`: translation, polls and read positions, the pull request rules, health |
+| `tests/issue-1-3-adversarial.spec.ts` | Independent reconciliation, replay, cache and first-seen boundary regressions. |
 | `tests/issue-1-github-notification-delivery.spec.ts`, `tests/issue-2-github-stream-pagination.spec.ts`, `tests/issue-3-feishu-history-recovery.spec.ts` | Source-ingestion correctness: GitHub notification replay window and reconciliation, repository stream pagination, Feishu history recovery |
 | `tests/commands.spec.ts` | CLI calls as the deployment's accounts, the Channels' answers, and repository-scoped GitHub calls |
 | `tests/feishu-read.spec.ts`, `tests/github-read.spec.ts` | Feishu and GitHub reads |

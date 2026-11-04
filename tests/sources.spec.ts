@@ -1228,12 +1228,12 @@ describe('observing the GitHub repository', () => {
     expect(h.receive.mock.calls.map(([trigger]) => [trigger.meta.number, trigger.meta.kind, trigger.id]))
       .toEqual([[4, 'issue', issueTrigger(issue(4), 'agent-bot').id], [5, 'pull', issueTrigger(issue(5), 'agent-bot').id]])
     const started = { issues: at(0), pulls: at(0) }
-    expect(h.store.get('github-stream:issues')).toEqual({ since: cursorAt(at(4)), started })
+    expect(h.store.get('github-stream:issues')).toEqual({ since: cursorAt(at(4), 121_000), started, lastReconciliation: expect.any(String) })
     const list = () => calls.filter(args => args[1]!.startsWith('repos/acme/widgets/issues?'))
     expect(list()[0]![1]).toContain(`since=${encodeURIComponent(at(0))}`)
     // The next round repeats the request at the newest Issue, whose ETag the round after sends, which GitHub answers 304 for.
     await pollRound(h)
-    expect(h.store.get('github-stream:issues')).toEqual({ since: cursorAt(at(4)), started, etag: '"same"' })
+    expect(h.store.get('github-stream:issues')).toEqual({ since: cursorAt(at(4), 121_000), started, lastReconciliation: expect.any(String), etag: '"same"' })
     h.receive.mockClear()
     await pollRound(h)
     expect(list().at(-1)).toEqual(expect.arrayContaining(['-H', 'If-None-Match: "same"']))
@@ -1286,7 +1286,7 @@ describe('observing the GitHub repository', () => {
     await expect(pollRound(h)).rejects.toThrow(/issues: .*502/)
     expect(h.store.get('github-stream:issues')).toEqual({ since: at(0), started: { issues: at(0) } })
     expect(h.receive).toHaveBeenCalledWith(expect.objectContaining({ text: 'looks off' }))
-    expect(h.store.get('github-stream:comments')).toEqual({ since: cursorAt(at(1)), started: { comments: at(0) } })
+    expect(h.store.get('github-stream:comments')).toEqual({ since: cursorAt(at(1), 121_000), started: { comments: at(0) }, lastReconciliation: expect.any(String) })
     h.store.close()
   })
   it('reads a stream whose cursor is older than the polling horizon from the horizon, without the ETag of the older request', async () => {
@@ -1334,14 +1334,14 @@ describe('observing the GitHub repository', () => {
     expect(Object.keys(h.store.get<{ started: Record<string, string> }>('github-stream:issues')!.started)).toEqual(['pulls'])
     h.store.close()
   })
-  it('keeps a stream\'s cursor five seconds before its newest item, and a stale cursor on the hour, so the ETag is sent again', async () => {
+  it('keeps a stream\'s cursor one replay window before its newest item, and a stale cursor on the hour, so the ETag is sent again', async () => {
     const h = host()
     observe(h, { observeIssues: true })
     h.store.set('github-since', at(-24))
     h.store.set('github-stream:issues', { since: at(0), started: { issues: at(0) } })
     repository(h, { issues: [issue(6, { created_at: at(3), updated_at: at(3) })] })
     await pollRound(h)
-    expect(h.store.get<{ since: string }>('github-stream:issues')!.since).toBe(new Date(Date.parse(at(3)) - 5000).toISOString())
+    expect(h.store.get<{ since: string }>('github-stream:issues')!.since).toBe(new Date(Date.parse(at(3)) - 121_000).toISOString())
     // A cursor behind the horizon reads from the horizon on the hour, the same in the next round, which sends the ETag.
     const old = new Date(Date.now() - 20 * 86_400_000).toISOString()
     h.store.set('github-stream:issues', { since: old, started: { issues: old } })

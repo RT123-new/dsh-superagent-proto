@@ -28,11 +28,15 @@ describe('independent ingestion adversarial review', () => {
     const ticket = h.store.tickets.list()[0]!
     expect(h.store.tickets.list()).toHaveLength(1)
     expect(ticket.assignments).toHaveLength(1)
+    expect(h.executor.start).toHaveBeenCalledTimes(1)
+    expect(h.outbox.send).toHaveBeenCalledTimes(1)
     await pollRound(h)
     h.engine.evaluateDue()
     expect(h.store.tickets.list()).toHaveLength(1)
     expect(h.store.tickets.list()[0]!.assignments).toHaveLength(1)
     expect(h.store.decisions.byThread('github:12')).toHaveLength(1)
+    expect(h.executor.start).toHaveBeenCalledTimes(1)
+    expect(h.outbox.send).toHaveBeenCalledTimes(1)
     closeHost(h)
   })
 
@@ -45,6 +49,47 @@ describe('independent ingestion adversarial review', () => {
     await pollRound(h)
     expect(h.store.triggers.get(id(late))).toBeDefined()
     closeHost(h)
+  })
+
+  it('preserves retry metadata on a failed wider reconciliation', async () => {
+    const h = sourceHost(hostDir('review-ingest-')), now = Date.now(), failedAt = iso(now - 3600_000)
+    h.store.set('github-since', iso(now - 121_000))
+    h.store.set('github-notification-scan', { lastCompletedScan: iso(now - 60_000) })
+    h.store.set('github-retry', { 12: { since: iso(now - 121_000), pr: false, failedAt, attempts: 3 } })
+    const feed = { notifications: [{ id: 'n12', number: 12, updated_at: iso(now - 600_000) }], issues: { 12: new Error('temporary error') as unknown as Record<string, unknown> }, comments: {} }
+    githubServer(h, feed)
+    await expect(pollRound(h)).rejects.toThrow('temporary error')
+    expect(h.store.get<Record<string, unknown>>('github-retry')!['12']).toMatchObject({ failedAt, attempts: 4, pr: false })
+    expect(Date.parse(h.store.get<Record<string, {since:string}>>('github-retry')!['12']!.since)).toBeLessThanOrEqual(now - 3500_000)
+    closeHost(h)
+  })
+
+  it('restarts after durable intake but before checkpoint without recreating ticket, assignment or acknowledgement', async () => {
+    const dir = hostDir('review-ingest-'), h = sourceHost(dir), at = iso(Date.now())
+    const feed = {notifications: [{id:'n12',number:12,updated_at:at}], issues:{12:githubIssue(12)},comments:{12:[githubComment(12,12,at)]}}
+    h.store.set('github-since', iso(Date.now()-3600_000))
+    githubServer(h,feed)
+    h.receive.mockImplementationOnce(async trigger => {
+      const result = h.engine.receive(trigger)
+      h.engine.evaluateDue()
+      const candidate = h.engine.candidate(trigger.id)!
+      h.engine.decide(trigger.id,{kind:'accept',evalId:candidate.evalId,title:'Fix',scope:'small',reason:'requested',acknowledgement:'ok'})
+      throw new Error('process interrupted after durable intake')
+    })
+    await expect(pollRound(h)).rejects.toThrow('process interrupted')
+    expect(h.store.tickets.list()).toHaveLength(1)
+    expect(h.executor.start).toHaveBeenCalledTimes(1)
+    expect(h.outbox.send).toHaveBeenCalledTimes(1)
+    h.store.close()
+    const restarted = sourceHost(dir)
+    githubServer(restarted,feed)
+    await pollRound(restarted)
+    expect(restarted.store.tickets.list()).toHaveLength(1)
+    expect(restarted.store.tickets.list()[0]!.assignments).toHaveLength(1)
+    expect(restarted.executor.start).not.toHaveBeenCalled()
+    expect(restarted.outbox.send).not.toHaveBeenCalled()
+    expect(restarted.results).toEqual(['duplicate'])
+    closeHost(restarted)
   })
 
   it('reconciles repository comments without any notification', async () => {
@@ -89,6 +134,23 @@ describe('independent ingestion adversarial review', () => {
     issues.push(githubIssue(151, {created_at: at, updated_at: at}))
     await pollRound(h)
     expect(h.store.triggers.get(key('github-issue', '151'))).toBeDefined()
+    closeHost(h)
+  })
+
+  it('recovers post-first-seen Feishu late messages but excludes earlier same-second messages', async () => {
+    const dir = hostDir('review-ingest-'), cli = join(dir, 'lark-bot')
+    writeFileSync(cli, '#!/bin/sh\nexec sleep 60\n', {mode: 0o755})
+    const h = sourceHost(dir, { deployment: testDeployment({ feishu: {...testDeployment().feishu!, cli} }) })
+    const now = Date.now(), floor = Math.floor((now-1200_000)/1000)*1000+500
+    h.store.set('feishu-history:oc_team', iso(now-121_000))
+    h.store.set('feishu-started:oc_team', iso(floor))
+    feishuHistoryServer(h, {items: [feishuMessage('om_before', 'oc_team', floor-100), feishuMessage('om_after', 'oc_team', now-600_000)]})
+    const stop = new AbortController(), running = runFeishu(h, stop.signal)
+    await vi.waitFor(() => expect(['ready','error']).toContain(h.health.history?.state), {timeout: 5000})
+    stop.abort(); await running
+    expect(h.store.triggers.get(feishuTriggerId('om_before'))).toBeUndefined()
+    expect(h.store.triggers.get(feishuTriggerId('om_after'))).toBeDefined()
+    expect(h.store.get('feishu-started:oc_team')).toBe(iso(floor))
     closeHost(h)
   })
 
