@@ -1,0 +1,32 @@
+$ tsdown
+ℹ tsdown v0.22.14 powered by rolldown v1.2.7
+ℹ config file: /tmp/review/repo/tsdown.config.ts 
+ℹ entry: src/index.ts, src/sources/github.ts, src/sources/feishu.ts
+ℹ target: es2024
+ℹ tsconfig: tsconfig.json
+ℹ entry: src/client/index.tsx
+ℹ target: node22.19.0
+ℹ tsconfig: tsconfig.json
+ℹ Build start
+
+ WARN  We recommend using the ESM format instead of CommonJS.
+The ESM format is compatible with modern platforms and runtimes, and most new libraries are now distributed only in ESM format.
+Learn more at https://nodejs.org/en/learn/modules/publishing-a-package#how-did-we-get-here
+
+ℹ Cleaning 12 files
+ℹ [CJS] lib/client.js  371.14 kB │ gzip: 89.81 kB
+ℹ [CJS] 1 files, total: 371.14 kB
+✔ Build complete in 1752ms
+ℹ [ESM] lib/index.js                 459.00 kB │ gzip: 129.94 kB
+ℹ [ESM] lib/github-watch.js           33.91 kB │ gzip:  11.00 kB
+ℹ [ESM] lib/feishu-watch.js            0.60 kB │ gzip:   0.29 kB
+ℹ [ESM] lib/feishu-CqjLW4Kr.js        48.43 kB │ gzip:  14.60 kB
+ℹ [ESM] lib/poll-C21onyaz.js          38.46 kB │ gzip:  13.82 kB
+ℹ [ESM] lib/github-pull-Ce9BbxTy.js   25.42 kB │ gzip:   8.23 kB
+ℹ [ESM] lib/index.d.ts                24.97 kB │ gzip:   7.72 kB
+ℹ [ESM] lib/feishu-watch.d.ts          5.98 kB │ gzip:   2.00 kB
+ℹ [ESM] lib/github-watch.d.ts          0.39 kB │ gzip:   0.22 kB
+ℹ [ESM] lib/kind-CC2z1Ko1.d.ts        35.84 kB │ gzip:   9.06 kB
+ℹ [ESM] lib/intake-BntR4bhz.d.ts      29.31 kB │ gzip:   9.22 kB
+ℹ [ESM] 11 files, total: 702.33 kB
+✔ Build complete in 2510ms

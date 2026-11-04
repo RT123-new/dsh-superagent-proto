@@ -1,0 +1,2 @@
+before {'clientWidth': 400, 'scrollWidth': 462, 'scrollLeft': 0, 'focused': True}
+after keyboard {'scrollLeft': 62, 'focused': True}
