@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { vi } from 'vitest'
-import { Engine, type Assessor, type Executor, type Trigger } from '../../src/core/index.ts'
+import { Engine, type Assessor, type Executor, type Trigger, type OutboundMessage } from '../../src/core/index.ts'
 import { Store } from '../../src/app/store.ts'
 import { SettingsSchema, settingsPolicy } from '../../src/policy.ts'
 import { SourceRegistry } from '../../src/sources/registry.ts'
@@ -39,7 +39,7 @@ export function sourceHost(dir: string, overrides: Partial<SourceContextDeps> = 
   const deployment = overrides.deployment ?? testDeployment()
   const assessor: Assessor = { request: vi.fn(async () => {}) }
   const executor: Executor = { start: vi.fn(async () => {}), deliver: vi.fn(async () => {}), stop: vi.fn(async () => {}) }
-  const outbox = { send: () => {}, status: () => undefined, withdraw: () => {} }
+  const outbox = { send: vi.fn<(message: OutboundMessage) => void>(), status: () => undefined, withdraw: () => {} }
   const engine = new Engine({ repo: store, scope: sources, policy: () => settingsPolicy(store.settings(), sources), assessor, executor, outbox })
   const commands = new Commands(() => deployment, {}, new AbortController().signal)
   const results: ReceiveResult[] = []
@@ -52,7 +52,7 @@ export function sourceHost(dir: string, overrides: Partial<SourceContextDeps> = 
   const parts: SourceContextDeps = { store, engine, outbox: { send: () => {} }, commands, sources, deployment,
     ready: Promise.resolve(), configured: () => true, receive, ...overrides }
   const context = sourceContextOf(parts, { kind: 'github', health: ['github', 'feishu', 'history'] })
-  return { dir, ...parts, ...context, health: board.all, store, engine, commands, receive, results }
+  return { dir, ...parts, ...context, health: board.all, store, engine, commands, receive, results, assessor, executor, outbox }
 }
 export type SourceHost = ReturnType<typeof sourceHost>
 

@@ -199,9 +199,9 @@ async function pollRepository(ctx: SourceContext, round: Round): Promise<void> {
 }
 /**
  * Polls one repository-wide event stream (oldest first) since its cursor, following every pagination page before the
- * cursor steps to five seconds before the newest item (`cursorAt`), relying on Trigger ID deduplication so repeated
+ * cursor steps one configured replay window before the newest item (`cursorAt`), relying on Trigger ID deduplication so repeated
  * messages are no-ops; a burst sharing one timestamp therefore cannot starve the stream. While the cursor stays
- * unchanged (including when clamped to the hourly horizon), sending the last page's ETag makes an unchanged list return
+ * unchanged (including when clamped to the hourly horizon), a single-page response ETag makes an unchanged list return
  * HTTP 304 and cost no rate limit. Items from before their kind was switched on or beyond the horizon are ignored.
  */
 async function readStream(ctx: SourceContext, round: Round, id: string, path: string, config: GithubConfig): Promise<void> {
@@ -211,8 +211,10 @@ async function readStream(ctx: SourceContext, round: Round, id: string, path: st
   const before = typeof stored?.started === 'object' ? stored.started : {}
   const started: Record<string, string> = Object.fromEntries(kinds.map(kind => [kind, before[kind] ?? round.started]))
   const horizon = Math.floor((Date.parse(round.started) - POLL_HORIZON_MS) / 3_600_000) * 3_600_000
-  const since = new Date(Math.max(Date.parse(stored?.since ?? round.started), horizon)).toISOString()
-  const conditional = stored?.etag && stored.since === since ? ['-H', `If-None-Match: ${stored.etag}`] : []
+  const reconcile = stored !== undefined && reconcileDue(stored.lastReconciliation, round.started, config.reconcileMinutes)
+  const baseSince = Math.max(Date.parse(stored?.since ?? round.started), horizon)
+  const since = new Date(reconcile ? Math.max(horizon, Math.min(baseSince, Date.parse(round.started) - config.reconcileHorizonSeconds * 1000)) : baseSince).toISOString()
+  const conditional = !reconcile && stored?.etag && stored.since === since ? ['-H', `If-None-Match: ${stored.etag}`] : []
   let raw: string
   const listed = `${path}&sort=updated&direction=asc&per_page=100&since=${encodeURIComponent(since)}`
   try { raw = await ctx.commands.withSignal(round.signal).api(listed, '--include', ...conditional) }
@@ -252,11 +254,13 @@ async function readStream(ctx: SourceContext, round: Round, id: string, path: st
     if (trigger.text) await ctx.receive(trigger)
   }
   const newest = Math.max(...items.map(item => Date.parse(item.updated_at ?? '')).filter(Number.isFinite))
-  const moved = Number.isFinite(newest) ? cursorAt(new Date(newest).toISOString()) : since
-  const next = Date.parse(moved) > Date.parse(since) ? moved : since
+  const moved = Number.isFinite(newest) ? cursorAt(new Date(newest).toISOString(), (config.replaySeconds + 1) * 1000) : since
+  const next = new Date(Math.max(baseSince, Date.parse(moved))).toISOString()
   const etag = /^etag:\s*(.+)$/im.exec(headers)?.[1]?.trim()
-  // The ETag belongs to this request, which the next round repeats only while the cursor stays unchanged.
-  ctx.state.set(name, { since: next, started, ...etag && next === since ? { etag } : {} })
+  // A page-one ETag cannot certify later pages. Cache only single-page lists with the exact unchanged request.
+  ctx.state.set(name, { since: next, started,
+    ...reconcile ? { lastReconciliation: round.started } : stored?.lastReconciliation ? { lastReconciliation: stored.lastReconciliation } : {},
+    ...etag && next === since && !/rel="next"/.test(headers) ? { etag } : {} })
 }
 /** Polls default-branch CI checks, emitting a trigger only when the set of failing checks changes after the initial baseline. */
 async function pollBranchCi(ctx: SourceContext, round: Round): Promise<void> {
@@ -340,14 +344,18 @@ async function pollNotifications(ctx: SourceContext, round: Round): Promise<{ co
   const retries = { ...state.get(KV.github.retries) }
   // Failed items from the previous round run first, followed by newly notified items in chronological order; each is read once.
   const items = new Map(Object.entries(retries).map(([number, retry]) => [Number(number), retry]))
-  const enqueue = (listed: z.infer<typeof NotificationSchema>[], listedSince: string): number => {
+  const enqueue = (listed: z.infer<typeof NotificationSchema>[], listedSince: string, reconcile = false): number => {
     let added = 0
     for (const notification of [...listed].reverse()) {
       if (!sameName(notification.repository.full_name, repository)) continue
       const address = githubAddress(notification.subject.url ?? '', repository)
-      if (!address || address.discussion || items.has(address.number)) continue
+      if (!address || address.discussion) continue
       const { number, pr } = address
-      items.set(number, { since: [state.get(KV.github.cursor(number)) ?? listedSince, listedSince].sort().at(-1)!, pr })
+      const previous = items.get(number)
+      const boundary = reconcile ? listedSince : [state.get(KV.github.cursor(number)) ?? listedSince, listedSince].sort().at(-1)!
+      // Reconciliation must read behind a newer thread cursor; merge repeated subjects at the earliest required boundary.
+      items.set(number, { ...previous, since: previous ? [previous.since, boundary].sort()[0]! : boundary, pr })
+      if (previous) continue
       added += 1
     }
     return added
@@ -361,7 +369,7 @@ async function pollNotifications(ctx: SourceContext, round: Round): Promise<{ co
     const wideSince = new Date(Math.min(Date.parse(since), Date.parse(round.started) - horizonMs)).toISOString()
     try {
       const wide = await fetchNotifications(commands, `notifications?all=true&per_page=50&since=${encodeURIComponent(wideSince)}`, round.tally)
-      reconciled = enqueue(wide.notifications, wideSince)
+      reconciled = enqueue(wide.notifications, wideSince, true)
       lastReconciliation = round.started
     } catch (error) {
       if (!stopped(ctx, round)) round.failures.push(`notification reconciliation: ${String(error)}`)
