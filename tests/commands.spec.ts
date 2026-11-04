@@ -1,6 +1,11 @@
-import { describe, expect, it, vi } from 'vitest'
+import { mkdtempSync, writeFileSync, chmodSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { CliError, Commands, commandError } from '../src/infra/commands.ts'
+import { serverNotBeforeOf } from '../src/app/retry-policy.ts'
+import { classifyError } from '../src/app/retry-policy.ts'
 import { feishuKind } from '../src/sources/feishu.ts'
 import { feishuChannel } from '../src/sources/feishu-trigger.ts'
 import { githubKind } from '../src/sources/github.ts'
@@ -19,7 +24,7 @@ describe('account-isolated operations', () => {
   it('uses the agent account\'s GitHub CLI and preserves literal shell metacharacters in argv', async () => {
     const commands = new Commands(() => deployment, {}, new AbortController().signal); const run = vi.spyOn(commands,'run').mockResolvedValue('{}')
     await commands.gh(['api','some-path','-f','body=`whoami` $(touch x)'])
-    expect(run).toHaveBeenCalledWith('/path/agent-gh', ['api','some-path','-f','body=`whoami` $(touch x)'])
+    expect(run).toHaveBeenCalledWith('/path/agent-gh', ['api','some-path','-f','body=`whoami` $(touch x)','--include'], undefined, { responseHeaders: true })
   })
   it('runs every command with its environment over the process environment, where undefined removes a variable', async () => {
     process.env.GH_TOKEN = 'personal'
@@ -133,7 +138,7 @@ describe('GitHub calls', () => {
     const value = commands()
     const run = vi.spyOn(value, 'run').mockResolvedValue('{"number":12,"title":"Login fails","extra":true}')
     expect(await value.api(z.looseObject({ number: z.number() }), 'issues/12')).toEqual({ number: 12, title: 'Login fails', extra: true })
-    expect(run).toHaveBeenLastCalledWith('/path/agent-gh', ['api', `repos/${REPOSITORY}/issues/12`])
+    expect(run).toHaveBeenLastCalledWith('/path/agent-gh', ['api', `repos/${REPOSITORY}/issues/12`, '--include'], undefined, { responseHeaders: true })
     await expect(value.api(z.looseObject({ number: z.string() }), 'issues/12')).rejects.toThrow()
     for (const path of ['../other/repo/issues', 'issues/../../x', '/repos/x/y', 'https://api.github.com/x']) {
       await expect(value.api(z.unknown(), path)).rejects.toThrow('restricted to the configured repository')
@@ -141,7 +146,7 @@ describe('GitHub calls', () => {
     expect(run).toHaveBeenCalledTimes(2)
     // An empty path targets the repository root.
     await value.api(z.unknown(), '')
-    expect(run).toHaveBeenLastCalledWith('/path/agent-gh', ['api', `repos/${REPOSITORY}`])
+    expect(run).toHaveBeenLastCalledWith('/path/agent-gh', ['api', `repos/${REPOSITORY}`, '--include'], undefined, { responseHeaders: true })
     // Without a schema, api() returns the raw CLI stdout.
     run.mockResolvedValue('raw file')
     expect(await value.api('contents/README.md', '-H', 'Accept: application/vnd.github.raw')).toBe('raw file')
@@ -151,7 +156,7 @@ describe('GitHub calls', () => {
     const run = vi.spyOn(value, 'run').mockResolvedValue('[[{"id":1}],[{"id":2}]]')
     expect(await value.pages(z.looseObject({ id: z.number() }), 'issues/12/comments?per_page=100')).toEqual([{ id: 1 }, { id: 2 }])
     expect(run).toHaveBeenLastCalledWith('/path/agent-gh', ['api', `repos/${REPOSITORY}/issues/12/comments?per_page=100`, '--paginate',
-      '--slurp'])
+      '--slurp'], undefined, { responseHeaders: false })
     run.mockResolvedValue('[[{"id":1}],[{"id":"two"}]]')
     const tally = { skipped: 0 }
     expect(await value.pages(z.looseObject({ id: z.number() }), 'issues/12/comments', tally)).toEqual([{ id: 1 }])
@@ -212,4 +217,48 @@ it('stops a running command when the signal of its work aborts, or the lifetime,
   lifetime.abort()
   await expect(other).rejects.toThrow()
   expect(Date.now() - started).toBeLessThan(4000)
+})
+
+describe('trusted transport metadata: real provider Retry-After at the gh boundary', () => {
+  const dirs: string[] = []
+  afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }) })
+  /** A stand-in gh that emits an `--include` header block on stdout (as real gh does even on HTTP errors) and fails. */
+  const failingGh = (headers: string, stderr: string): string => {
+    const dir = mkdtempSync(join(tmpdir(), 'fake-gh-')); dirs.push(dir)
+    const path = join(dir, 'gh')
+    writeFileSync(path, `#!/bin/sh\nprintf '%s' '${headers}'\nprintf '%s' '${stderr}' >&2\nexit 1\n`)
+    chmodSync(path, 0o755)
+    return path
+  }
+  const commandsFor = (cli: string) => new Commands(() => testDeployment({ github: { ...testDeployment().github, cli } }), {}, new AbortController().signal)
+
+  it('parses a Retry-After seconds header from a failed gh api call into typed metadata, never from text', async () => {
+    const cli = failingGh("HTTP/2.0 403 Forbidden\r\nRetry-After: 120\r\nContent-Type: application/json\r\n\r\n{\"message\":\"API rate limit exceeded for user ID 1.\"}", 'gh: API rate limit exceeded for user ID 1. (HTTP 403)')
+    const before = Date.now()
+    const failure = await commandsFor(cli).gh(['api', 'repos/acme/widgets/issues']).catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(CliError)
+    expect(classifyError(failure)).toBe('rate_limited')
+    const notBefore = serverNotBeforeOf(failure)
+    expect(notBefore).toBeGreaterThanOrEqual(before + 120_000)
+    expect(notBefore).toBeLessThanOrEqual(Date.now() + 120_000)
+  })
+  it('accepts a valid IMF-fixdate Retry-After; a malformed value yields no server instruction', async () => {
+    const date = new Date(Date.now() + 90_000).toUTCString()
+    const cli = failingGh(`HTTP/2.0 403 Forbidden\r\nRetry-After: ${date}\r\n\r\n{}`, 'gh: API rate limit exceeded for user ID 1. (HTTP 403)')
+    const failure = await commandsFor(cli).gh(['api', 'repos/acme/widgets/issues']).catch((error: unknown) => error)
+    expect(serverNotBeforeOf(failure)).toBe(Date.parse(date))
+    const bad = failingGh("HTTP/2.0 429 Too Many Requests\r\nRetry-After: soon-ish\r\n\r\n{}", 'gh: HTTP 429')
+    const failure2 = await commandsFor(bad).gh(['api', 'repos/acme/widgets/issues']).catch((error: unknown) => error)
+    expect(serverNotBeforeOf(failure2)).toBeUndefined()
+  })
+  it('requests response headers for single gh api calls (never with --paginate) and strips them from successful JSON', async () => {
+    const commands = new Commands(() => deployment, {}, new AbortController().signal)
+    const run = vi.spyOn(commands, 'run').mockResolvedValue('HTTP/2.0 200 OK\r\nContent-Type: application/json\r\n\r\n{"ok":true}')
+    await expect(commands.gh(['api', 'repos/acme/widgets/issues'])).resolves.toEqual({ ok: true })
+    expect(run).toHaveBeenCalledWith('/path/agent-gh', ['api', 'repos/acme/widgets/issues', '--include'], undefined, { responseHeaders: true })
+    run.mockClear()
+    run.mockResolvedValue('{"ok":true}')
+    await commands.gh(['api', 'repos/acme/widgets/issues', '--paginate', '--slurp'])
+    expect(run).toHaveBeenCalledWith('/path/agent-gh', ['api', 'repos/acme/widgets/issues', '--paginate', '--slurp'], undefined, { responseHeaders: false })
+  })
 })

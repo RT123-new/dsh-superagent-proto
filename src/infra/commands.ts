@@ -6,6 +6,7 @@ import { promisify } from 'node:util'
 import { z } from 'zod'
 import type { Deployment } from '../deployment.ts'
 import { Probe } from './metrics-probe.ts'
+import { TransportFailure } from './transport-failure.ts'
 
 const exec = promisify(execFile)
 const TIMEOUT_MS = 90_000
@@ -20,7 +21,20 @@ export class CliError extends Error {
   oversized = false
   /** True when the subprocess succeeded but printed output that is not the expected JSON (truncated, proxy page): retryable. */
   unreadable = false
+  /** Typed metadata parsed from real provider response headers at this boundary; absent whenever headers were unavailable. */
+  transportFailure?: TransportFailure
   constructor(message: string, readonly code?: number, readonly exitCode?: number) { super(message) }
+}
+/** Splits a leading `gh api --include` response-header block from the body; values stay raw for the typed transport parser. */
+function splitResponseHeaders(output: string): { status?: number; retryAfter?: string; body: string } {
+  if (!output.startsWith('HTTP/')) return { body: output }
+  const normalized = output.replace(/\r\n/g, '\n')
+  const end = normalized.indexOf('\n\n')
+  if (end < 0) return { body: output }
+  const head = normalized.slice(0, end)
+  const status = Number(/^HTTP\/\S+ (\d{3})\b/.exec(head)?.[1]) || undefined
+  const retryAfter = /^Retry-After:[ \t]*(.*?)[ \t]*$/im.exec(head)?.[1]
+  return { status, retryAfter, body: normalized.slice(end + 2) }
 }
 /** Extracts a sanitized error from a failed subprocess without echoing argv, which may contain message text. */
 export function commandError(error: unknown, program = 'command'): Error {
@@ -98,7 +112,7 @@ export class Commands {
   get deployment(): Deployment { return this.resolved() }
   get repository(): string { return this.deployment.repository }
   withSignal(signal?: AbortSignal): Commands { return signal ? new Commands(this.resolved, this.environment, AbortSignal.any([this.signal, signal]), this.probe) : this }
-  async run(program: string, args: string[], cwd?: string): Promise<string> {
+  async run(program: string, args: string[], cwd?: string, transport?: { responseHeaders?: boolean }): Promise<string> {
     // Whole subprocess latency: process start, network and the CLI's own work. Not pure API latency; the label never names the program or arguments.
     const stop = this.probe.timer('command_run', 'internal')
     try {
@@ -106,12 +120,26 @@ export class Commands {
         env: { ...process.env, ...this.environment, GH_PROMPT_DISABLED: '1', LARKSUITE_CLI_NO_UPDATE_NOTIFIER: '1', LARKSUITE_CLI_NO_SKILLS_NOTIFIER: '1' } })
       stop()
       return stdout
-    } catch (error) { stop('failed'); throw commandError(error, program) }
+    } catch (error) {
+      stop('failed')
+      const failure = commandError(error, program)
+      // With `--include`, real gh prints the response headers on stdout even for HTTP-error exits (cli/cli processResponse).
+      // Only this typed boundary may turn them into retry scheduling metadata; message text stays non-authoritative.
+      if (transport?.responseHeaders && failure instanceof CliError) {
+        const stdout = error && typeof error === 'object' && 'stdout' in error && typeof error.stdout === 'string' ? error.stdout : ''
+        const { status, retryAfter } = splitResponseHeaders(stdout)
+        if (status !== undefined || retryAfter !== undefined) failure.transportFailure = new TransportFailure(failure.message, { status: status ?? failure.code, retryAfter })
+      }
+      throw failure
+    }
   }
   /** Runs the agent's GitHub CLI and parses its JSON output; callers should prefer `api`, which is restricted to the configured repository and validates output. */
   async gh<T>(args: string[]): Promise<T> {
-    const output = await this.run(this.deployment.github.cli, args)
-    try { return JSON.parse(output) as T }
+    // `--include` exposes the real response headers at this boundary; `--paginate` interleaves a header block per
+    // page, so paginated reads keep the headerless form.
+    const headers = args[0] === 'api' && !args.includes('--paginate')
+    const output = await this.run(this.deployment.github.cli, headers ? [...args, '--include'] : args, undefined, { responseHeaders: headers })
+    try { return JSON.parse(headers ? splitResponseHeaders(output).body : output) as T }
     catch {
       // Never echo the output, which may hold remote content; a SyntaxError would otherwise be parked as a permanent programming error.
       const failure = new CliError('gh returned output that is not valid JSON')
