@@ -793,6 +793,35 @@ describe('github source', () => {
       await run.stop(); run.value.store.close()
     } finally { vi.useRealTimers() }
   })
+  it('CHARACTERIZATION: a typed server embargo holds within one process but a restart polls at once (the embargo is not persisted)', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const { TransportFailure } = await import('../src/infra/transport-failure.ts')
+      const board = new HealthBoard()
+      const settings = SettingsSchema.parse({ sources: { github: { enabled: true, config: {} } } })
+      const sources = new SourceRegistry(() => settings, board)
+      healthOf.set(sources, board)
+      const value = host({ sources })
+      let calls = 0
+      vi.spyOn(Commands.prototype, 'run').mockImplementation(async () => {
+        calls += 1
+        throw new TransportFailure('rate limited', { status: 429, retryAfter: '3600' }, Date.now())
+      })
+      const launch = () => {
+        const disposers: (() => unknown)[] = []
+        applyGithub({ orchestrator: value, effect: (effect: () => () => unknown) => { disposers.push(effect()) } } as never)
+        return async () => { for (const dispose of disposers) await dispose() }
+      }
+      const first = launch()
+      await vi.waitFor(() => expect(calls).toBe(1))
+      await vi.advanceTimersByTimeAsync(600_000)
+      expect(calls).toBe(1)
+      await first()
+      const second = launch()
+      await vi.waitFor(() => expect(calls).toBe(2))
+      await second(); value.store.close()
+    } finally { vi.useRealTimers() }
+  })
   it('waits for setup, pauses while the Source is off, and counts only consecutive failed polls towards an error', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     try {

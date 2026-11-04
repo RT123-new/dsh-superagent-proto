@@ -58,4 +58,20 @@ describe('3.5 Feishu matrix', () => {
     expect(h.results.filter(result => result === 'duplicate')).toHaveLength(1)
     closeHost(h)
   })
+
+  it('LIVE BOUNDARY: an allowed member\'s mention older than the first-seen boundary is not made a candidate by backfill, but is by a live event (no age check on the live path)', async () => {
+    const h = sourceHost(hostDir('f35-'))
+    h.store.set(KV.feishu.started('oc_team'), iso(T0))
+    const old = feishuMessage('om_old', 'oc_team', T0 - 5000, { sender: { id: 'ou_alice', sender_type: 'user' },
+      body: { content: '{"text":"@bot fix it"}' }, mentions: [{ id: 'ou_bot', key: '@_user_1', name: 'Bot' }] })
+    feishuHistoryServer(h, { items: [old] })
+    await scan(h, T0 - 60_000)
+    expect(h.engine.candidate(feishuTriggerId('om_old'))).toBeUndefined()
+    const event = feishuTrigger({ message_id: 'om_old', chat_id: 'oc_team', chat_type: 'group', sender_id: 'ou_alice', sender_type: 'user',
+      content: '{"text":"@bot fix it"}', create_time: String(T0 - 5000), mentions: [{ id: 'ou_bot', key: '@_user_1', name: 'Bot' }] }, 'ou_bot', 'cli_bot')
+    if (event) await h.receive(event)
+    // Observed behaviour, recorded rather than endorsed: the live path applies the sender policy only.
+    expect(h.engine.candidate(feishuTriggerId('om_old'))).toBeDefined()
+    closeHost(h)
+  })
 })

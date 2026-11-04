@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { key } from '../src/core/index.ts'
 import { commandError } from '../src/infra/commands.ts'
+import { pollThreads as pollEach } from '../src/sources/poll.ts'
 import { pollRound, rearmParked } from '../src/sources/github.ts'
 import { closeHost, githubComment, githubIssue, githubServer, hostDir, sourceHost, type GithubServer, type MockNotification } from './fixtures/source-host.ts'
 
@@ -104,6 +105,22 @@ describe('3.1 remaining faults', () => {
     expect(h.store.triggers.get(commentId(12, 12, at))).toBeDefined()
     expect(h.store.get<Record<string, unknown>>('github-retry')).toEqual({})
     expect(h.health.github?.state).toBe('ready')
+    closeHost(h)
+  })
+
+  it('CHARACTERIZATION: a subscribed thread whose poll keeps failing stops being polled at the 14-day horizon, with only pollError left on the Thread', async () => {
+    const h = sourceHost(hostDir('f31-'))
+    const lastAt = ago(13 * 86_400_000)
+    h.store.threads.save({ key: 'github:77', ref: { source: 'github', id: '77' }, createdAt: lastAt, lastAt, subscriptions: ['t'], correlated: [], pending: [], meta: {} })
+    const poll = vi.fn(async () => { throw new Error('gh: Bad credentials (HTTP 401)') })
+    await pollEach(h, 'github', () => false, poll)
+    expect(poll).toHaveBeenCalledTimes(1)
+    expect(h.store.threads.get('github:77')?.meta.pollError).toContain('Bad credentials')
+    // Once the thread's last activity is older than the horizon it is no longer read, and no health entry names it.
+    h.store.threads.save({ ...h.store.threads.get('github:77')!, lastAt: ago(15 * 86_400_000) })
+    await pollEach(h, 'github', () => false, poll)
+    expect(poll).toHaveBeenCalledTimes(1)
+    expect(h.store.threads.get('github:77')?.meta.pollError).toContain('Bad credentials')
     closeHost(h)
   })
 })

@@ -97,6 +97,17 @@ console.log(JSON.stringify(out)) }' -- "$@"`)
   })
 })
 
+describe('3.2 check-runs call has no bounded-page fallback', () => {
+  it('CHARACTERIZATION: an oversized check-runs slurp fails visibly as a permanent error (not retried as transient, not silently empty)', async () => {
+    const commands = fakeGh(`exec node -e 'process.stdout.write("a".repeat(17000000))' -- "$@"`)
+    const { pullChecks } = await import('../src/sources/github-read.ts')
+    const error = await pullChecks(commands, 'abc123').catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(Error)
+    expect((error as { oversized?: boolean }).oversized).toBe(true)
+    expect(classifyError(error)).toBe('permanent')
+  })
+})
+
 describe('3.4 diagnostics never carry remote text', () => {
   it('reports remote-supplied object keys as ? and arbitrary string ids only as a hash', async () => {
     const { z } = await import('zod')
