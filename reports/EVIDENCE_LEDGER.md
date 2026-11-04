@@ -73,3 +73,5 @@ Issue20 selective stats/flow index optimization adopted for tested large-history
 * Frozen finalimplementation candidatea4f1812 source/test/scripts/package/lock/config isbyte-equivalenttotested90e6d47; diffexit0, no falselyclaimedrerun. All subsequentchanges reports/evidenceonly. FinalindependentreportdispositionrefreshandactualunmergedPRstillawaited.
 
 * Finalindependentcode/reportsubstance8696143accepted. Publicationcleanupcorrects2staleheld-reviewcells, noimplementationchange. Sourcefrozen90e6d47, own+independent1498green/typecheck/build. All24dispositionsclosedasrepaired/partial/refuted/heldwithrisks; actualunmergedPRpublicationnext.
+
+* DeliveredactualPR#1 https://github.com/RT123-new/dsh-superagent-proto/pull/1 fromprogramme/reliability tomain; creationHTTPresultopen/mergedfalse. Originalverifiedownermandate requestsfinalreviewablePR; noautomerge/deploy. Mainverified8c32a9d immediatelybeforecreate. Finalsource90e6d47 unchanged; publication45d57ffreports-only. SubsequentURLrecordisreports-only.
