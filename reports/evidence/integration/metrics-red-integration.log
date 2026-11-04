@@ -1,0 +1,199 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/metrics-dashboard[39m
+
+ [31m❯[39m tests/issue-9-adversarial.spec.ts [2m([22m[2m10 tests[22m[2m | [22m[31m10 failed[39m[2m)[22m[32m 14[2mms[22m[39m
+[31m     [31m×[31m invalidates reconciled depth after tracked or untracked queue changes[39m[32m 5[2mms[22m[39m
+[31m     [31m×[31m authoritative zero drains stale tracked IDs and ages[39m[32m 2[2mms[22m[39m
+[31m     [31m×[31m authoritative smaller depth never reports stale tracked ages as a lower bound[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m takes slot integrals and utilization at one observation boundary[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m rejects invalid or unbounded sample windows and queue capacities[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m rejects duplicate or unbounded custom slot states[39m[32m 2[2mms[22m[39m
+[31m     [31m×[31m invalid pricing NaN does not become a known cost[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m invalid pricing Infinity does not become a known cost[39m[32m 0[2mms[22m[39m
+[31m     [31m×[31m invalid pricing -1 does not become a known cost[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m rejects malformed counter increments without poisoning the snapshot[39m[32m 0[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 10 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/issue-9-adversarial.spec.ts[2m > [22mindependent collector review[2m > [22minvalidates reconciled depth after tracked or untracked queue changes
+[31m[1mAssertionError[22m: expected 2 to be +0 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 2[39m
+
+[36m [2m❯[22m tests/issue-9-adversarial.spec.ts:[2m11:21[22m[39m
+    [90m  9|[39m     q[33m.[39m[34menqueue[39m([32m'a'[39m)[33m;[39m q[33m.[39m[34menqueue[39m([32m'b'[39m)[33m;[39m q[33m.[39m[34mreconcile[39m([34m2[39m)
+    [90m 10|[39m     q[33m.[39m[34mdequeue[39m([32m'a'[39m)
+    [90m 11|[39m     expect(q.depth).toBe(0) // identity-incomplete: current tracked lo…
+    [90m   |[39m                     [31m^[39m
+    [90m 12|[39m     q[33m.[39m[34mreconcile[39m([34m1[39m)[33m;[39m q[33m.[39m[34mdequeue[39m([32m'b'[39m)
+    [90m 13|[39m     [34mexpect[39m(q[33m.[39mdepth)[33m.[39m[34mtoBe[39m([34m0[39m)
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-9-adversarial.spec.ts[2m > [22mindependent collector review[2m > [22mauthoritative zero drains stale tracked IDs and ages
+[31m[1mAssertionError[22m: expected [ 1, 1, +0, false ] to deeply equal [ +0, +0, null, true ][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[32m-   0,[39m
+[31m+   1,[39m
+[31m+   1,[39m
+[2m    0,[22m
+[32m-   null,[39m
+[32m-   true,[39m
+[31m+   false,[39m
+[2m  ][22m
+
+[36m [2m❯[22m tests/issue-9-adversarial.spec.ts:[2m19:65[22m[39m
+    [90m 17|[39m     [35mconst[39m q [33m=[39m [35mnew[39m [33mQueueGauge[39m(() [33m=>[39m [34m100[39m[33m,[39m[34m2[39m)
+    [90m 18|[39m     q[33m.[39m[34menqueue[39m([32m'a'[39m)[33m;[39m q[33m.[39m[34mreconcile[39m([34m0[39m)
+    [90m 19|[39m     expect([q.depth,q.trackedDepth,q.oldestAgeMs(),q.complete]).toEqua…
+    [90m   |[39m                                                                 [31m^[39m
+    [90m 20|[39m   })
+    [90m 21|[39m   it('authoritative smaller depth never reports stale tracked ages as …
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-9-adversarial.spec.ts[2m > [22mindependent collector review[2m > [22mauthoritative smaller depth never reports stale tracked ages as a lower bound
+[31m[1mAssertionError[22m: expected 2 to be 1 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 2[39m
+
+[36m [2m❯[22m tests/issue-9-adversarial.spec.ts:[2m25:21[22m[39m
+    [90m 23|[39m     [35mconst[39m q [33m=[39m [35mnew[39m [33mQueueGauge[39m(() [33m=>[39m now[33m,[39m[34m3[39m)
+    [90m 24|[39m     q[33m.[39m[34menqueue[39m([32m'stale'[39m)[33m;[39m now[33m=[39m[34m100[39m[33m;[39m q[33m.[39m[34menqueue[39m([32m'current'[39m)[33m;[39m q[33m.[39m[34mreconcile[39m([34m1[39m)
+    [90m 25|[39m     [34mexpect[39m(q[33m.[39mdepth)[33m.[39m[34mtoBe[39m([34m1[39m)
+    [90m   |[39m                     [31m^[39m
+    [90m 26|[39m     expect(q.oldestAgeMs()).toBeNull() // length alone cannot identify…
+    [90m 27|[39m   })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-9-adversarial.spec.ts[2m > [22mindependent collector review[2m > [22mtakes slot integrals and utilization at one observation boundary
+[31m[1mAssertionError[22m: expected 0.3333333333333333 to be 0.25 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0.25[39m
+[31m+ 0.3333333333333333[39m
+
+[36m [2m❯[22m tests/issue-9-adversarial.spec.ts:[2m34:30[22m[39m
+    [90m 32|[39m     p[33m.[39m[34msetCount[39m([32m'busy'[39m[33m,[39m[34m1[39m)
+    [90m 33|[39m     [35mconst[39m slot[33m=[39mm[33m.[39m[34msnapshot[39m()[33m.[39mslots[33m.[39mworker[33m![39m
+    [90m 34|[39m     expect(slot.utilization).toBe(Object.values(slot.integrals.activeS…
+    [90m   |[39m                              [31m^[39m
+    [90m 35|[39m   })
+    [90m 36|[39m   it('rejects invalid or unbounded sample windows and queue capacities…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-9-adversarial.spec.ts[2m > [22mindependent collector review[2m > [22mrejects invalid or unbounded sample windows and queue capacities
+[31m[1mAssertionError[22m: expected [Function] to throw an error[39m
+[36m [2m❯[22m tests/issue-9-adversarial.spec.ts:[2m37:88[22m[39m
+    [90m 35|[39m   })
+    [90m 36|[39m   it('rejects invalid or unbounded sample windows and queue capacities…
+    [90m 37|[39m     for(const window of [NaN,Infinity,0,-1,1.5,1e9]) expect(()=>new Me…
+    [90m   |[39m                                                                                        [31m^[39m
+    [90m 38|[39m     for(const cap of [NaN,Infinity,0,-1,1.5,1e9]) expect(()=>new Queue…
+    [90m 39|[39m   })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-9-adversarial.spec.ts[2m > [22mindependent collector review[2m > [22mrejects duplicate or unbounded custom slot states
+[31m[1mAssertionError[22m: expected [Function] to throw an error[39m
+[36m [2m❯[22m tests/issue-9-adversarial.spec.ts:[2m41:61[22m[39m
+    [90m 39|[39m   })
+    [90m 40|[39m   [34mit[39m([32m'rejects duplicate or unbounded custom slot states'[39m[33m,[39m () [33m=>[39m {
+    [90m 41|[39m     [34mexpect[39m(()[33m=>[39m[35mnew[39m [33mSlotIntegrator[39m(()[33m=>[39m[34m0[39m[33m,[39m[34m2[39m[33m,[39m[[32m'busy'[39m[33m,[39m[32m'busy'[39m]))[33m.[39m[34mtoThrow[39m()
+    [90m   |[39m                                                             [31m^[39m
+    [90m 42|[39m     expect(()=>new SlotIntegrator(()=>0,2,Array.from({length:1000},(_,…
+    [90m 43|[39m   })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-9-adversarial.spec.ts[2m > [22mindependent collector review[2m > [22minvalid pricing NaN does not become a known cost
+[31m[1mAssertionError[22m: expected NaN to be null[39m
+
+[32m- Expected:[39m
+null
+
+[31m+ Received:[39m
+NaN
+
+[36m [2m❯[22m tests/issue-9-adversarial.spec.ts:[2m46:74[22m[39m
+    [90m 44|[39m   it.each([NaN,Infinity,-1])('invalid pricing %s does not become a kno…
+    [90m 45|[39m     [35mconst[39m m[33m=[39m[35mnew[39m [33mMetrics[39m()
+    [90m 46|[39m     expect(m.recordUsage(usage,{...pricing,outputPerM:invalid}).costUs…
+    [90m   |[39m                                                                          [31m^[39m
+    [90m 47|[39m     [34mexpect[39m(m[33m.[39m[34msnapshot[39m()[33m.[39mtokens[33m.[39mcostUnknownReports)[33m.[39m[34mtoBe[39m([34m1[39m)
+    [90m 48|[39m     [34mexpect[39m(m[33m.[39m[34msnapshot[39m()[33m.[39mtokens[33m.[39mcostUsd)[33m.[39m[34mtoBeNull[39m()
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-9-adversarial.spec.ts[2m > [22mindependent collector review[2m > [22minvalid pricing Infinity does not become a known cost
+[31m[1mAssertionError[22m: expected Infinity to be null[39m
+
+[32m- Expected:[39m
+null
+
+[31m+ Received:[39m
+Infinity
+
+[36m [2m❯[22m tests/issue-9-adversarial.spec.ts:[2m46:74[22m[39m
+    [90m 44|[39m   it.each([NaN,Infinity,-1])('invalid pricing %s does not become a kno…
+    [90m 45|[39m     [35mconst[39m m[33m=[39m[35mnew[39m [33mMetrics[39m()
+    [90m 46|[39m     expect(m.recordUsage(usage,{...pricing,outputPerM:invalid}).costUs…
+    [90m   |[39m                                                                          [31m^[39m
+    [90m 47|[39m     [34mexpect[39m(m[33m.[39m[34msnapshot[39m()[33m.[39mtokens[33m.[39mcostUnknownReports)[33m.[39m[34mtoBe[39m([34m1[39m)
+    [90m 48|[39m     [34mexpect[39m(m[33m.[39m[34msnapshot[39m()[33m.[39mtokens[33m.[39mcostUsd)[33m.[39m[34mtoBeNull[39m()
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-9-adversarial.spec.ts[2m > [22mindependent collector review[2m > [22minvalid pricing -1 does not become a known cost
+[31m[1mAssertionError[22m: expected 0.00002 to be null[39m
+
+[32m- Expected:[39m
+null
+
+[31m+ Received:[39m
+0.00002
+
+[36m [2m❯[22m tests/issue-9-adversarial.spec.ts:[2m46:74[22m[39m
+    [90m 44|[39m   it.each([NaN,Infinity,-1])('invalid pricing %s does not become a kno…
+    [90m 45|[39m     [35mconst[39m m[33m=[39m[35mnew[39m [33mMetrics[39m()
+    [90m 46|[39m     expect(m.recordUsage(usage,{...pricing,outputPerM:invalid}).costUs…
+    [90m   |[39m                                                                          [31m^[39m
+    [90m 47|[39m     [34mexpect[39m(m[33m.[39m[34msnapshot[39m()[33m.[39mtokens[33m.[39mcostUnknownReports)[33m.[39m[34mtoBe[39m([34m1[39m)
+    [90m 48|[39m     [34mexpect[39m(m[33m.[39m[34msnapshot[39m()[33m.[39mtokens[33m.[39mcostUsd)[33m.[39m[34mtoBeNull[39m()
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/10]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-9-adversarial.spec.ts[2m > [22mindependent collector review[2m > [22mrejects malformed counter increments without poisoning the snapshot
+[31m[1mAssertionError[22m: expected [Function] to throw an error[39m
+[36m [2m❯[22m tests/issue-9-adversarial.spec.ts:[2m52:78[22m[39m
+    [90m 50|[39m   it('rejects malformed counter increments without poisoning the snaps…
+    [90m 51|[39m     [35mconst[39m m[33m=[39m[35mnew[39m [33mMetrics[39m()
+    [90m 52|[39m     for (const n of [NaN,Infinity,-1,1.5]) expect(()=>m.count('request…
+    [90m   |[39m                                                                              [31m^[39m
+    [90m 53|[39m     [34mexpect[39m(m[33m.[39m[34msnapshot[39m()[33m.[39mcounters[33m.[39mrequests)[33m.[39m[34mtoBeUndefined[39m()
+    [90m 54|[39m   })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/10]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m10 failed[39m[22m[90m (10)[39m
+[2m   Start at [22m 06:56:34
+[2m   Duration [22m 182ms[2m (transform 49ms, setup 0ms, import 59ms, tests 14ms, environment 0ms)[22m
+
