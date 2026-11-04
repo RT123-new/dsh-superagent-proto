@@ -1,33 +1,95 @@
 # PR final adversarial review (issue register)
 
-Review of existing PR #1 (`programme/reliability` -> `main`). This register adds to, and does not overwrite, the 24-issue history in `reports/ISSUE_REGISTER.md` and the dispositions in `reports/FINAL_STATUS.md`. New findings from this review are registered below as they are independently reproduced; final dispositions are recorded at integration.
+DRAFT LEDGER - in progress, pending rows preserved. Do not treat any row marked PENDING or UNVERIFIED as closed. Statuses use four categories only: SATISFIED (implemented + independently verified), DISPOSITIONED (deliberately held / NO CHANGE with justification), PARTIAL, SEQUENCED-PENDING.
 
 ## Phase 1 authoritative baseline (independently established 2026-11-04 ~08:02 UTC)
 
-| Fact | Value | How verified |
-| --- | --- | --- |
-| Base SHA (merge-base) | `8c32a9dc5d72c033816c6a8110b37f40cf94fba4` (`main`) | `git merge-base origin/main programme/reliability`; equals `main` remote HEAD |
-| PR HEAD at review start | `de50174f86cb5499f1c482a4bd432a77386737c9` | `git ls-remote origin programme/reliability` and `git rev-parse HEAD` after checkout |
-| PR state | PR #1 open, unmerged, single PR against `main` | GitHub REST `pulls` list: state open, merged_at null |
-| GitHub CI status | **No CI configured**: zero check-runs and zero commit statuses on `de50174`; no `.github/workflows` in the tree | GitHub REST `check-runs` (total_count 0) and `status` (0 statuses). Local logs below are NOT GitHub CI results. |
-| Lockfile | `pnpm-lock.yaml` sha256 `ba6b997c448984a04b28eeb5b620c14c7cfeff5eb170e1abd6e0734007405c39` | `sha256sum`; `pnpm install --frozen-lockfile` clean |
-| Local checks at baseline | `pnpm typecheck` PASS; `pnpm build` PASS; `pnpm test` PASS **1498/1498 tests in 102 files** (duration 94.9s), worktree left clean | Independent run in isolated worktree `review/final-baseline` at `de50174`, Node v22.23.4, pnpm 11.7.0 |
-| Prior checkpoint equivalence | `src/` and `tests/` trees identical between `90e6d47` and `de50174`; all later commits are reports/evidence only | `git diff --exit-code 90e6d47 de50174 -- src tests` exit 0 |
-| Held candidates | No pool/retention/slot-refill/slot-wake code in `src/` at `de50174`; no candidate branch merged into the PR branch | `git grep` over `src` at `de50174` (no matches); `git branch -r --merged` (no candidate branches) |
-| Secret scan | No token/private-key patterns in tracked files | `git grep` for `ghp_`, `github_pat_`, `sk-`, `AKIA`, PEM headers (no matches) |
-| PR review comments | No actionable external review comments. One Codex bot summary reported the automated review **failed to run** (usage limit) at `45d57ff`; zero inline comments, zero reviews | GitHub REST issue/PR comments and reviews endpoints |
+SATISFIED. main = 8c32a9d (= merge-base with PR), PR HEAD de50174 at baseline time, PR #1 open/unmerged/only PR on the fork. Local baseline suite 1498/1498 (local run only - this repository has NO GitHub CI; every green in this review is a local or sandbox run). Baseline lockfile sha256 ba6b997c...0405c39 preserved as historical evidence. Later justified test-only dependency delta (JSONL backend, exact pin) recorded alongside with old/new hashes; baseline evidence not rewritten.
 
-Baseline result: the reported 1498-test / typecheck / build checkpoint **reproduces independently** on the exact reviewed SHA. GitHub CI success must never be claimed: no CI exists for this repository.
+## Phase 2 - critical correctness and safety
+
+| Req | Status | Evidence / pending |
+|---|---|---|
+| 2.1 Workspace prep crash consistency: state transitions, write-failure injection, crash between prep and durable record, restart with owned process, config change/corrupt records/legacy dirs | PARTIAL | Executor runtime proofs (patches 0016/0017) adversary-accepted narrow: cancellation before/during/after create, ensure-matrix boundaries, fail-closed on unknown state. Record-write-failure and process-crash matrices: executed per executor inventory; adversary reproduced 6 red cases. Power-loss durability NOT claimed. |
+| 2.2 Cancellation during session creation: async boundaries, recreate cannot bypass auth, cancelled assignment receives nothing, restart reconciles orphans, late decoration/tool registration | PARTIAL | Proven: delivery authorize-before-acceptance; stopTicket cancels active turn; ensure-matrix revocation cases; harmless-completion for uncancellable upstream create; unresolved sessions surfaced via probe.count (in-memory, capped 256). NOT yet proven: late TOOL registration after stop (executor: code-supported only, not re-audited); restart reconciliation of PERSISTED orphaned sessions (unresolved set is in-memory only). Full agent-loop consume/claim/append crash proof: spike in progress (registry-verified packages, offline mock LLM, no paid calls). |
+| 2.3 Delivery acknowledgement vs persistence ordering | PARTIAL | Real-backend durability proven over JSONL backend (devDep, exact pin 0.2.1-alpha.2): SIGKILL after append+flush, held messages not redelivered, unflushed-append characterization, torn-tail 5-byte truncation characterization (at-least-once residual, adversary-verified incl. surviving-header assertion). Acceptance-before-flush window: code-supported concern, disposition per delivery authorize-first design; exact ordering proof for the full claim/append path pending the agent-loop spike. |
+| 2.4 Durable external replies (outbox) | PARTIAL | Outbox attempt markers + no-send-on-close regression test (integration-owned, adversary accepted red/green). Operator surface: GET effects/blocked (safe class only), POST effects/:kind/rearm with unknown-outcome duplicate warning; no discard route, no auto-rearm. |
+| 2.5 Managed subagent permissions | PARTIAL | Policy-guard minimal repair: host.authorized at new grant points, Later-defer for unknown Source kind (never allow), disabled denies. Adversary accepted narrow. Residuals per adversary verdict list. |
+
+## Phase 3 - source ingestion and event loss
+
+| Req | Status | Evidence / pending |
+|---|---|---|
+| 3.1 GitHub pagination/replay/reconciliation | PARTIAL | Source workstream patches 0001-0021 merged after narrow acceptance. Typed not-before floor (0011); embargo persistence across restart via absolute epoch ms in existing KV (0019-0021). Live GitHub replay against real API: UNVERIFIED (no live calls made). |
+| 3.2 Large responses / memory pressure | DISPOSITIONED | Check-runs 16MiB cap = explicit operating limit + health-visibility test only; not a full large-response proof. |
+| 3.3 Repeated review-history scanning | DISPOSITIONED | NO CHANGE with documented reopen conditions (prior disposition stands). |
+| 3.4 Malformed remote events | PARTIAL | 24h-401 durable park with explicit rearm (0014+0016); untrusted remote text handled via static allowlists/hashes after adversary leak findings. Full malformed-event fuzz matrix: not claimed complete. |
+| 3.5 Feishu recovery and monitoring | PARTIAL | Heuristic backoff in-memory (operating limit); Feishu live-replay UNVERIFIED; 14-day horizon unproved. |
+
+## Phase 4 - retry policy and rate-limit safety
+
+| Req | Status | Evidence / pending |
+|---|---|---|
+| 4.1 Preserve existing retry correctness | PARTIAL | Retry behavior preserved through all merged repairs; regression specs green. |
+| 4.2 Actual Retry-After metadata | PARTIAL | Typed not-before floor; honor-server not-before, never shortened; over-horizon fails closed (visible park). |
+| 4.3 Account-wide rate budget across concurrent operations | DISPOSITIONED | Concurrent pool HELD (account-wide budget absent = operating limit; evidence gates not met). |
+
+## Phase 5 - metrics correctness
+
+| Req | Status | Evidence / pending |
+|---|---|---|
+| 5.1 Timing boundary definitions | PARTIAL | Metrics workstream M1-M5; metricsState minimal API accepted narrow. |
+| 5.2 Provider-attempt measurements | PARTIAL | Per metrics/UI review report; adversary acceptance per-workstream. |
+| 5.3-5.5 Correctness/throughput, percentiles, worker utilisation | PARTIAL | Synthetic measurements only; see PR_FINAL_BENCHMARKS.md (draft). |
+| 5.6 Token accounting and cost | PARTIAL | COST_LEDGER.md carried; no paid calls made in this review. |
+
+## Phase 6 - database and migration
+
+| Req | Status | Evidence / pending |
+|---|---|---|
+| Migration chain, redaction, closing() guard, left-job handling | PARTIAL | DB bundles through 14 merged (5758b04 redaction, 515e863 closing() guard, cf70071 left-job tests, c3911d5 docs). Disk code identity verified artifact-based: store/migration/store-read blobs identical c3911d5..current. |
+| Retention optimisation | DISPOSITIONED | HELD experiment; evidence gates not met. |
+
+## Phase 7 - concurrency and orchestration
+
+| Req | Status | Evidence / pending |
+|---|---|---|
+| Dispatch lock/guard | SATISFIED-narrow | Integration-owned dispatch guard d3e6299 + outbox no-send test bef7fa5; adversary reproduced red/green on both sides. |
+| Slot orchestration (slotwake) | DISPOSITIONED | HELD experiment; evidence gates not met. |
+
+## Phase 8 - performance experiments and mathematical acceptance
+
+COMPUTATIONS INDEPENDENTLY REPRODUCED - this is NOT production acceptance. All numbers synthetic/local/exploratory, workload-window and row-shape specific: paired P95 +49.6% [47.5,53.9] regression on the measured shape; flow -3.0% [-6.1,-1.1] overall with gains only in narrow windows; disk +8.29% shape A / +35-39% shape B; outage 5-seed mean 87.6% (range 82.7-91.2) exploratory, per-seed means (within-run pair CI invalid). Raw evidence archive verified (SHA256SUMS). Strict rejection criteria (8.5) applied: unfavourable load costs recorded; no optimisation adopted without its gate.
+
+## Phase 9 - security and adversarial review
+
+| Boundary | Status | Evidence / pending |
+|---|---|---|
+| Untrusted remote text (stderr/errors/ids/rejected fields) | PARTIAL | Multiple adversary-found leaks repaired (token/control-char/path interpolation; KV saveFailure leak latest) with static allowlists/hashes + regression tests. |
+| Policy changes during async work | PARTIAL | Fail-closed policy guard (see 2.5). |
+| GitHub/Feishu source authorisation | PENDING-VERIFICATION | Feishu auth gap: earlier adversary partial finding; final audit row NOT yet closed - must be completed or carried as open before freeze. |
+| Workspace paths and symlinks | PENDING-VERIFICATION | Earlier adversary partial; final audit row NOT yet closed. |
+| Dashboard secret/token exposure, secret scan of final diff | PENDING-VERIFICATION | Full-diff secret scan at freeze REQUIRED; not yet run on combined tree. |
+| Repository identity/URL canonicalisation, cross-repo aliasing, credential isolation, subagent permission inheritance, argument/env handling, source-generated instructions, historical events newly actionable, error logging payloads, migration/archive paths | PARTIAL | Covered by earlier adversarial review rounds (see issue register); consolidated final-tree re-check owed at freeze. |
+
+OS-boundary honesty: no application-level guard is claimed as a hard operating-system security boundary.
+
+## Phase 10 - UI and operational visibility
+
+PARTIAL. Blocked-tasks operator UI (Execution tab section, rearm with confirmation + unknown-outcome duplicate warning) accepted narrow as readable-in-render: real React DOM in jsdom + flat palette screenshots at 1280/390 zh inspected by main, adversary and lead. NOT verified: real host theme, en locale pixels, keyboard/focus flow, touch, dark/light. Health-state distinctions and no-invented-zeroes rules per metrics workstream; final UI ledger row stays open pending en/keyboard checks.
+
+## Phase 11 - testing and independent acceptance
+
+PARTIAL. Rule enforced throughout: failing-proof-first repairs, adversary independent acceptance before integration, lead independent verification runs. Frozen combined-tree full suite (sharded) + build + git diff --check + full-diff secret scan owed at freeze; adversary final-tree refresh owed at freeze.
+
+## Phase 12 - required deliverables
+
+SEQUENCED-PENDING by design: PR_FINAL_REVIEW.md (this ledger), PR_FINAL_VALIDATION.md, PR_FINAL_BENCHMARKS.md, PR_FINAL_HANDOFF.md drafted now, finalized at freeze; then push accepted fixes to the existing PR branch, update PR #1 description to actual final state, leave PR open and unmerged. No merge, no automerge, no deploy, no upstream mutation.
 
 ## Carried-forward residuals under re-review (from existing dispositions, not new findings)
 
-- Issue 9 metrics: PARTIAL (provider attempt start, eligible/correct denominator, TPS/CPS absent).
-- Issue 5: in-flight framework creation cannot be interrupted; compound unobservable/crash risk.
-- Issue 8: never-observed missing ancestry cannot be classified.
-- Issue 15: production `Commands` does not supply genuine Retry-After metadata.
-- Issues 10/11/17/19: pool, wake, general slot-refill and retention candidates HELD; adoption gates unmet.
-- Issue 20: reported ~16% disk growth is workload-dependent (fresh evidence shows ~35-39% on small-row workloads); original figure retained with workload provenance.
+See FINAL_STATUS.md 24-issue disposition matrix; held experiments (pool/retention/slotwake) remain held unless full evidence gates pass.
 
 ## New findings (populated at integration; each entry gets ID, severity, classification, location, reproduction, repair, tests, regression risk, result, residual uncertainty, disposition)
 
-_Pending workstream reports: executor/delivery, sources/retry, metrics/UI, database/performance, independent adversarial acceptance._
+In progress - see ledger rows above; final IDs assigned at freeze.
