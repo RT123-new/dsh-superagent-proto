@@ -108,6 +108,23 @@ export class Effects {
   pending(kind: EffectKind, key?: string): boolean {
     return key === undefined ? !!this.store.db.prepare('SELECT 1 FROM effect WHERE kind = ? LIMIT 1').get(kind) : !!this.store.db.prepare('SELECT 1 FROM effect WHERE kind = ? AND key = ?').get(kind, key)
   }
+  /** Rows parked as `blocked:` for a kind, oldest first. Remote text is already neutralised; callers may show it. */
+  blocked(kind: EffectKind): { key: string; error: string; attempts: number; since: string }[] {
+    return this.store.db.prepare("SELECT key, error, attempts, since FROM effect WHERE kind = ? AND error LIKE 'blocked:%' ORDER BY seq").all(kind) as never
+  }
+  /**
+   * Explicit operator recovery of a parked row: it becomes due now and is dispatched again (an ordered kind then resumes behind it).
+   * Never called automatically. A sticky `[attempt-unknown]` marker is kept, since the earlier attempt's outcome is still not known.
+   * Returns false when the row does not exist or is not blocked. The alternative, dropping the row, is `cancel`.
+   */
+  rearm(kind: EffectKind, key: string): boolean {
+    const row = this.store.db.prepare("SELECT error FROM effect WHERE kind = ? AND key = ? AND error LIKE 'blocked:%'").get(kind, key)
+    if (typeof row?.error !== 'string') return false
+    const error = hasMarker(row.error, ATTEMPT_UNKNOWN) ? ATTEMPT_UNKNOWN : ''
+    this.store.db.prepare('UPDATE effect SET error = ?, attempts = 0, due = ?, generation = generation + 1 WHERE kind = ? AND key = ?').run(error, this.now(), kind, key)
+    this.kick()
+    return true
+  }
   /** Drops a queued row by kind and key; if it is already running, that attempt finishes normally. */
   cancel(kind: EffectKind, key: string): void {
     this.store.db.prepare('DELETE FROM effect WHERE kind = ? AND key = ?').run(kind, key)
