@@ -1,0 +1,33 @@
+{
+  "scenario": "capacity 3; nine 300ms tasks then three 30ms tasks; FIFO order measured",
+  "result": {
+    "capacity": 3,
+    "seed": 5,
+    "n": 12,
+    "failed": 0,
+    "makespanMs": 1039,
+    "idealMs": 930,
+    "overheadRatio": 1.1172043010752688,
+    "queueWait": {
+      "n": 12,
+      "mean": 424.8333333333333,
+      "median": 286,
+      "p95": 866,
+      "ci95": 188.2340474038111,
+      "min": 0,
+      "max": 866
+    },
+    "completion": {
+      "n": 12,
+      "mean": 657.5,
+      "median": 587,
+      "p95": 897,
+      "ci95": 141.41881872971888,
+      "min": 298,
+      "max": 897
+    },
+    "peakUsed": 3,
+    "memRssDeltaMB": 5.435392
+  },
+  "note": "short tasks 9-11 wait behind the longs under FIFO; measured to decide whether an alternative scheduler is justified"
+}

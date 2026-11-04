@@ -1,0 +1,267 @@
+{
+  "scenario": "24 tickets, seeded duration mix 60/30/10 of 30/100/400ms; harness pumps after turn ends; 3 seeds per capacity",
+  "tokenCost": "NOT TESTED - paid model calls frozen; scheduling machinery only",
+  "results": [
+    {
+      "capacity": 3,
+      "seed": 11,
+      "n": 24,
+      "failed": 0,
+      "makespanMs": 774,
+      "idealMs": 380,
+      "overheadRatio": 2.036842105263158,
+      "queueWait": {
+        "n": 24,
+        "mean": 250.20833333333334,
+        "median": 256,
+        "p95": 426,
+        "ci95": 60.84938721562369,
+        "min": 0,
+        "max": 433
+      },
+      "completion": {
+        "n": 24,
+        "mean": 315.5833333333333,
+        "median": 332,
+        "p95": 455,
+        "ci95": 50.421392568059986,
+        "min": 30,
+        "max": 463
+      },
+      "peakUsed": 3,
+      "memRssDeltaMB": 30.052352
+    },
+    {
+      "capacity": 3,
+      "seed": 29,
+      "n": 24,
+      "failed": 0,
+      "makespanMs": 980,
+      "idealMs": 626.6666666666666,
+      "overheadRatio": 1.5638297872340428,
+      "queueWait": {
+        "n": 24,
+        "mean": 117.25,
+        "median": 0,
+        "p95": 453,
+        "ci95": 64.21536505148633,
+        "min": 0,
+        "max": 462
+      },
+      "completion": {
+        "n": 24,
+        "mean": 203.79166666666666,
+        "median": 119,
+        "p95": 502,
+        "ci95": 78.16983965547891,
+        "min": 27,
+        "max": 621
+      },
+      "peakUsed": 3,
+      "memRssDeltaMB": 17.108992
+    },
+    {
+      "capacity": 3,
+      "seed": 47,
+      "n": 24,
+      "failed": 0,
+      "makespanMs": 830,
+      "idealMs": 426.6666666666667,
+      "overheadRatio": 1.9453125,
+      "queueWait": {
+        "n": 24,
+        "mean": 271.125,
+        "median": 292,
+        "p95": 468,
+        "ci95": 51.84683553925719,
+        "min": 0,
+        "max": 481
+      },
+      "completion": {
+        "n": 24,
+        "mean": 346.125,
+        "median": 327,
+        "p95": 506,
+        "ci95": 41.011160539152215,
+        "min": 194,
+        "max": 581
+      },
+      "peakUsed": 3,
+      "memRssDeltaMB": 24.363008
+    },
+    {
+      "capacity": 6,
+      "seed": 11,
+      "n": 24,
+      "failed": 0,
+      "makespanMs": 526,
+      "idealMs": 190,
+      "overheadRatio": 2.768421052631579,
+      "queueWait": {
+        "n": 24,
+        "mean": 0,
+        "median": 0,
+        "p95": 0,
+        "ci95": 0,
+        "min": 0,
+        "max": 0
+      },
+      "completion": {
+        "n": 24,
+        "mean": 50.375,
+        "median": 31,
+        "p95": 112,
+        "ci95": 13.567389464597012,
+        "min": 27,
+        "max": 112
+      },
+      "peakUsed": 6,
+      "memRssDeltaMB": 12.873728
+    },
+    {
+      "capacity": 6,
+      "seed": 29,
+      "n": 24,
+      "failed": 0,
+      "makespanMs": 784,
+      "idealMs": 313.3333333333333,
+      "overheadRatio": 2.502127659574468,
+      "queueWait": {
+        "n": 24,
+        "mean": 2.125,
+        "median": 0,
+        "p95": 23,
+        "ci95": 2.8954259905351862,
+        "min": 0,
+        "max": 28
+      },
+      "completion": {
+        "n": 24,
+        "mean": 82.25,
+        "median": 34,
+        "p95": 398,
+        "ci95": 41.032356426520806,
+        "min": 28,
+        "max": 399
+      },
+      "peakUsed": 6,
+      "memRssDeltaMB": 20.93056
+    },
+    {
+      "capacity": 6,
+      "seed": 47,
+      "n": 24,
+      "failed": 0,
+      "makespanMs": 642,
+      "idealMs": 213.33333333333334,
+      "overheadRatio": 3.009375,
+      "queueWait": {
+        "n": 24,
+        "mean": 0.7083333333333334,
+        "median": 0,
+        "p95": 0,
+        "ci95": 1.3883333333333334,
+        "min": 0,
+        "max": 17
+      },
+      "completion": {
+        "n": 24,
+        "mean": 56.791666666666664,
+        "median": 35,
+        "p95": 115,
+        "ci95": 14.43677349218773,
+        "min": 24,
+        "max": 117
+      },
+      "peakUsed": 6,
+      "memRssDeltaMB": 5.3248
+    },
+    {
+      "capacity": 12,
+      "seed": 11,
+      "n": 24,
+      "failed": 0,
+      "makespanMs": 527,
+      "idealMs": 95,
+      "overheadRatio": 5.5473684210526315,
+      "queueWait": {
+        "n": 24,
+        "mean": 0,
+        "median": 0,
+        "p95": 0,
+        "ci95": 0,
+        "min": 0,
+        "max": 0
+      },
+      "completion": {
+        "n": 24,
+        "mean": 50.541666666666664,
+        "median": 31,
+        "p95": 112,
+        "ci95": 14.092822508498381,
+        "min": 28,
+        "max": 112
+      },
+      "peakUsed": 6,
+      "memRssDeltaMB": 18.132992
+    },
+    {
+      "capacity": 12,
+      "seed": 29,
+      "n": 24,
+      "failed": 0,
+      "makespanMs": 782,
+      "idealMs": 156.66666666666666,
+      "overheadRatio": 4.991489361702128,
+      "queueWait": {
+        "n": 24,
+        "mean": 0,
+        "median": 0,
+        "p95": 0,
+        "ci95": 0,
+        "min": 0,
+        "max": 0
+      },
+      "completion": {
+        "n": 24,
+        "mean": 79.70833333333333,
+        "median": 30,
+        "p95": 398,
+        "ci95": 41.18830799900933,
+        "min": 28,
+        "max": 399
+      },
+      "peakUsed": 7,
+      "memRssDeltaMB": 20.74624
+    },
+    {
+      "capacity": 12,
+      "seed": 47,
+      "n": 24,
+      "failed": 0,
+      "makespanMs": 675,
+      "idealMs": 106.66666666666667,
+      "overheadRatio": 6.328125,
+      "queueWait": {
+        "n": 24,
+        "mean": 0,
+        "median": 0,
+        "p95": 0,
+        "ci95": 0,
+        "min": 0,
+        "max": 0
+      },
+      "completion": {
+        "n": 24,
+        "mean": 56.541666666666664,
+        "median": 33,
+        "p95": 108,
+        "ci95": 13.530492236762198,
+        "min": 27,
+        "max": 112
+      },
+      "peakUsed": 6,
+      "memRssDeltaMB": 8.94976
+    }
+  ]
+}

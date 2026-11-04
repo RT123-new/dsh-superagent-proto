@@ -1,0 +1,6 @@
+{
+  "tested_commit": "d539a1f",
+  "command": "pnpm exec vitest run tests/stage-d/",
+  "result": "14/14 across3files",
+  "note": "Independent current-integration rerun; original author baseline evidence preserved separately. Synthetic turns/host; no paid model calls."
+}

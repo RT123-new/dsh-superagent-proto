@@ -1,0 +1,32 @@
+{
+  "scenario": "R=15 paired launches per ticket; prepare = real sh mkdir+64KB dd; warm launch reuses the prepared record",
+  "prepareCommandSpawnsTotal": 15,
+  "coldMs": {
+    "n": 15,
+    "mean": 5.193668133333335,
+    "median": 4.790834999999959,
+    "p95": 10.780011000000002,
+    "ci95": 0.7877650637641169,
+    "min": 4.389920000000018,
+    "max": 10.780011000000002
+  },
+  "warmMs": {
+    "n": 15,
+    "mean": 0.33040553333333944,
+    "median": 0.3091370000000211,
+    "p95": 0.6457060000000183,
+    "ci95": 0.057720724951448574,
+    "min": 0.18639899999999443,
+    "max": 0.6457060000000183
+  },
+  "pairedSavingMs": {
+    "n": 15,
+    "mean": 4.863262599999996,
+    "median": 4.514043999999956,
+    "p95": 10.134304999999983,
+    "ci95": 0.7411700515683343,
+    "min": 4.203521000000023,
+    "max": 10.134304999999983
+  },
+  "note": "executor-side + real subprocess cost; provider session/model costs mocked out (NOT TESTED)"
+}

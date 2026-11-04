@@ -1,0 +1,58 @@
+{
+  "scenario": "4 tickets (2 running turns, 2 queued) through 5 sequential host restarts on one SQLite store",
+  "restarts": [
+    {
+      "readyMs": 21.570645000000013,
+      "relaunchMs": 24.003120000000024,
+      "running": 2,
+      "pending": 2
+    },
+    {
+      "readyMs": 18.210451000000035,
+      "relaunchMs": 29.679667999999992,
+      "running": 2,
+      "pending": 2
+    },
+    {
+      "readyMs": 16.825929000000087,
+      "relaunchMs": 25.02563299999997,
+      "running": 2,
+      "pending": 2
+    },
+    {
+      "readyMs": 19.07107099999996,
+      "relaunchMs": 41.059780000000046,
+      "running": 2,
+      "pending": 2
+    },
+    {
+      "readyMs": 17.868471999999997,
+      "relaunchMs": 25.684892999999988,
+      "running": 2,
+      "pending": 2
+    }
+  ],
+  "finalStates": [
+    {
+      "assignments": 4,
+      "latest": "pending",
+      "ended": false
+    },
+    {
+      "assignments": 4,
+      "latest": "pending",
+      "ended": false
+    },
+    {
+      "assignments": 3,
+      "latest": "running",
+      "ended": false
+    },
+    {
+      "assignments": 3,
+      "latest": "running",
+      "ended": false
+    }
+  ],
+  "note": "readyMs = reopen to Runtime.ready (incl. resume reconciliation); relaunchMs = ready to turns running again"
+}
