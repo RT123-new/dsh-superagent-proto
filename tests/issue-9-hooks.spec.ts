@@ -119,3 +119,14 @@ it('usage is attributed to a component and a missing usage stays an unknown repo
   expect(t.byComponent.other?.reports).toBe(1)
   expect(t.costUsd).toBeNull()
 })
+
+it('Commands records whole-subprocess latency under a fixed label, failures separately, and rethrows the original CLI error', async () => {
+  const { Commands } = await import('../src/infra/commands.ts')
+  const commands = new Commands(() => ({}) as never, {}, new AbortController().signal, new Probe(metrics))
+  await commands.run('true', [])
+  await expect(commands.run('false', [])).rejects.toBeDefined()
+  const s = metrics.snapshot()
+  expect(s.durations['command_run|internal']?.count).toBe(1)
+  expect(s.failedDurations['command_run|internal']?.count).toBe(1)
+  expect(JSON.stringify(s)).not.toContain('false')
+})

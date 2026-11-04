@@ -4,6 +4,7 @@ import { basename } from 'node:path'
 import { promisify } from 'node:util'
 import { z } from 'zod'
 import type { Deployment } from '../deployment.ts'
+import { Probe } from './metrics-probe.ts'
 
 const exec = promisify(execFile)
 const TIMEOUT_MS = 90_000
@@ -61,16 +62,19 @@ export class Commands {
    * @param resolved - returns the resolved deployment setup, or throws while setup is still pending.
    * @param environment - variables overriding `process.env` for every command (such as isolated git settings).
    */
-  constructor(private readonly resolved: () => Deployment, private readonly environment: Record<string, string | undefined>, private readonly signal: AbortSignal) {}
+  constructor(private readonly resolved: () => Deployment, private readonly environment: Record<string, string | undefined>, private readonly signal: AbortSignal, private readonly probe: Probe = new Probe(undefined)) {}
   get deployment(): Deployment { return this.resolved() }
   get repository(): string { return this.deployment.repository }
-  withSignal(signal?: AbortSignal): Commands { return signal ? new Commands(this.resolved, this.environment, AbortSignal.any([this.signal, signal])) : this }
+  withSignal(signal?: AbortSignal): Commands { return signal ? new Commands(this.resolved, this.environment, AbortSignal.any([this.signal, signal]), this.probe) : this }
   async run(program: string, args: string[], cwd?: string): Promise<string> {
+    // Whole subprocess latency: process start, network and the CLI's own work. Not pure API latency; the label never names the program or arguments.
+    const stop = this.probe.timer('command_run', 'internal')
     try {
       const { stdout } = await exec(program, args, { cwd, signal: this.signal, timeout: TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024,
         env: { ...process.env, ...this.environment, GH_PROMPT_DISABLED: '1', LARKSUITE_CLI_NO_UPDATE_NOTIFIER: '1', LARKSUITE_CLI_NO_SKILLS_NOTIFIER: '1' } })
+      stop()
       return stdout
-    } catch (error) { throw commandError(error, program) }
+    } catch (error) { stop('failed'); throw commandError(error, program) }
   }
   /** Runs the agent's GitHub CLI and parses its JSON output; callers should prefer `api`, which is restricted to the configured repository and validates output. */
   async gh<T>(args: string[]): Promise<T> { return JSON.parse(await this.run(this.deployment.github.cli, args)) as T }

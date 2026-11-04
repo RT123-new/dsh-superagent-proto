@@ -109,9 +109,9 @@ export class Runtime extends Service implements SourceHost {
       const prompts = this.prompts = new Prompts(store, () => machine.promptMaxChars.get(), deployed, feishu)
       const masterId = this.masterId = store.get(KV.runtime.masterId) ?? `orchestrator-${key(machine.stateDir)}`
       store.set(KV.runtime.masterId, masterId)
-      const commands = this.commands = new Commands(() => setup.deployment, setup.commandEnvironment, this.lifetime)
-      const board = this.board
       const probe = this.probe = new Probe(this.metrics)
+      const commands = this.commands = new Commands(() => setup.deployment, setup.commandEnvironment, this.lifetime, probe)
+      const board = this.board
       const effects = this.effects = new Effects(store, board, undefined, probe)
       const sources = this.sources = new SourceRegistry(() => store.settings(), board, kind => {
         // Sync source member lists once startup completes when a source plugin loads dynamically.
@@ -137,7 +137,7 @@ export class Runtime extends Service implements SourceHost {
         authorized: ticket => settingsPolicy(store.settings(), sources).revalidate(ticket.mandate), environment, sourceLink: link,
         repository: () => setup.deployment.repository, repliedTo: trigger => repliedTo({ store, sources }, trigger) })
       this.assessor = new MasterAssessor({ get engine() { return runtime.engine }, commands, get deployment() { return setup.deployment }, effects,
-        settings: () => store.settings(), paused: () => this.paused(), threadContext: trigger => sources.threadContext(trigger),
+        settings: () => store.settings(), paused: () => this.paused(), probe, threadContext: trigger => sources.threadContext(trigger),
         deliver: (id, text) => sessions.prompt(masterId, id, text, 'steer'), candidateCard: candidate => candidateCard(links, candidate) })
       const outbox = this.outbox = new Outbox({ store, effects, sources, commands, paused: () => this.paused() })
       const { assessor, executor } = this
