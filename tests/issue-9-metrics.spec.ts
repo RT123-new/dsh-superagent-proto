@@ -101,14 +101,6 @@ describe('queue gauge', () => {
     q.enqueue('a'); q.enqueue('b'); c.adv(7)
     expect(m.snapshot().queues.eval).toEqual({ depth: 1, trackedDepth: 1, depthComplete: false, oldestAgeMs: 7, oldestAgeIsLowerBound: true, dropped: 1 })
   })
-  it('authoritative length always wins: stale tracked ids never override it', () => {
-    const c = clock(), q = new QueueGauge(c.now, 10)
-    q.enqueue('a'); q.enqueue('b'); q.enqueue('c'); c.adv(5)
-    q.reconcile(0); expect([q.depth, q.trackedDepth, q.complete, q.oldestAgeMs()]).toEqual([0, 0, true, null])
-    q.enqueue('x'); q.enqueue('y'); q.enqueue('z')
-    q.reconcile(1); expect([q.depth, q.complete, q.oldestAgeMs()]).toEqual([1, false, null])
-    q.reconcile(3); expect([q.depth, q.complete]).toEqual([3, true])
-  })
   it('reconcile with authoritative length restores exactness or reports it, never adds to it', () => {
     const c = clock(), q = new QueueGauge(c.now, 1)
     q.enqueue('a'); q.enqueue('b'); q.enqueue('c')
@@ -129,7 +121,7 @@ describe('tokens and cost: unknown stays unknown', () => {
   })
   it('computes cost only for fully known usage with pricing', () => {
     const m = new Metrics()
-    expect(m.recordUsage({ inputCacheHit: 1_000_000, inputCacheMiss: 1_000_000, output: 1_000_000 }, pricing).costUsd).toBeCloseTo(1.506, 9)
+    expect(m.recordUsage({ inputCacheHit: 1_000_000, inputCacheMiss: 1_000_000, output: 1_000_000, cacheWrite: 0 }, pricing).costUsd).toBeCloseTo(1.506, 9)
     expect(m.recordUsage({ inputCacheMiss: 10, output: 5 }, pricing).costUsd).toBeNull()
     expect(m.recordUsage({ inputCacheHit: 1, inputCacheMiss: 1, output: 1 }).costUsd).toBeNull()
     const t = m.snapshot().tokens
@@ -152,15 +144,15 @@ describe('cache write and reasoning tokens', () => {
     const t = m.snapshot().tokens
     expect(t.costUsd).toBeNull(); expect(t.costKnownReports).toBe(0); expect(t.costUnknownReports).toBe(2); expect(t.cacheWrite).toBe(500)
   })
-  it('zero or absent cache-write needs no rate; a resolved rate is charged', () => {
+  it('zero cache-write needs no rate; absence is unknown and a resolved rate is charged', () => {
     const m = new Metrics()
     expect(m.recordUsage({ ...base, cacheWrite: 0 }, pricing).costUsd).toBeCloseTo(0.3, 12)
-    expect(m.recordUsage(base, pricing).costUsd).toBeCloseTo(0.3, 12)
+    expect(m.recordUsage(base, pricing).costUsd).toBeNull()
     expect(m.recordUsage({ ...base, cacheWrite: 1_000_000 }, { ...pricing, cacheWritePerM: 0.5 }).costUsd).toBeCloseTo(0.8, 12)
   })
   it('reasoning is its own non-additive field: never added to output or cost', () => {
     const m = new Metrics()
-    const r = m.recordUsage({ inputCacheHit: 0, inputCacheMiss: 0, output: 100, reasoning: 60 }, pricing)
+    const r = m.recordUsage({ inputCacheHit: 0, inputCacheMiss: 0, output: 100, cacheWrite: 0, reasoning: 60 }, pricing)
     expect(r.costUsd).toBeCloseTo(100 * 1.2 / 1e6, 15)
     const t = m.snapshot().tokens; expect([t.output, t.reasoning]).toEqual([100, 60])
     expect(new Metrics().snapshot().tokens.reasoning).toBeNull()

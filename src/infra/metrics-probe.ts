@@ -7,7 +7,7 @@ import type { MetricsSnapshot, Pricing, TokenUsage } from './metrics.ts'
 
 /** The slice of `Metrics` the hooks use; the recording fake in tests implements the same shape. */
 export interface MetricsLike {
-  observe(stage: string, source: string | undefined, ms: number, outcome?: 'failure'): void
+  observe(stage: string, source: string | undefined, ms: number, outcome?: 'success' | 'failure'): void
   count(name: string, by?: number): void
   queue(name: string): { reconcile(n: number): void }
   slotPool(name: string, capacity: number): { setCapacity(n: number): void; setCount(state: string, n: number): void }
@@ -16,6 +16,7 @@ export interface MetricsLike {
   readonly mono: () => number
 }
 
+/** Optional, failure-isolated handle that production code uses to record metrics; every method is a no-op without a collector and never throws. */
 export class Probe {
   constructor(private readonly metrics: MetricsLike | undefined) {}
   get enabled(): boolean { return this.metrics !== undefined }
@@ -37,7 +38,7 @@ export class Probe {
       this.safe(m => m.observe(stage, source, m.mono() - t0!, outcome === 'failed' ? 'failure' : undefined))
     }
   }
-  observe(stage: string, source: string | undefined, ms: number, outcome?: 'failure'): void { this.safe(m => m.observe(stage, source, ms, outcome)) }
+  observe(stage: string, source: string | undefined, ms: number, outcome?: 'success' | 'failure'): void { this.safe(m => m.observe(stage, source, ms, outcome)) }
   count(name: string, by = 1): void { this.safe(m => m.count(name, by)) }
   /** Authoritative length of a durable queue, read at hook time from its owning query. */
   queueLength(name: string, length: number): void { this.safe(m => m.queue(name).reconcile(length)) }
