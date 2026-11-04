@@ -5,7 +5,7 @@ import { latestAssignment, type Ticket } from '../core/index.ts'
 const summary = z.string().trim().min(1).max(400)
 const entry = z.string().trim().min(1).max(300)
 const lists = z.array(entry).max(8)
-const secrets = /(?:gh[pousr]_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|Bearer\s+\S{12,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:api[_-]?key|password|access[_-]?token)\s*[:=]\s*\S{8,})/i
+const secrets = /(?:gh[pousr]_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|Bearer\s+\S{12,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|\b(?:api[_-]?key|password|access[_-]?token|token)\s*[:=]\s*\S{8,})/i
 const fields = {
   currentState: summary,
   nextAction: summary,
