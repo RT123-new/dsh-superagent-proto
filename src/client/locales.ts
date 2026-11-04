@@ -759,6 +759,7 @@ const TEXT = {
   "metricsCost": ["已知费用小计（美元）", "Known cost subtotal (USD)"],
   "metricsCostUnknown": ["费用未知的报告", "Reports with unknown cost"],
   "metricsCounters": ["观测计数", "Observed counters"],
+  "metricsOverLimit": ["超出容量", "over capacity"],
   "metricsNoSamples": ["无观测样本", "No observed samples"],
   "metricsInputMiss": ["未缓存输入", "Uncached input"],
   "metricsInputHit": ["缓存读取", "Cache read"],

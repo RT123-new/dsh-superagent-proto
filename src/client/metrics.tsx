@@ -42,7 +42,7 @@ export function MetricsPanel({ metrics: m, t }: { metrics: MetricsSnapshot; t: T
     <Hint>{t('metricsQueueCoverage')}</Hint><h3>{t('metricsSlots')}</h3>
     {Object.entries(m.slots).length ? <ul className="dt-metrics-list">{Object.entries(m.slots).map(([key, pool]) => <li key={key}>
       {key}: {number(pool.utilization === null ? null : pool.utilization * 100, unknown, '%')}
-      {' ('}{pool.capacity}{' '}{t('metricsSlotsUnit')}{'; '}{number(pool.integrals.observedMs, unknown, ' ms')}{')'}</li>)}</ul> : <Hint>{t('metricsNoSamples')}</Hint>}
+      {pool.integrals.overLimitSlotMs > 0 && ` [${t('metricsOverLimit')}]`}{' ('}{pool.capacity}{' '}{t('metricsSlotsUnit')}{'; '}{number(pool.integrals.observedMs, unknown, ' ms')}{')'}</li>)}</ul> : <Hint>{t('metricsNoSamples')}</Hint>}
     <h3>{t('metricsUsage')}</h3><Hint>{t('metricsUsageNote')}</Hint>
     <dl className="dt-metrics-usage">{([
       ['metricsInputMiss', m.tokens.inputCacheMiss], ['metricsInputHit', m.tokens.inputCacheHit], ['metricsOutput', m.tokens.output],

@@ -49,3 +49,12 @@ it('M3: the dashboard panel renders (does not throw) when wall-clock bounds are 
   expect(() => act(() => { root.render(<MetricsPanel metrics={snap} t={translate(en)} />) })).not.toThrow()
   expect(node.textContent).toContain(en.metricsTitle)
 })
+it('M8: utilization above 100% is shown with an explicit over-capacity marker, not clipped or left unexplained', () => {
+  let mono = 0
+  const m = new Metrics({ mono: () => mono }); const p = m.slotPool('workers', 2, ['running']); p.setCount('running', 3); mono = 1000
+  const node = document.createElement('div'); document.body.append(node)
+  const root = createRoot(node); roots.push(root)
+  act(() => { root.render(<MetricsPanel metrics={m.snapshot()} t={translate(en)} />) })
+  expect(node.textContent).toContain('150%')
+  expect(node.textContent).toContain('over capacity')
+})
