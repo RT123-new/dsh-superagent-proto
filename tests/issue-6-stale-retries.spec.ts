@@ -22,7 +22,7 @@ const liveTicket = () => ({
 })
 
 function setup() {
-  const state = { ticket: liveTicket(), paused: false, closing: false }
+  const state = { ticket: liveTicket(), paused: false, closing: false, authorized: true }
   const handlers = new Map<string, (payload: never) => void>()
   const delivered: { sessionId: string; requestId: string; text: string }[] = []
   const pending: { commit: () => void }[] = []
@@ -53,7 +53,7 @@ function setup() {
     health: { set: vi.fn(), get: vi.fn(() => undefined) },
     machine: { stateDir: '/tmp' }, lifetime: new AbortController().signal,
     sessions, closing: () => state.closing, paused: () => state.paused,
-    environment: () => [], sourceLink: vi.fn(), repliedTo: vi.fn(),
+    authorized: () => state.authorized, environment: () => [], sourceLink: vi.fn(), repliedTo: vi.fn(),
   }
   const executor = new DshExecutor(host as never)
   executor.install()
@@ -146,4 +146,30 @@ it('reports a failed delivery of an authorized retry on the ticket', async () =>
   h.pending.at(-1)!.commit()
   await vi.advanceTimersByTimeAsync(0)
   expect(h.engine.report).toHaveBeenCalledWith('t1', expect.objectContaining({ state: 'failed' }))
+})
+
+it('discards retry when current permissions are withdrawn during delivery', async () => {
+  vi.useFakeTimers()
+  const h = setup(); h.transientError()
+  await vi.advanceTimersByTimeAsync(BACKOFF_MS)
+  h.state.authorized = false
+  h.pending.at(-1)!.commit()
+  await vi.advanceTimersByTimeAsync(0)
+  expect(h.delivered).toHaveLength(0)
+  expect(h.engine.report).not.toHaveBeenCalled()
+})
+it('does not start a retry after permissions lapse during backoff', async () => {
+  vi.useFakeTimers()
+  const h = setup(); h.transientError(); h.state.authorized = false
+  await vi.advanceTimersByTimeAsync(BACKOFF_MS)
+  expect(h.sessions.prompt).not.toHaveBeenCalled()
+})
+it('discards an in-flight retry on shutdown/restart', async () => {
+  vi.useFakeTimers()
+  const h = setup(); h.transientError()
+  await vi.advanceTimersByTimeAsync(BACKOFF_MS)
+  h.state.closing = true; h.pending.at(-1)!.commit()
+  await vi.advanceTimersByTimeAsync(0)
+  expect(h.delivered).toHaveLength(0)
+  expect(h.engine.report).not.toHaveBeenCalled()
 })

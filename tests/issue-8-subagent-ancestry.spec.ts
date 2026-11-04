@@ -107,3 +107,20 @@ it('never touches independently created Sessions or their subagents', () => {
   ctx.emit('agent/created', { agent: masterChild.agent } as never)
   expect(masterChild.restrict).not.toHaveBeenCalled()
 })
+
+it('does not restrict an independent user child just because its parent is unloaded', () => {
+  const { ctx } = harness()
+  const child = fakeAgent('independent-child', 'unloaded-independent-parent')
+  ctx.emit('agent/created', { agent: child.agent } as never)
+  expect(child.restrict).not.toHaveBeenCalled()
+  expect(child.guard).not.toHaveBeenCalled()
+})
+it('does not restrict an unrelated independently rooted deep chain', () => {
+  const { ctx, agents } = harness()
+  agents.set('user-root', fakeAgent('user-root').agent)
+  let parent = 'user-root'
+  for (let i = 0; i < 100; i++) { const id = `user-${i}`; agents.set(id, fakeAgent(id, parent).agent); parent = id }
+  const child = fakeAgent('independent-deep', parent)
+  ctx.emit('agent/created', { agent: child.agent } as never)
+  expect(child.restrict).not.toHaveBeenCalled()
+})
