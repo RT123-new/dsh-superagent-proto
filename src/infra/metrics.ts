@@ -14,7 +14,7 @@
 export const STAGES = [
   'source_to_eval_queue', 'eval_queue_wait', 'eval_run', 'decision_to_assignment', 'slot_wait', 'workspace_prepare',
   'delivery_to_worker', 'worker_turn', 'tool_run', 'report_to_response', 'effect_queue_wait', 'effect_run',
-  'trigger_intake', 'effect_schedule_lateness', 'effect_total_age', 'assessment_card_delivery', 'command_run',
+  'trigger_intake', 'effect_schedule_lateness', 'effect_total_age', 'assessment_card_delivery', 'command_run', 'trigger_to_eval_start', 'assignment_launch', 'ticket_lifetime', 'model_call',
 ] as const
 export type Stage = (typeof STAGES)[number]
 export const SOURCES = ['github', 'feishu', 'internal', 'other'] as const

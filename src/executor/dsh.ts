@@ -20,6 +20,7 @@ import type { HealthEntry } from '../infra/health.ts'
 import { cancelled, collectJob, killJobs, runningJobs, stopBackground, stopSubagents, until, untilQuiet } from './background.ts'
 import { preparationIdentity, readPreparation, writePreparation, type PreparationRecord } from './workspace.ts'
 import { Probe as ProbeImpl, type Probe } from '../infra/metrics-probe.ts'
+import { SessionTimeline } from '../infra/metrics-lifecycle.ts'
 import { PreparationQuiescenceUnknown, runPreparationCommand } from './preparation-command.ts'
 
 const now = (): string => new Date().toISOString()
@@ -235,6 +236,9 @@ export class DshExecutor implements Executor {
   private readonly disposers: (() => void)[] = []
   private readonly slots: WorkerSlots
   private readonly probe: Probe
+  private readonly timeline: SessionTimeline
+  /** Local monotonic stamps of the first queued delivery per ticket, until its Inputs are delivered; unobserved after a restart. */
+  private readonly deliveryQueued = new Map<string, number>()
   /** Transient failure counts tried so far: keyed by `assignment.id` for worker turns and `launch:<assignment.id>` for launches. */
   private readonly transient = new Map<string, number>()
   /** Assignment IDs currently waiting on a transient-failure backoff timer before resuming their worker turn. */
@@ -261,6 +265,7 @@ export class DshExecutor implements Executor {
   /** Registers the `launch` and `delivery` effect handlers; both are held (concurrency limit 0) while processing is paused. */
   constructor(private readonly host: ExecutorHost) {
     this.probe = host.probe ?? new ProbeImpl(undefined)
+    this.timeline = new SessionTimeline(this.probe, () => performance.now())
     this.slots = new WorkerSlots(() => host.store.tickets.open().filter(ticket => this.running(ticket)).map(ticket => ticket.id),
       () => host.store.settings().executor.maxWorkers)
     this.sampleSlots()
@@ -357,7 +362,9 @@ export class DshExecutor implements Executor {
     this.host.effects.enqueue('launch', assignment.id, { ticketId: ticket.id, assignmentId: assignment.id })
   }
   /** Enqueues a `delivery` effect to steer pending inputs into `ticket`'s running worker session. */
-  deliver(ticket: Ticket, _assignment: Assignment): void { this.host.effects.enqueue('delivery', ticket.id, { ticketId: ticket.id }) }
+  deliver(ticket: Ticket, _assignment: Assignment): void {
+    if (this.probe.enabled && !this.deliveryQueued.has(ticket.id)) { if (this.deliveryQueued.size >= 5000) this.deliveryQueued.delete(this.deliveryQueued.keys().next().value!); this.deliveryQueued.set(ticket.id, performance.now()) }
+    this.host.effects.enqueue('delivery', ticket.id, { ticketId: ticket.id }) }
   /** Launches a queued assignment unless its ticket ended or a newer assignment replaced it meanwhile. */
   private async launchQueued({ ticketId, assignmentId }: { ticketId: string; assignmentId: string }): Promise<void> {
     const ticket = this.host.store.tickets.get(ticketId)
@@ -414,6 +421,9 @@ export class DshExecutor implements Executor {
           throw error
         }
         this.host.engine.inputsDelivered(ticketId, assignment.id, [inputId])
+        // Queued delivery to the worker Session's acknowledged hand-over; not the start of a model call.
+        const queuedAt = this.deliveryQueued.get(ticketId)
+        if (queuedAt !== undefined) { this.deliveryQueued.delete(ticketId); this.probe.observe('delivery_to_worker', 'internal', Math.max(0, performance.now() - queuedAt)) }
       }
     } finally { if (woken) { this.slots.free(ticketId); this.sampleSlots() } }
   }
@@ -619,6 +629,7 @@ export class DshExecutor implements Executor {
     // history: a step that claimed it may be cancelled or fail before, which drops it.
     this.disposers.push(ctx.on('session/event', (session, event) => {
       const ticketId = ticketOfSession(session.id)
+      if (ticketId !== undefined && this.probe.enabled) this.timeline.observe(session.id, event as never)
       if (event.type !== 'user/message' || ticketId === undefined || event.data.source.kind !== 'dsh-superagent' || this.host.closing()) return
       const message = event.data
       void this.background(Promise.resolve().then(() => {

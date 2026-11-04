@@ -361,6 +361,8 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/infra/paths.ts` | The package's root, where packaged files are |
 | `src/infra/text.ts` | Word counts and the chat message limit, `fill` and `sameName` |
 | `src/infra/health.ts` | The `HealthBoard`, every part's health entry, each claimed by its one writer |
+| `src/infra/metrics-lifecycle.ts` | Stage durations derived from Engine domain events and worker Session events, with bounded pending state |
+| `src/infra/metrics-process.ts` | Process-wide CPU and memory read at snapshot time |
 | `src/infra/metrics-probe.ts` | The failure-isolated optional `Probe` that production hooks record through, never changing effect control flow |
 | `src/infra/metrics.ts` | The bounded Stage C `Metrics` collector: stage durations with nearest-rank quantiles, slot-state integrals, queue depth and oldest age, token and cost categories (not yet hooked into production code) |
 | `src/sources/kind.ts` | The `SourceKind` protocol |
@@ -435,6 +437,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/issue-9-adversarial.spec.ts` | Independent metric reconciliation, validation, bounds and snapshot tests |
 | `tests/issue-9-hooks-adversarial.spec.ts` | Independent production metric hook boundaries and isolation tests. |
 | `tests/issue-9-coverage-review.spec.ts` | Independent card-delivery and command hook semantics. |
+| `tests/issue-9-lifecycle.spec.ts` | The lifecycle timelines: durations between observed events, failures kept apart, unmatched starts never guessed |
 | `tests/issue-9-hooks.spec.ts` | The metrics hooks: failure isolation, disjoint slot states, effect timings, intake timing and usage attribution |
 | `tests/issue-9-metrics.spec.ts` | The metrics collector's quantiles, bounded labels, monotonic timing, slot integrals, queue gauge and unknown-stays-unknown token accounting |
 | `tests/delivery.spec.ts` | `AgentDelivery` |

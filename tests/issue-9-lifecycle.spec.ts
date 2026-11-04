@@ -1,0 +1,87 @@
+/** Issue 9 lifecycle timelines: durations between observed events, failures apart from successes, unmatched starts never guessed. */
+import { beforeEach, expect, it } from 'vitest'
+import { Metrics } from '../src/infra/metrics.ts'
+import { Probe } from '../src/infra/metrics-probe.ts'
+import { DomainTimeline, SessionTimeline } from '../src/infra/metrics-lifecycle.ts'
+import { processUsage } from '../src/infra/metrics-process.ts'
+import type { DomainEvent } from '../src/core/ports.ts'
+
+let mono: number
+let metrics: Metrics
+let probe: Probe
+beforeEach(() => { mono = 0; metrics = new Metrics({ mono: () => mono }); probe = new Probe(metrics) })
+const at = '2026-11-04T00:00:00.000Z'
+const ev = (type: string, data: Record<string, unknown>) => ({ type, at, data }) as unknown as DomainEvent
+const dur = (key: string) => metrics.snapshot().durations[key]
+const failed = (key: string) => metrics.snapshot().failedDurations[key]
+
+it('DomainTimeline measures trigger to evaluation, evaluation, decision to ticket, launch and ticket lifetime from observed events', () => {
+  const t = new DomainTimeline(probe, () => mono)
+  t.observe(ev('trigger.received', { triggerId: 't1', threads: [] })); mono += 5
+  t.observe(ev('eval.started', { evalId: 'e1', threadKey: 'th', triggerIds: ['t1'], strength: 'weak' })); mono += 20
+  t.observe(ev('decision.recorded', { decisionId: 'd1', kind: 'accept', threadKey: 'th' })); mono += 3
+  t.observe(ev('ticket.created', { ticketId: 'k1', decisionId: 'd1', strength: 'weak' })); mono += 40
+  t.observe(ev('assignment.started', { ticketId: 'k1', assignmentId: 'a1' })); mono += 100
+  t.observe(ev('ticket.ended', { ticketId: 'k1', by: 'worker', outcome: 'merged' }))
+  expect(dur('trigger_to_eval_start|internal')?.maxMs).toBe(5)
+  expect(dur('eval_run|internal')?.maxMs).toBe(20)
+  expect(dur('decision_to_assignment|internal')?.maxMs).toBe(3)
+  expect(dur('assignment_launch|internal')?.maxMs).toBe(40)
+  expect(dur('ticket_lifetime|internal')?.maxMs).toBe(140)
+  const c = metrics.snapshot().counters
+  expect([c.ticket_created, c.decision_accept, c.ticket_outcome_merged]).toEqual([1, 1, 1])
+})
+
+it('a start that was never observed records nothing and is counted, not guessed as zero', () => {
+  const t = new DomainTimeline(probe, () => mono)
+  t.observe(ev('assignment.started', { ticketId: 'old', assignmentId: 'a' }))
+  t.observe(ev('decision.recorded', { decisionId: 'd', kind: 'ignore', threadKey: 'never-started' }))
+  expect(metrics.snapshot().durations).toEqual({})
+  expect(metrics.snapshot().counters.lifecycle_unmatched).toBe(2)
+})
+
+it('pending state is bounded: the oldest unmatched entry drops and is counted', () => {
+  const t = new DomainTimeline(probe, () => mono, 3)
+  for (let i = 0; i < 10; i++) t.observe(ev('trigger.received', { triggerId: `t${i}`, threads: [] }))
+  expect(metrics.snapshot().counters.lifecycle_dropped).toBe(7)
+})
+
+it('DomainTimeline never throws on a malformed event', () => {
+  const t = new DomainTimeline(probe, () => mono)
+  expect(() => t.observe({ type: 'eval.started', at, data: {} } as unknown as DomainEvent)).not.toThrow()
+  expect(metrics.snapshot().counters.metrics_error).toBe(1)
+})
+
+it('SessionTimeline times turn, model call and tool call; failures go to the failure series', () => {
+  const s = new SessionTimeline(probe, () => mono)
+  s.observe('w1', { type: 'turn/start', data: { turn: 1 } }); mono += 1
+  s.observe('w1', { type: 'step/start', data: { turn: 1, step: 1 } }); mono += 30
+  s.observe('w1', { type: 'assistant/message', data: { turn: 1, step: 1 } })
+  s.observe('w1', { type: 'tool/call', data: { turn: 1, step: 1, callId: 'c1' } }); mono += 7
+  s.observe('w1', { type: 'tool/result', data: { turn: 1, step: 1, message: { toolCallId: 'c1' } } })
+  s.observe('w1', { type: 'tool/call', data: { turn: 1, step: 1, callId: 'c2' } }); mono += 2
+  s.observe('w1', { type: 'tool/result', data: { turn: 1, step: 1, message: { toolCallId: 'c2', isError: true } } })
+  s.observe('w1', { type: 'step/start', data: { turn: 1, step: 2 } }); mono += 4
+  s.observe('w1', { type: 'assistant/attempt', data: { turn: 1, step: 2 } }); mono += 1
+  s.observe('w1', { type: 'turn/end', data: { turn: 1, reason: { kind: 'aborted' } } })
+  expect(dur('model_call|internal')).toMatchObject({ count: 1, maxMs: 30 })
+  expect(failed('model_call|internal')).toMatchObject({ count: 1, maxMs: 4 })
+  expect(dur('tool_run|internal')).toMatchObject({ count: 1, maxMs: 7 })
+  expect(failed('tool_run|internal')).toMatchObject({ count: 1, maxMs: 2 })
+  expect(dur('worker_turn|internal')).toBeUndefined()
+  expect(failed('worker_turn|internal')).toMatchObject({ count: 1, maxMs: 45 })
+})
+
+it('SessionTimeline keeps sessions apart and ignores a result with no observed call', () => {
+  const s = new SessionTimeline(probe, () => mono)
+  s.observe('a', { type: 'turn/start', data: { turn: 1 } }); mono += 5
+  s.observe('b', { type: 'turn/end', data: { turn: 1, reason: { kind: 'completed' } } })
+  s.observe('a', { type: 'tool/result', data: { message: { toolCallId: 'x' } } })
+  expect(dur('worker_turn|internal')).toBeUndefined()
+  expect(metrics.snapshot().counters.lifecycle_unmatched).toBe(2)
+})
+
+it('processUsage reports process-scoped CPU and memory', () => {
+  const p = processUsage()
+  expect(p.scope).toBe('process'); expect(p.cpuUserMicros).toBeGreaterThan(0); expect(p.rssBytes).toBeGreaterThan(0); expect(p.heapUsedBytes).toBeGreaterThan(0)
+})

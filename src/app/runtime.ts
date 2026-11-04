@@ -30,6 +30,8 @@ import { TextCache } from './cache.ts'
 import { Effects } from './effects.ts'
 import { Metrics, type MetricsSnapshot } from '../infra/metrics.ts'
 import { Probe, type MetricsLike } from '../infra/metrics-probe.ts'
+import { DomainTimeline } from '../infra/metrics-lifecycle.ts'
+import { processUsage, type ProcessUsage } from '../infra/metrics-process.ts'
 import { Prompts } from './prompts.ts'
 import { registerHttp, type HttpHost } from './http.ts'
 import type { LinkTarget } from './views/records.ts'
@@ -139,11 +141,13 @@ export class Runtime extends Service implements SourceHost {
       this.assessor = new MasterAssessor({ get engine() { return runtime.engine }, commands, get deployment() { return setup.deployment }, effects,
         settings: () => store.settings(), paused: () => this.paused(), probe, threadContext: trigger => sources.threadContext(trigger),
         deliver: (id, text) => sessions.prompt(masterId, id, text, 'steer'), candidateCard: candidate => candidateCard(links, candidate) })
-      const outbox = this.outbox = new Outbox({ store, effects, sources, commands, paused: () => this.paused() })
+      const outbox = this.outbox = new Outbox({ store, effects, sources, commands, paused: () => this.paused(), probe })
       const { assessor, executor } = this
       const policy = () => settingsPolicy(store.settings(), sources)
+      const timeline = new DomainTimeline(probe, () => (this.metrics?.mono ?? performance.now.bind(performance))())
       const engine = this.engine = new Engine({ repo: store, scope: sources, policy, assessor, executor,
         outbox, prepareTicket: (ticket, outcome) => executor.prepare(ticket, outcome), emit: event => {
+          timeline.observe(event)
           // Notify the main Session only about domain events it did not initiate itself.
           const notice = this.quiet ? undefined : eventNotice(event, id => store.tickets.get(id))
           if (notice) sessions.notify(...notice)
@@ -179,9 +183,9 @@ export class Runtime extends Service implements SourceHost {
     }
   }
   /** A point-in-time metrics snapshot, or undefined when instrumentation is off. Reconciles authoritative queue lengths just before reading. */
-  metricsSnapshot(): MetricsSnapshot | undefined {
+  metricsSnapshot(): (MetricsSnapshot & { process: ProcessUsage }) | undefined {
     if (!this.metrics) return undefined
-    try { this.effects.measure(); return this.metrics.snapshot() }
+    try { this.effects.measure(); return { ...this.metrics.snapshot(), process: processUsage() } }
     catch { this.probe.count('metrics_error'); return undefined }
   }
   get health(): Readonly<Record<string, Health>> { return this.board.all }
