@@ -1896,6 +1896,24 @@ it('final review 2.2: stopping a ticket drops the worker Session privilege, whic
   expect(presets.mock.calls).toContainEqual([agent.session, 'workspace-write'])
 }, 20000)
 
+it('final review 2.2: a restart reconciles persisted assignments before passes or effects start, so no intake is processed before reconciliation', async () => {
+  const { ticket } = await acceptedTicket()
+  await runtime.idle()
+  const order: string[] = []
+  const resume = DshExecutor.prototype.resume, effectsStart = Effects.prototype.start, passesStart = Passes.prototype.start
+  vi.spyOn(DshExecutor.prototype, 'resume').mockImplementation(function (this: DshExecutor) { order.push('resume'); return resume.call(this) })
+  vi.spyOn(Passes.prototype, 'start').mockImplementation(function (this: Passes) { order.push('passes'); return passesStart.call(this) })
+  vi.spyOn(Effects.prototype, 'start').mockImplementation(function (this: Effects) { order.push('effects'); return effectsStart.call(this) })
+  await restart()
+  await runtime.ready
+  expect(order).toEqual(['resume', 'passes', 'effects'])
+  // Source kinds are registered by plugins after startup; the reconciled replacement launch waits for that gate, then runs.
+  unregisterFeishu = runtime.sources.register(feishuKind); runtime.sources.register(githubKind)
+  await runtime.idle()
+  // The assignment that was running when the host stopped was reconciled, not left running beside new work.
+  expect(runtime.store.tickets.get(ticket.id)!.assignments[0]).toMatchObject({ state: 'ended', endedAt: expect.any(String) })
+}, 30000)
+
 it('final review 2.2: a requester removed from the allowed list cannot get a recreated worker Session granted danger-full-access', async () => {
   const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
   const { ticket, sessionId } = await acceptedTicket()
