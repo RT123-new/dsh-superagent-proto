@@ -20,3 +20,10 @@ Ledger convention: conservative — every call is logged at PEAK rates when the 
 | 1 | 2026-11-04 06:30 (peak) | Direct API probe: key + model verification, "Reply with exactly: ok", max_tokens 16 | deepseek-flash | 35 (0 hit / 35 miss) | 12 (10 reasoning) | $0.0001 (peak assumed: 35×$0.30/M + 12×$1.20/M = $0.0000249, rounded up) | $0.0001 |
 
 Probe evidence: reports/evidence/probe-001-deepseek-flash.json (HTTP 200, 1265 ms). /models listing (free) confirmed deepseek-flash + deepseek-v4-pro available on the key. Probe type: DIRECT PROVIDER PROBE, not end-to-end harness validation.
+
+## Allocation state (2026-11-04 06:51 UTC)
+
+- Spent, conservative: $0.0001.
+- Conditional live-integration worker allocation: $1.00 TOTAL, including retries/failures. Activation requires exact rates/context reservation verification, affordable workload confirmation, and reviewed correctness baseline. All other paid calls frozen.
+- Unallocated conservative reserve: $3.9999. Allocation is not spend and may be released when the worker closes its ledger.
+- Unknown usage preserves the full pre-call reservation and stops the worker. No automatic retry after unknown usage. Per-call reservations and actual usage must be reconciled into this ledger before expanding the allocation.

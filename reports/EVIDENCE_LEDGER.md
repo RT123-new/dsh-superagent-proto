@@ -27,3 +27,5 @@ Classifications: CONFIRMED / SOURCE-SUPPORTED / HYPOTHESIS / REFUTED / NOT TESTE
 - No additional paid calls. Conservative cumulative live spend $0.0001 /$5; direct probe only, not end-to-end model validation.
 
 - 3938e19: all original correctness +independent review repairs integrated. `pnpm check` PASS1315/1315 tests72files +typecheck/build. Ensure-decoration independent review still pending; scoped Issue5/8 gaps remain. Raw log: reports/evidence/integration/all-safety-check.log.
+
+- 3f1a8cf: independent ensure-decoration review integrated. Three new races independently red at f32c506; four reviewer regressions green after repair. Full `pnpm check` PASS1319/1319 tests73files +typecheck/build. Raw logs: reports/evidence/integration/ensure-review-red.log and stage-b-final-check.log. Reviewed correctness baseline tag: reviewed/correctness-stage-b. This is a bounded Stage B checkpoint, not full programme acceptance.
