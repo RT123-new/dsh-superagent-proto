@@ -138,18 +138,28 @@ export class QueueGauge {
     this.live.delete(id)
     return Math.max(0, this.mono() - at)
   }
-  /** Supply the authoritative current queue length from the owning queue (read time). */
+  /**
+   * Supply the authoritative current queue length from the owning queue at read time. The authoritative value always wins:
+   * - n === 0: every tracked id is stale (the owner has nothing queued); they are cleared and the gauge is complete.
+   * - n === tracked count: nothing untracked exists; complete.
+   * - n > tracked count: the excess is untracked; `depth` is n, incomplete.
+   * - 0 < n < tracked count: some tracked ids are stale and which ones is unknown; `depth` is n, incomplete, and the oldest age is unknown (null).
+   */
   reconcile(authoritativeLength: number): void {
     if (!Number.isInteger(authoritativeLength) || authoritativeLength < 0) throw new RangeError('authoritative length must be a non-negative integer')
-    if (authoritativeLength === this.live.size) { this.incomplete_ = false; this.authoritative = undefined } else if (this.incomplete_ || authoritativeLength > this.live.size) { this.incomplete_ = true; this.authoritative = authoritativeLength } else { this.authoritative = authoritativeLength }
+    const n = authoritativeLength
+    if (n === 0) { this.live.clear(); this.incomplete_ = false; this.authoritative = undefined; return }
+    if (n === this.live.size) { this.incomplete_ = false; this.authoritative = undefined; return }
+    this.incomplete_ = true; this.authoritative = n
   }
   get trackedDepth(): number { return this.live.size }
   /** Exact only when `complete` or after reconcile(n); otherwise a lower bound equal to the tracked count. */
-  get depth(): number { return this.authoritative !== undefined ? Math.max(this.authoritative, this.live.size) : this.live.size }
+  get depth(): number { return this.authoritative !== undefined ? this.authoritative : this.live.size }
   get complete(): boolean { return !this.incomplete_ && this.authoritative === undefined }
   get dropped(): number { return this.dropped_ }
   /** Oldest tracked age; null when nothing tracked. When not complete this is only the oldest TRACKED item. */
   oldestAgeMs(): number | null {
+    if (this.authoritative !== undefined && this.authoritative < this.live.size) return null
     for (const at of this.live.values()) return Math.max(0, this.mono() - at)
     return null
   }
