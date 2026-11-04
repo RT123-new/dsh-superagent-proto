@@ -14,7 +14,7 @@ const translate = (dict: typeof en): T => ((key: keyof typeof en) => dict[key] ?
 const roots: ReturnType<typeof createRoot>[] = []
 afterEach(() => { act(() => { for (const root of roots.splice(0)) root.unmount() }); document.body.innerHTML = '' })
 
-it('M4: nearest-rank P50/P95 equal the exact integer ceil(p*n/100) for every window size', () => {
+it('M4: nearest-rank P50/P95 equal the exact integer ceil(p*n/100), exhaustively for n<=2000 with exact n=9999/10000 boundary checks', () => {
   const bad: string[] = []
   // Exhaustive to 2,000 keeps the unit budget (the 10,000 sweep is ~100M element writes and timed out on a loaded
   // CI runner); exact boundary spot checks keep large windows honest.

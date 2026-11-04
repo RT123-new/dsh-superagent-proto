@@ -53,7 +53,8 @@ jobs:
             tested-sha.txt
           retention-days: 30
   stage-d:
-    # Opt-in destructive/experiment suites (separate config); never part of the mandatory gate above.
+    # Stage D experiment suites under a separate vitest config. This job is UNCONDITIONAL and mandatory like the
+    # test job above; only the suites and config are separate.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
