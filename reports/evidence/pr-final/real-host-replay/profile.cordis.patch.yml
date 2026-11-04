@@ -1,0 +1,9 @@
+- id: webserver
+  config:
+    host: 127.0.0.1
+    port: 3991
+- id: dsh-superagent
+  config:
+    stateDir: /tmp/dshstate2
+- id: dsh-superagent-feishu
+  disabled: false

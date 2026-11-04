@@ -1,0 +1,8 @@
+#!/bin/sh
+echo "$(date +%T) $*" >> /tmp/shim/calls.log
+case "$*" in
+  "api user") echo '{"id":1,"login":"agent-bot"}';;
+  api\ repos/*--jq*) echo '{"name":"acme/widgets","push":true}';;
+  *--paginate*) echo '[[]]';;
+  *) echo '{}';;
+esac

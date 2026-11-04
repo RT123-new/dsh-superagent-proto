@@ -1,0 +1,4 @@
+2026-11-04T10:12:25.176Z overlay active
+2026-11-04T10:12:25.593Z permissionPresets.set orchestrator-b4e84a551ed3d9b2ea8419015374f113 danger-full-access
+2026-11-04T10:12:25.716Z permissionPresets.set worker-4b8237a16a740d782c5faecd6090e877 danger-full-access
+2026-11-04T10:12:25.773Z llm/stream requested
