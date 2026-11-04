@@ -71,6 +71,8 @@ export interface SettingsHost {
   readonly setup: Pick<Setup, 'configured' | 'checkAccounts' | 'blockCommands' | 'restart'>
   /** Triggers an immediate pass so work newly allowed by a settings save runs right away. */
   requestPass(): void
+  /** Samples slot capacity immediately after a committed executor settings change. */
+  executorChanged?(): void
 }
 
 /**
@@ -184,6 +186,7 @@ export class Settings {
       if (origin !== 'tool') sessions.notify(...settingsNotice(block, changedPaths(old, settings), store.blockRevision(block)))
       if (before !== after) engine.policyChanged(before, after, effects)
     })
+    if (old.executor.maxWorkers !== settings.executor.maxWorkers) this.host.executorChanged?.()
     // Rewrite worker command shims immediately when `blockedCommands` changes.
     const blocked = settings.executor.blockedCommands
     const changed = blocked.join(' ') !== old.executor.blockedCommands.join(' ')
