@@ -55,8 +55,8 @@ export interface HttpHost {
   requestPass(): void
   /** A point-in-time metrics snapshot, or undefined when instrumentation is off or not wired. */
   metricsSnapshot?(): MetricsSnapshot | undefined
-  /** Optional: distinguishes instrumentation off from a failed snapshot. Hosts without it report `ok` when a snapshot exists, else `off`. */
-  metricsReading?(): { state: 'off' } | { state: 'failed' } | { state: 'ok'; snapshot: MetricsSnapshot }
+  /** Optional: state of the latest metricsSnapshot() read, to explain a missing snapshot without a second read. */
+  metricsState?(): 'off' | 'ok' | 'failed'
   models(): Promise<ModelCatalog>
 }
 /**
@@ -154,12 +154,12 @@ const SettingsBlockSchema = z.union([z.enum(['policy', 'eval', 'executor']), Sou
 const SaveRequest = z.object({ value: z.unknown(), revision: z.number().int().nonnegative() })
 
 function metricsFields(runtime: HttpHost): { metrics?: MetricsSnapshot; metricsState: 'off' | 'ok' | 'failed' } {
-  // metricsSnapshot stays authoritative (hosts may override it); metricsReading is consulted only to explain a missing snapshot.
+  // Exactly one read per request: metricsSnapshot() is authoritative (hosts may override it). A missing snapshot is explained by
+  // the state that same read recorded; a state of 'ok' without a snapshot (an override returned nothing) is reported as 'off'.
   const metrics = runtime.metricsSnapshot?.()
   if (metrics) return { metrics, metricsState: 'ok' }
-  const reading = runtime.metricsReading?.()
-  if (reading?.state === 'ok') return { metrics: reading.snapshot, metricsState: 'ok' }
-  return { metricsState: reading?.state ?? 'off' }
+  const state = runtime.metricsState?.() ?? 'off'
+  return { metricsState: state === 'failed' ? 'failed' : 'off' }
 }
 function routes(runtime: HttpHost): Routes {
   const { store } = runtime
