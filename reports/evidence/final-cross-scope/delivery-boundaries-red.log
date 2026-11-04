@@ -1,0 +1,55 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/ensure-review/repo[39m
+
+(node:8561) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [31m❯[39m tests/final-cross-scope-review.spec.ts [2m([22m[2m2 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 150[2mms[22m[39m
+[31m   [31m×[31m pause engaged while ordinary delivery resolves the worker prevents inbox commit[39m[32m 95[2mms[22m[39m
+[31m   [31m×[31m recreation of an externally deleted worker uses assignment cancellation guard too[39m[32m 54[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/final-cross-scope-review.spec.ts[2m > [22mpause engaged while ordinary delivery resolves the worker prevents inbox commit
+[31m[1mAssertionError[22m: expected [ [ { …(4) } ] ] to have a length of +0 but got 1[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 1[39m
+
+[36m [2m❯[22m tests/final-cross-scope-review.spec.ts:[2m17:91[22m[39m
+    [90m 15|[39m  [35mconst[39m before[33m=[39mh[33m.[39mdeliveries[33m.[39mmock[33m.[39mcalls[33m.[39mlength
+    [90m 16|[39m  release[33m.[39m[34mresolve[39m()[33m;[39m[35mawait[39m h[33m.[39mruntime[33m.[39m[34midle[39m()
+    [90m 17|[39m  expect(h.deliveries.mock.calls.slice(before).filter(([x])=>x.sessionI…
+    [90m   |[39m                                                                                           [31m^[39m
+    [90m 18|[39m  expect(h.runtime.store.tickets.get(one.ticket.id)!.undelivered.length…
+    [90m 19|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/final-cross-scope-review.spec.ts[2m > [22mrecreation of an externally deleted worker uses assignment cancellation guard too
+[31m[1mAssertionError[22m: expected [ [ { …(3) } ] ] to have a length of +0 but got 1[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 1[39m
+
+[36m [2m❯[22m tests/final-cross-scope-review.spec.ts:[2m31:98[22m[39m
+    [90m 29|[39m  [35mconst[39m before[33m=[39mh[33m.[39mcontroller[33m.[39mcreate[33m.[39mmock[33m.[39mcalls[33m.[39mlength
+    [90m 30|[39m  release[33m.[39m[34mresolve[39m()[33m;[39m[35mawait[39m h[33m.[39mruntime[33m.[39m[34midle[39m()
+    [90m 31|[39m  expect(h.controller.create.mock.calls.slice(before).filter(([x])=>x.s…
+    [90m   |[39m                                                                                                  [31m^[39m
+    [90m 32|[39m })
+    [90m 33|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m   Start at [22m 07:33:49
+[2m   Duration [22m 975ms[2m (transform 551ms, setup 0ms, import 733ms, tests 150ms, environment 0ms)[22m
+
