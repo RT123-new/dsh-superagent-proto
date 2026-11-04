@@ -107,6 +107,8 @@ export interface Repositories {
   atomic<T>(work: () => T): T
   triggers: {
     get(id: string): Trigger | undefined
+    /** Optional: the id belonged to a Trigger that was archived and pruned; Intake treats it as a duplicate. */
+    retired?(id: string): boolean
     save(trigger: Trigger): void
     disposition(id: string): import('./model.ts').TriggerDisposition | undefined
     saveDisposition(id: string, value: import('./model.ts').TriggerDisposition): void

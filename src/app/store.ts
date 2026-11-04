@@ -9,6 +9,7 @@ import { SettingsSchema, type Settings, type SettingsOrigin, type SettingsSave }
 import { OLDEST_SCHEMA, SCHEMA_VERSION, migrateTo11, tooOld } from './migration.ts'
 import { Versions } from './versions.ts'
 import { storeReads } from './store-read.ts'
+import { Retention } from './retention.ts'
 
 /** A Trigger's position on its thread timeline, ordered by timestamp and then `id` as tie-breaker. */
 export interface TimelinePlace { at: string; id: string }
@@ -85,6 +86,7 @@ export class Store implements Repositories {
               since TEXT NOT NULL, PRIMARY KEY (kind, key));
             CREATE INDEX IF NOT EXISTS trigger_at ON trigger(at);
             CREATE INDEX IF NOT EXISTS trigger_thread_at ON trigger_thread(thread, at);
+            CREATE INDEX IF NOT EXISTS trigger_thread_id ON trigger_thread(id);
             CREATE INDEX IF NOT EXISTS decision_thread ON decision(thread);
             CREATE INDEX IF NOT EXISTS effect_due ON effect(kind, due, seq);
             CREATE TABLE IF NOT EXISTS decision_trigger (trigger TEXT NOT NULL, decision TEXT NOT NULL, PRIMARY KEY (trigger, decision)) WITHOUT ROWID;
@@ -93,6 +95,7 @@ export class Store implements Repositories {
           // Keep the derived index correct for every writer, including direct SQL/imports and older clients.
           // Index by decision as well: updates/deletes must not scan all historical trigger links.
           this.db.exec(`
+            CREATE TABLE IF NOT EXISTS trigger_tombstone (id TEXT PRIMARY KEY, at TEXT NOT NULL, source TEXT, archived_at TEXT NOT NULL) WITHOUT ROWID;
             CREATE INDEX IF NOT EXISTS decision_trigger_decision ON decision_trigger(decision);
             CREATE TRIGGER IF NOT EXISTS decision_link_insert_v1 AFTER INSERT ON decision BEGIN
               DELETE FROM decision_trigger WHERE decision = new.id;
@@ -223,7 +226,11 @@ export class Store implements Repositories {
   /** Saved settings revisions, newest first; revisions predating settings history are absent. */
   settingsHistory(limit = 20): SettingsVersion[] { return this.settingsVersions.list(limit) }
 
+  /** Opt-in retention; never invoked by the runtime. */
+  readonly retention = new Retention(this)
   readonly triggers = {
+    /** True when the Trigger was pruned by `Retention`: its id stays known so a replayed event is a duplicate, not new work. */
+    retired: (id: string): boolean => this.db.prepare('SELECT 1 FROM trigger_tombstone WHERE id=?').get(id) !== undefined,
     get: (id: string): Trigger | undefined => { const row = this.db.prepare('SELECT value FROM trigger WHERE id=?').get(id); return row ? JSON.parse(String(row.value)) as Trigger : undefined },
     save: (trigger: Trigger): void => this.atomic(() => {
       this.db.prepare('INSERT INTO trigger VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET value=excluded.value, at=excluded.at').run(trigger.id, JSON.stringify(trigger), trigger.at)

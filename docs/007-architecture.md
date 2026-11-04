@@ -320,6 +320,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/app/notices.ts` | The main Session's notices and relays: `eventNotice`, `reportRelay`, `resultRelay` and `followupRelay` |
 | `src/app/store.ts` | The Store, and `Receipt`, a message of the outbox |
 | `src/app/store-read.ts` | `storeReads`: the Store's read queries for the views, the tools and the Sources' polls, which never write |
+| `src/app/retention.ts` | `Retention`: opt-in archive-then-prune of old Triggers with tombstones, and restore |
 | `src/app/migration.ts` | The schema 11 migration: one step from schema 10 that writes every stored record in its current shape |
 | `src/app/effects.ts` | Effects |
 | `src/app/versions.ts` | `Versions`: a record kept as numbered snapshots with a pointer to the current one, for the settings and the prompts |
@@ -452,6 +453,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/issue-24-repository-scope.spec.ts` | Foreign same-number URL isolation through candidate cards, local shorthand and one-repository identity limits |
 | `tests/issue-20-adversarial.spec.ts` | Independent decision-link index, SQL-write, migration, rollback, reopen and process-kill proofs |
 | `tests/issue-19-20-storage.spec.ts` | Windowed triggerStats/flow equal the previous full-scan queries; decision link rebuild; index-range plans |
+| `tests/issue-19-retention.spec.ts` | Opt-in retention: eligibility, archive-before-delete, tombstone dedupe, restore, backup and SIGKILL safety |
 | `tests/issue-4-5-adversarial.spec.ts` | Independent regressions for legacy/corrupt state, cancellation during verification, config-change races and descendant quiescence |
 | `tests/issue-4-workspace-preparation.spec.ts` | Workspace preparation state: retries after failed and interrupted preparations, configuration invalidation, fail-closed legacy migration, timeout |
 | `tests/issue-5-preparation-cancellation.spec.ts` | Cancellation of a launch at every asynchronous boundary, and the settle a replacement Assignment waits for |
