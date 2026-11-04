@@ -1,0 +1,5 @@
+(node:30428) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+PROBE 2026-11-04T10:50:47.736Z pid=30428 sources.register feishu
+dsh web: http://127.0.0.1:3991/?token=REDACTED
+Killed

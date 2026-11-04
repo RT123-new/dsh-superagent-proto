@@ -1,0 +1,5 @@
+2026-11-04T10:53:13.823Z pid=30900 overlay2 active
+2026-11-04T10:53:14.246Z pid=30900 permissionPresets.set orchestrator-813b82a43a46ebe2f4c9995ae580a7b2 danger-full-access
+2026-11-04T10:53:14.353Z pid=30900 permissionPresets.set worker-e0ae7bf4104e8799fcc0b74f93dec632 danger-full-access
+2026-11-04T10:53:14.466Z pid=30900 llm/stream requested #1 signalAborted=false
+2026-11-04T10:53:24.876Z pid=30900 release seen signalAborted=true

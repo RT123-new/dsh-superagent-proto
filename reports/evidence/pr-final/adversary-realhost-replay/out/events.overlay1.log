@@ -1,0 +1,12 @@
+2026-11-04T10:47:29.747Z pid=30084 overlay active
+2026-11-04T10:47:30.182Z pid=30084 permissionPresets.set orchestrator-8d4096b4ceb2969e30348b90a374b552 danger-full-access
+2026-11-04T10:48:48.072Z pid=30164 overlay active
+2026-11-04T10:48:48.467Z pid=30164 permissionPresets.set orchestrator-8d4096b4ceb2969e30348b90a374b552 danger-full-access
+2026-11-04T10:48:48.562Z pid=30164 permissionPresets.set worker-8eaaf0c833aa09fa26626f0ff77f1f0a danger-full-access
+2026-11-04T10:48:48.637Z pid=30164 llm/stream requested
+2026-11-04T10:49:47.822Z pid=30269 overlay active
+2026-11-04T10:49:48.252Z pid=30269 permissionPresets.set orchestrator-8d4096b4ceb2969e30348b90a374b552 danger-full-access
+2026-11-04T10:49:48.346Z pid=30269 permissionPresets.set worker-8eaaf0c833aa09fa26626f0ff77f1f0a danger-full-access
+2026-11-04T10:49:48.415Z pid=30269 llm/stream requested
+2026-11-04T10:50:47.305Z pid=30428 overlay active
+2026-11-04T10:50:47.734Z pid=30428 permissionPresets.set orchestrator-8d4096b4ceb2969e30348b90a374b552 danger-full-access
