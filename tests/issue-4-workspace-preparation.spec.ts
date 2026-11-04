@@ -117,7 +117,9 @@ describe('issue 4: workspace preparation is durable state, not directory presenc
     writeFileSync(join(ticket.execution!.directory, 'partial.txt'), 'half done')
     const { writePreparation } = await import('../src/executor/workspace.ts')
     await writePreparation(fixture.stateDir, ticket.execution!.name,
-      { state: 'preparing', identity: 'whatever', directory: ticket.execution!.directory, at: new Date().toISOString() })
+      { state: 'preparing', identity: 'whatever', directory: ticket.execution!.directory, at: new Date().toISOString(),
+        // Compatibility: a crash record naming a provably dead owner process is retried (final review: ownerless records now block).
+        owner: { pid: 2 ** 22 + 12345, host: (await import('node:os')).hostname() } })
     await fixture.launch(ticket, assignment)
     expect(fixture.prepareCommands()).toHaveLength(1)
     const { readPreparation } = await import('../src/executor/workspace.ts')

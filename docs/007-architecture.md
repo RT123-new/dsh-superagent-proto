@@ -470,6 +470,10 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/issue-4-5-adversarial.spec.ts` | Independent regressions for legacy/corrupt state, cancellation during verification, config-change races and descendant quiescence |
 | `tests/review-phase2-workspace.spec.ts` | Final review: preparation record unwritable/unreadable/corrupt fail closed before any command runs |
 | `tests/review-phase2-delivery.spec.ts` | Final review: flush failure after acceptance retries without duplicates; revoked authorization never reaches the inbox |
+| `tests/review-adv-exec.spec.ts` | Independent falsifiers: ownerless stale preparing record and corrupt record with absent directory block preparation |
+| `tests/review-phase2-record-durability.spec.ts` | Final review: directory-sync failure handling and SIGKILL of a record writer |
+| `tests/review-phase2-session-gates.spec.ts` | Final review: cancelled assignment cannot receive work after an uncancellable create finishes |
+| `tests/review-phase2-outbox-crash.spec.ts` | Final review: retransmission with stable id after lost acknowledgement; failures never dropped |
 | `tests/issue-4-workspace-preparation.spec.ts` | Workspace preparation state: retries after failed and interrupted preparations, configuration invalidation, fail-closed legacy migration, timeout |
 | `tests/issue-5-preparation-cancellation.spec.ts` | Cancellation of a launch at every asynchronous boundary, and the settle a replacement Assignment waits for |
 | `tests/http.spec.ts` | The same-origin and loopback checks, the status of each kind of failure, the body limit, path parameters and queries |

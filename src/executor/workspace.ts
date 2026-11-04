@@ -7,6 +7,7 @@
  */
 import { createHash } from 'node:crypto'
 import { mkdir, open, readFile, rename } from 'node:fs/promises'
+import { hostname } from 'node:os'
 import { join } from 'node:path'
 
 /**
@@ -26,7 +27,32 @@ export interface PreparationRecord {
   detail?: string
   /** A provider could not prove all owned processes stopped. Automatic workspace reuse is forbidden. */
   quiescence?: 'unknown'
+  /** Host process that wrote a `preparing` record. A live or unverifiable foreign owner blocks reuse (see `foreignOwnerMayBeLive`). */
+  owner?: { pid: number; host: string }
 }
+
+/** Identity of this host process, stamped into `preparing` records. */
+export const currentOwner = (): { pid: number; host: string } => ({ pid: process.pid, host: hostname() })
+
+/**
+ * True when a `preparing` record names another host process that may still own the preparation process range:
+ * a different machine (unverifiable), or a pid that still exists (EPERM counts as existing), or a legacy record with no owner at all. A provably dead owner or this
+ * process is not blocked, which keeps the retry-after-crash contract for records that name their owner.
+ * A dead host does not prove its descendants stopped; that residual stays explicit. Pid reuse can only cause a false block.
+ */
+export function foreignOwnerMayBeLive(record: PreparationRecord): boolean {
+  const owner = record.owner
+  if (record.state !== 'preparing') return false
+  // A `preparing` record without an owner (written before owners were recorded) cannot prove its range stopped: block, with remediation.
+  if (!owner || typeof owner.pid !== 'number') return true
+  if (owner.pid === process.pid && owner.host === hostname()) return false
+  if (owner.host !== hostname()) return true
+  try { process.kill(owner.pid, 0); return true }
+  catch (error) { return (error as NodeJS.ErrnoException).code !== 'ESRCH' }
+}
+
+/** Directory fsync is unsupported on some platforms; only these codes are tolerated, any other failure is a durability failure. */
+const DIR_SYNC_UNSUPPORTED = new Set(['EINVAL', 'ENOTSUP', 'EPERM', 'EISDIR', 'EBADF', 'ENOSYS'])
 
 /** Bumped when what "prepared" means changes, so records written under other semantics never count. */
 export const PREPARATION_CONFIG_VERSION = 1
@@ -73,7 +99,7 @@ export async function inspectPreparation(stateDir: string, name: string):
 }
 
 /** Persists preparation state atomically: a temporary file renamed over the record. */
-export async function writePreparation(stateDir: string, name: string, record: PreparationRecord): Promise<void> {
+export async function writePreparation(stateDir: string, name: string, record: PreparationRecord, options: { directorySync?: boolean } = {}): Promise<void> {
   const file = recordPath(stateDir, name)
   await mkdir(join(stateDir, 'workspaces'), { recursive: true })
   const temporary = `${file}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`
@@ -82,6 +108,14 @@ export async function writePreparation(stateDir: string, name: string, record: P
   try { await handle.writeFile(JSON.stringify({ version: 1, ...record }, null, 2) + '\n'); await handle.sync() }
   finally { await handle.close() }
   await rename(temporary, file)
-  // Synchronise the directory entry where the platform supports it (not supported on Windows: best effort, untested there).
-  try { const dir = await open(join(stateDir, 'workspaces'), 'r'); try { await dir.sync() } finally { await dir.close() } } catch { /* unsupported */ }
+  if (options.directorySync === false) return
+  // Synchronise the directory entry. Only "unsupported" errors are tolerated; a real failure means durability was not
+  // established, so a `prepared` record must not stand: replace it with a `failed` one (without another sync) and throw.
+  try { const dir = await open(join(stateDir, 'workspaces'), 'r'); try { await dir.sync() } finally { await dir.close() } }
+  catch (error) {
+    if (DIR_SYNC_UNSUPPORTED.has((error as NodeJS.ErrnoException).code ?? '')) return
+    await writePreparation(stateDir, name, { ...record, state: 'failed', detail: `Record durability was not established: ${String(error)}` },
+      { directorySync: false }).catch(() => {})
+    throw error
+  }
 }
