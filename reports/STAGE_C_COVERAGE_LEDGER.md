@@ -1,20 +1,20 @@
 # Stage C lifecycle coverage ledger (Issue 9)
 
-Status: PARTIAL (revision 2, base 733691c). Each row says what is measured, how, and what is not. "Hooked" means a production seam records it; every figure is a local monotonic duration unless marked wall-clock. Not Issue 9 closure.
+Status: PARTIAL (revision4, integrated through90e6d47). Each row says what is measured, how, and what is not. "Hooked" means a production seam records it; every figure is a local monotonic duration unless marked wall-clock. Not Issue 9 closure.
 
 | Lifecycle stage | Metric key | Status | Measured as | Not claimed / gap |
 | --- | --- | --- | --- | --- |
-| Source event received (local) | trigger_intake, trigger_to_eval_start | HOOKED | Passes.receive duration (the first local point every Source reaches through `ctx.receive`); `trigger.received` stamps local monotonic time | `Trigger.at` is remote and unused; time inside a Source loop before `receive` is not measured |
+| Source event received (local) | trigger_intake, source_to_eval_queue | HOOKED | Passes.receive entry to committed trigger.received callback, only if Intake actually queued Eval; trigger_intake is whole receive duration | Includes transaction tail/commitdelay; no external transport timestamp; duplicate/filtered/owned/non-intake requeue excluded |
 | Trigger -> evaluation start | trigger_to_eval_start | HOOKED | local mono between `trigger.received` and `eval.started` | includes any batching or debounce the Engine applies; unobserved starts are counted `lifecycle_unmatched` |
 | Evaluation run to decision | eval_run | HOOKED | `eval.started` -> `decision.recorded` by persisted decision.evalId, never thread coincidence | the assessor is the main Session, so this includes its model time |
 | Assessor card delivery | assessment_card_delivery | HOOKED | card build + delivery to main Session inbox | not decision time, not model start |
 | Decision -> ticket (Assignment created) | decision_to_ticket | HOOKED | committed `decision.recorded` -> committed `ticket.created` by decision id | resumed tickets have no decision |
-| Assignment created -> started | assignment_launch | HOOKED | `ticket.created`/`ticket.resumed` -> `assignment.started`; includes slot wait, workspace prepare and Session creation | `slot_wait` alone is not separable without a new stamp; the reserved key stays unused |
+| Assignment created -> started | assignment_launch | HOOKED | `ticket.created`/`ticket.resumed` -> `assignment.started`; includes slot wait, workspace prepare and Session creation | launch_slot_wait separately measures committed enqueue to successful slot reserve, includes scheduling/pause/retry |
 | Ticket lifetime and outcome | ticket_lifetime, ticket_outcome_* counters | HOOKED | created/resumed -> ended; outcome counters by Engine outcome | lifetime is to the durable terminal event, not to correctness |
 | Effect queue | effect_schedule_lateness, effect_total_age | HOOKED (wall-clock) | due->start and since->start, clamped 0, per all kinds | persisted wall-clock; not split by kind |
 | Effect run | effect_run | HOOKED | handler duration; failure series; retry/later counters | |
 | Effect outstanding count | queue effect | HOOKED | authoritative COUNT at snapshot (reviewed measure) | |
-| Worker slot occupancy | slots worker | HOOKED | disjoint busy/preparing, capacity integral, sampled at reserve/free/agent status and the reviewed capacity commit | multi-state count setters are separate clock reads, so per-sample precision is approximate |
+| Worker slot occupancy | slots worker | HOOKED | disjoint busy/preparing, capacity integral, sampled at reserve/free/agent status and the reviewed capacity commit | bundled collector transition validates and replaces all state counts+capacity at one clock boundary; older optional collectors retain approximate fallback |
 | Workspace prepare | workspace_prepare | HOOKED | success/failure/cancelled outcomes | |
 | Delivery to worker | delivery_to_worker | HOOKED | first queued delivery per assignment -> `inputsDelivered` | in-process only; a delivery queued before a restart is not timed; not model start |
 | Step open -> first settlement | step_to_settlement | HOOKED | `step/start` -> `assistant/message` (failure series on `assistant/attempt`) | DSH defines a step as one model call plus tools; step admission precedes system/prompt/prepared-call work. Only first settlement has this start; retries are unmatched, NOT per-provider-attempt latency |
@@ -39,4 +39,4 @@ Interrupted assistant/message is failure. step_to_settlement is NOT model_call: 
 
 Launch scheduling wait (`launch_slot_wait`) is now observed from committed launch enqueue to successful slot reservation (includes effect scheduling, pause and retry). Injected monotonic clock, bounded stamps and stop/dispose cleanup; older/restarted enqueue is unknown.
 
-Remaining gaps: actual provider request-start/individual retry intervals; local source receipt before processing; actual report-recorded -> related response; full end-to-end eligible/correct denominators and throughput/TPS/CPS. Process CPU/memory is process-scope only, excludes children. Bundled collector now samples capacity plus every configured slot state with one validated transition clock read (ea5035d); older optional third-party collectors retain sequential fallback and are not promised atomic precision. FullIssue9 remains PARTIAL.
+Remaining gaps: actual provider request-start/individual retry intervals; receipt before applicationPasses entry; actual report-recorded -> related response; full end-to-end eligible/correct denominators and throughput/TPS/CPS. Process CPU/memory is process-scope only, excludes children. Bundled collector now samples capacity plus every configured slot state with one validated transition clock read (ea5035d); older optional third-party collectors retain sequential fallback and are not promised atomic precision. FullIssue9 remains PARTIAL.

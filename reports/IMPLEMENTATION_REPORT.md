@@ -45,3 +45,11 @@ Lifecycle original e56e546, independent3red5dc223e, causal repair9f401a2, retain
 Slotwait ec99708 is launch enqueue to successful slot reservation, including effect scheduling. Independent injected-clock failure4b42ac4 repairedf675f71; fivefocused tests pass, disposal stamps now clear. Further independent rollback/afterCommit and complete-success proof remains pending, so this is not final acceptance.
 
 Storage20 reviewed adoptiona69705d is separate from retention19. Independent paired100k query run has40paired windows/zero oracle differences; warm synthetic P95stats151.21→13.93ms,flow118.69→28.17ms. Migration/reconciliation is atomic; crashkillmarkers verify pre/postcommit. Disk/save/migration tradeoffs and dataset limits remain explicit in BENCHMARK_REPORT and storage evidence. No universal performance claim.
+
+## Cross-scope checkpoint90e6d47
+
+Full `pnpm check` passes1498/1498tests in102files plus typecheck/build, and normal tests now leave tracked benchmark evidence unchanged. StageD capture requires explicit STAGE_D_EVIDENCE_DIR. Independent final review found two additional real Runtime boundary defects: paused ordinary follow-up could commit after asynchronous worker resolution, and externally deleted worker recreation bypassed ensure authorization before create RPC. Own2red reproduced5639423, repair90e6d47 adds shared deliveryCurrent and passes it to both prompt and second ensure callsite.26focusedgreen then fullgreen. This is distinct from the residual unavoidable already-started framework create limitation.
+
+Sourcequeue fe1105c/106359a/c9f952f now records application receipt to committed actual Evalqueue boundary with failure-isolated optional hooks; own1red before repair,153targetedgreenafter. Full lifecycle remains partial, not per-provider-attempt latency or task-correctness throughput.
+
+Slotwake optimization remains unadopted because broad-profile evidence missed target or allows tail regression. Independent disposal defect separately reproduced2red/2green and repairedc25187b without slotFreed/kick/capacity changes. Reviewed experiment and cluster results retained, not enabled.
