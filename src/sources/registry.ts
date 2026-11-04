@@ -109,6 +109,10 @@ export class SourceRegistry implements SourceScope {
   channelIdempotency(source: string): 'provider' | 'marker' | undefined {
     return this.kinds.get(source)?.channel?.idempotency
   }
+  /** How long the channel's provider idempotency key dedupes; undefined means no declared expiry. */
+  channelIdempotencyWindow(source: string): number | undefined {
+    return this.kinds.get(source)?.channel?.idempotencyWindowMs
+  }
   async send(message: OutboundMessage, commands: Commands): Promise<'sent' | 'gone' | 'waiting'> {
     const kind = this.kinds.get(message.channel.source)
     if (!kind) return 'waiting'

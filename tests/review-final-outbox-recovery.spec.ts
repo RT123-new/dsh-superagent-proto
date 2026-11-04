@@ -20,7 +20,7 @@ async function at(ms: number) {
   try { await h.runtime.pump(); await h.runtime.sendReplies() } finally { vi.useRealTimers() }
 }
 /** A fake source kind whose channel records every invocation and acceptance, with a declared idempotency contract. */
-function fakeKind(name: string, opts: { idempotency?: 'provider' | 'marker'; acceptThenThrow?: boolean; dedupe?: Set<string> }) {
+function fakeKind(name: string, opts: { idempotency?: 'provider' | 'marker'; idempotencyWindowMs?: number; acceptThenThrow?: boolean; dedupe?: Set<string> }) {
   const calls: string[] = []
   const kind: SourceKind<Record<string, never>> = { kind: name, title: { zh: 'x', en: 'x' }, description: { zh: '', en: '' }, health: [],
     schema: z.object({}).strict(), fields: [],
@@ -34,6 +34,7 @@ function fakeKind(name: string, opts: { idempotency?: 'provider' | 'marker'; acc
       },
       link: () => ({ url: '', label: { zh: 'x', en: 'x' } }),
       ...(opts.idempotency ? { idempotency: opts.idempotency } : {}),
+      ...(opts.idempotencyWindowMs ? { idempotencyWindowMs: opts.idempotencyWindowMs } : {}),
     } as SourceKind<Record<string, never>>['channel'] }
   return { kind, calls }
 }
@@ -61,6 +62,23 @@ it('an ambiguous live failure on a channel WITH proven idempotency retries safel
   await at(5000)
   expect(h.runtime.outbox.status('safe-retry')).toBe('sent')
   expect(calls.length).toBe(1)                                     // the provider recorded exactly one creation
+})
+
+it('an ambiguous live failure on a provider-idempotent channel whose key may have EXPIRED parks instead of resending', async () => {
+  // Feishu dedupes a uuid for 1 hour only (open.feishu.cn im/v1 message create+reply); an automatic retry outside the
+  // window could create a duplicate, so an aged-out pending reply parks for operator recovery like an unproven channel.
+  const { kind, calls } = fakeKind('idemexp', { idempotency: 'provider', idempotencyWindowMs: 3_600_000, acceptThenThrow: true, dedupe: new Set() })
+  h.runtime.sources.register(kind)
+  h.runtime.outbox.send({ id: 'aged-retry', channel: { source: 'idemexp', thread: 'c:1', address: {} }, text: 'Done', kind: 'reply' })
+  const twoHoursAgo = new Date(Date.now() - 2 * 3_600_000).toISOString()
+  h.runtime.store.db.prepare("UPDATE outbox SET value = json_patch(value, ?) WHERE id = 'aged-retry'").run(JSON.stringify({ queuedAt: twoHoursAgo }))
+  await h.runtime.sendReplies()
+  await at(5000); await at(300_000)
+  expect(calls).toEqual(['aged-retry'])
+  expect(h.runtime.outbox.status('aged-retry')).toBe('pending')
+  const row = h.runtime.store.db.prepare("SELECT error FROM effect WHERE kind = 'reply' AND key = 'aged-retry'").get() as { error: string }
+  expect(row.error).toContain('blocked:unknown_outcome')
+  expect(row.error).toContain(ATTEMPT_UNKNOWN)
 })
 
 it('a validation failure before any provider invocation parks as permanent with zero provider calls', async () => {

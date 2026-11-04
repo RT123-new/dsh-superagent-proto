@@ -11,7 +11,7 @@ import type { Probe } from '../infra/metrics-probe.ts'
 export interface OutboxHost {
   readonly store: Pick<Store, 'atomic' | 'afterCommit' | 'receipts'>
   readonly effects: Pick<Effects, 'enqueue' | 'cancel' | 'handle' | 'idle'> & Partial<Pick<Effects, 'attemptUnknown'>>
-  readonly sources: Pick<SourceRegistry, 'instance' | 'channelAllowed' | 'send' | 'channelIdempotency'>
+  readonly sources: Pick<SourceRegistry, 'instance' | 'channelAllowed' | 'send' | 'channelIdempotency' | 'channelIdempotencyWindow'>
   readonly commands: Commands
   paused(): boolean
   /** Optional instrumentation; absent means none. */
@@ -77,6 +77,10 @@ export class Outbox implements OutboxPort {
       // exactly like the crash path instead of risking an external duplicate.
       if (error instanceof SendNotAttempted) throw error
       if (sources.channelIdempotency(receipt.channel.source) === undefined) throw new AttemptUnknownError(error)
+      // A provider idempotency key can expire (Feishu dedupes a uuid for 1 hour). `queuedAt` precedes the first key
+      // use, so a receipt older than the window may be past dedupe: park rather than risk a duplicate remote creation.
+      const window = sources.channelIdempotencyWindow(receipt.channel.source)
+      if (window !== undefined && (!receipt.queuedAt || Date.now() - Date.parse(receipt.queuedAt) >= window)) throw new AttemptUnknownError(error)
       throw error
     }
     if (result === 'waiting') throw new Later('The Source is not installed')

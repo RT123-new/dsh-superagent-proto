@@ -58,6 +58,12 @@ export interface SourceChannel<C> {
    * marker before posting. Undeclared means unproven: ambiguous post-attempt failures park instead of auto-retrying.
    */
   idempotency?: 'provider' | 'marker'
+  /**
+   * How long the provider dedupes a 'provider' idempotency key, in milliseconds (Feishu: 1 hour). Undefined asserts a
+   * non-expiring contract; once a queued message may be older than the window, an ambiguous failure parks instead of
+   * risking a duplicate remote creation.
+   */
+  idempotencyWindowMs?: number
   /** Returns the URL and label for `address`; `url` is empty when `links` lack the required deployment info. */
   link(address: Record<string, string>, links: ChannelLinks): ChannelLink
 }

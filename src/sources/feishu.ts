@@ -64,8 +64,9 @@ export const feishuKind: SourceKind<FeishuConfig> = {
   channel: {
     allowed: (address, config) =>
       feishuKind.scope!({ meta: { chatId: address.chatId ?? '', direct: address.direct === 'true' } }, config).listened,
-    // Idempotent retries: Feishu keeps at most one reply per idempotency key, which is the durable message id.
-    send: sendFeishu, link: feishuLink, idempotency: 'provider',
+    // Idempotent retries: Feishu keeps at most one reply per idempotency key (the durable message id, passed as the
+    // official `uuid` request field); the dedupe window is documented as 1 hour on both create and reply.
+    send: sendFeishu, link: feishuLink, idempotency: 'provider', idempotencyWindowMs: 3_600_000,
   },
   threadContext: feishuThreadContext,
   find: query => ({ threads: [], terms: [...new Set(query.match(/om_[A-Za-z0-9_-]+/g) ?? [])] }),
