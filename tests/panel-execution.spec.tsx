@@ -222,3 +222,18 @@ it('sends one stop for a double click on Confirm', async () => {
   await act(async () => { confirm.click(); confirm.click() })
   expect(server.requests.filter(request => request.path === 'tickets/t1/stop')).toHaveLength(1)
 })
+
+it('final review 2.4: Execution lists blocked background tasks by safe class and rearms one only on an explicit confirmed click', async () => {
+  server.blockedEffects = [{ kind: 'relay', key: 'r1', class: 'permanent', attempts: 1, since: '2026-09-22T00:00:00Z', attemptUnknown: true }]
+  await mount()
+  await click(zh['tab.execution'])
+  expect(text()).toContain(zh.blockedEffectsTitle)
+  expect(text()).toContain('relay · r1 · permanent')
+  expect(text()).toContain(zh.blockedEffectUnknown)
+  expect(server.requests.some(request => request.path === 'effects/relay/rearm')).toBe(false)
+  await click(zh.rearmEffect)
+  expect(server.requests.some(request => request.path === 'effects/relay/rearm')).toBe(false)   // not before the confirmation
+  await click(zh.confirm)
+  expect(server.requests.find(request => request.path === 'effects/relay/rearm')).toMatchObject({ method: 'POST', body: { key: 'r1' } })
+  expect(text()).not.toContain('relay · r1')
+})

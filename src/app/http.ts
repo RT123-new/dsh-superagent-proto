@@ -3,7 +3,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { z } from 'zod'
-import { THREAD_FILTERS, TICKET_FILTERS, type Api, type ApiResponse, type RouteParams } from './api.ts'
+import { THREAD_FILTERS, TICKET_FILTERS, type Api, type ApiResponse, type BlockedEffect, type RouteParams } from './api.ts'
 import { sourceSkills } from './context.ts'
 import type { ModelCatalog } from '@deepseek-ai/dsh-api-session-controller/types'
 import { PromptConflict, SKILL_NAME, SKILL_PREFIX, TEAM_SECTIONS, builtInBase, builtInParts, defaultPrompts, savePrompts, type Prompts }
@@ -17,6 +17,7 @@ import type { DshExecutor } from '../executor/dsh.ts'
 import type { Health } from '../sources/host.ts'
 import type { SourceRegistry } from '../sources/registry.ts'
 import type { Sessions } from './sessions.ts'
+import { ATTEMPT_UNKNOWN, type EffectKind, type Effects } from './effects.ts'
 import type { Store } from './store.ts'
 import type { TextCache } from './cache.ts'
 import type { LinkTarget, ViewHost } from './views/records.ts'
@@ -39,6 +40,7 @@ export interface HttpHost {
   readonly settings: Pick<Settings, 'view' | 'save' | 'pause' | 'sync' | 'refreshLabels'>
   readonly engine: EngineForPeople
   readonly executor: Pick<DshExecutor, 'activeCount'>
+  readonly effects: Pick<Effects, 'blocked' | 'rearm'>
   readonly health: Record<string, Health>
   readonly machine: Machine
   readonly masterId: string
@@ -204,6 +206,13 @@ function routes(runtime: HttpHost): Routes {
     },
     'GET tickets/:id': ({ params }) => ticketPage(runtime, params.id),
     'POST tickets/:id/retry': ({ params }) => { const id = ticket(params.id); runtime.engine.retryTicket(id); return { retried: true } },
+    'GET effects/blocked': () => ({ items: EFFECT_KINDS.flatMap(kind => runtime.effects.blocked(kind).map(row => blockedItem(kind, row))) }),
+    'POST effects/:kind/rearm': async ({ params, body }) => {
+      const kind = z.enum(EFFECT_KINDS).safeParse(params.kind)
+      if (!kind.success) throw new RouteError(404, 'Unknown effect kind')
+      const { key } = z.object({ key: z.string().min(1).max(512) }).strict().parse(await body())
+      return { rearmed: runtime.effects.rearm(kind.data, key) }
+    },
     'POST tickets/:id/stop': ({ params }) => { const id = ticket(params.id); runtime.engine.stopTicket(id); return { stopped: true } },
     'POST executor/pause': async ({ body }) => runtime.settings.pause(z.object({ paused: z.boolean() }).parse(await body()).paused, 'panel'),
     'PUT settings/:block': async ({ params, body }) => {
@@ -239,6 +248,13 @@ function match(table: Routes, method: string, segments: string[]) {
     return { run: run as (input: Input<keyof Api>) => unknown, params }
   }
   return undefined
+}
+const EFFECT_KINDS = ['assessment', 'launch', 'delivery', 'relay', 'notice', 'reply'] as const satisfies readonly EffectKind[]
+const ERROR_CLASSES: ReadonlySet<string> = new Set(['cancelled', 'unauthorized', 'permanent', 'programming_error', 'rate_limited', 'provider_temporary', 'transient'])
+/** Only the static class and counters leave the host: the stored error text can carry remote content and is never returned. */
+function blockedItem(kind: EffectKind, row: { key: string; error: string; attempts: number; since: string }): BlockedEffect {
+  const found = /^blocked:([a-z_]+):/.exec(row.error)?.[1] ?? ''
+  return { kind, key: row.key, class: ERROR_CLASSES.has(found) ? found : 'unknown', attempts: row.attempts, since: row.since, attemptUnknown: row.error.endsWith(` ${ATTEMPT_UNKNOWN}`) || row.error === ATTEMPT_UNKNOWN }
 }
 export function registerHttp(ctx: Context, runtime: HttpHost): () => void {
   if (ctx.webServer.host !== '127.0.0.1') throw new Error('Orchestrator management requires a loopback Web server')

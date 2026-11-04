@@ -17,6 +17,9 @@ interface Paged { offset?: number; limit?: number }
 /** Whether a context update was already injected into the main Session or is still pending delivery. */
 type Delivery = 'injected' | 'pending'
 
+/** A parked effect row as the operator sees it: static categories only, never the stored error text or payload. */
+export interface BlockedEffect { kind: string; key: string; class: string; attempts: number; since: string; attemptUnknown: boolean }
+
 export interface Api {
   'GET state': { response: StateView }
   'GET overview': { response: OverviewView & { metrics?: import('../infra/metrics.ts').MetricsSnapshot; metricsState?: 'off' | 'ok' | 'failed' } }
@@ -33,6 +36,8 @@ export interface Api {
   'GET tickets': { query?: Paged & { state?: TicketFilter }; response: TicketListView }
   'GET tickets/:id': { response: TicketPageView }
   'POST tickets/:id/retry': { response: { retried: true } }
+  'GET effects/blocked': { response: { items: BlockedEffect[] } }
+  'POST effects/:kind/rearm': { body: { key: string }; response: { rearmed: boolean } }
   'POST tickets/:id/stop': { response: { stopped: true } }
   'POST executor/pause': { body: { paused: boolean }; response: { paused: boolean } }
   'PUT settings/:block': { body: { value: unknown; revision: number }; response: { revision: number; restarting: boolean } }

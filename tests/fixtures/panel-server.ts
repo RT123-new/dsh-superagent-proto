@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, expect, vi } from 'vitest'
 import { z } from 'zod'
 import type { ConfigForm, ConfigFormSnapshot } from '@deepseek-ai/dsh-client-ui-settings/client'
-import type { Api, ApiResponse, RouteParams } from '../../src/app/api.ts'
+import type { Api, ApiResponse, BlockedEffect, RouteParams } from '../../src/app/api.ts'
 import { SKILL_NAME, SKILL_PREFIX, TEAM_SECTIONS, builtInBase, builtInPart, builtInParts, composePrompt, composeSkill, defaultPrompts,
   environmentSection, policySection, promptParts } from '../../src/app/prompts.ts'
 import type { DroppedReply, HistoryView, Problem, PromptsView, SetupView, SourceStatusRow, SourceView, StateView, ThreadPageView,
@@ -89,6 +89,7 @@ export interface PanelServer {
   joinError?: string
   settings: Settings; revisions: Record<string, number>
   prompts: PromptsView
+  blockedEffects: BlockedEffect[]
   tickets: { open: TicketRow[]; ended: TicketRow[] }; ticketDetails: Record<string, TicketPageView>
   threads: ThreadRow[]
   threadPages: (key: string, query: { before?: string; around?: string }) => ThreadPageView | undefined
@@ -256,6 +257,7 @@ function initial(): PanelServer {
       skillPrefix: SKILL_PREFIX, revision: 0, current: { ...defaults, config: defaultPrompts() },
       defaults: defaultPrompts(), parts: Object.entries(builtInParts()).map(([key, part]) => ({ key, ...part, base: builtInBase(part.text) })),
       defaultChanged: [], revisions: [{ ...defaults, changed: [] }], sessions: [], notificationPending: false, next_offset: null },
+    blockedEffects: [],
     tickets: { open: [ticketSummary()], ended: [ended] }, ticketDetails: { t1: ticketDetail() },
     threads: [threadSummary()], threadPages: threadPage,
     person: [ticketSummary({ attention: { id: 'q1', question: '需要确认按钮颜色' }, note: { text: '需要确认按钮颜色', error: false }, reply },
@@ -326,6 +328,12 @@ const ROUTES: { [K in keyof Api]: Route<K> } = {
     'Unavailable Eval not found') },
   'GET tickets': { query: ['state', 'offset', 'limit'], answer: ({ query }) => page(server.tickets[query.state === 'ended' ? 'ended'
     : 'open']) },
+  'GET effects/blocked': { answer: () => ({ items: server.blockedEffects }) },
+  'POST effects/:kind/rearm': { body: true, answer: ({ params, body }) => {
+    const before = server.blockedEffects.length
+    server.blockedEffects = server.blockedEffects.filter(item => !(item.kind === params.kind && item.key === body.key))
+    return { rearmed: server.blockedEffects.length < before }
+  } },
   'GET tickets/:id': { answer: ({ params }) => server.ticketDetails[params.id] ?? refuse(404, 'Ticket not found') },
   'POST tickets/:id/retry': { answer: ({ params }) => {
     const ticket = ticketOf(params.id)
