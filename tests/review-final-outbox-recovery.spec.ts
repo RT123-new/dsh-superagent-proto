@@ -9,6 +9,8 @@ import type { SourceKind } from '../src/sources/kind.ts'
 import { ATTEMPT_STARTED, ATTEMPT_UNKNOWN, Effects } from '../src/app/effects.ts'
 import { registerHttp, type HttpHost } from '../src/app/http.ts'
 import { Store } from '../src/app/store.ts'
+import { Outbox } from '../src/app/outbox.ts'
+import type { Commands } from '../src/infra/commands.ts'
 import { HealthBoard } from '../src/infra/health.ts'
 import { startRuntime, type Host } from './fixtures/host.ts'
 
@@ -112,6 +114,36 @@ it('a validation failure before any provider invocation parks as permanent with 
 // --- Store/Effects-level rearm acknowledgement and enqueue guard ---
 const dirs: string[] = [], stores: Store[] = []
 afterEach(() => { for (const s of stores.splice(0)) s.close(); for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }) })
+it('a crash-parked reply carries provider contact into the receipt: an acked rearm past the window is refused pre-dispatch', async () => {
+  // Recovery concludes "remote send may have succeeded" for an ATTEMPT_STARTED reply; that uncertainty must reach the
+  // receipt, or the pre-dispatch expiry gate is blind for exactly the mandate's core crash scenario (SIGKILL after a
+  // possibly-accepted send, restart, operator rearm after the provider's 1h uuid window lapsed -> duplicate creation).
+  const dir = mkdtempSync(join(tmpdir(), 'crashwin-')); dirs.push(dir)
+  const store = new Store(join(dir, 'o.sqlite'), () => {}); stores.push(store)
+  const provider = { invocations: 0, firstUse: Date.now() - 2 * 3_600_000 }
+  const sources = {
+    instance: () => ({ enabled: true }), channelAllowed: () => true,
+    channelIdempotency: () => 'provider' as const, channelIdempotencyWindow: () => 3_600_000,
+    send: async () => { provider.invocations += 1; return 'sent' as const },
+  }
+  const effects = new Effects(store, new HealthBoard())
+  const outbox = new Outbox({ store, effects, sources: sources as never, commands: {} as Commands, paused: () => false })
+  outbox.send({ id: 'crash-window', channel: { source: 'feishu', thread: 'c:1', address: {} }, text: 'Done', kind: 'reply' })
+  store.db.prepare("UPDATE outbox SET value = json_patch(value, ?) WHERE id = 'crash-window'").run(JSON.stringify({ queuedAt: new Date(provider.firstUse).toISOString() }))
+  store.db.prepare("UPDATE effect SET error = ? WHERE kind = 'reply' AND key = 'crash-window'").run(ATTEMPT_STARTED)
+  effects.start()
+  const parked = store.db.prepare("SELECT error FROM effect WHERE kind = 'reply' AND key = 'crash-window'").get() as { error: string }
+  expect(parked.error).toContain('blocked:unknown_outcome')
+  expect(effects.rearm('reply', 'crash-window', { acknowledgeUnknownOutcome: true })).toEqual({ rearmed: true })
+  await effects.idle()
+  expect(provider.invocations).toBe(0)                                        // refused BEFORE any new provider invocation
+  const receipt = JSON.parse((store.db.prepare("SELECT value FROM outbox WHERE id = 'crash-window'").get() as { value: string }).value)
+  expect(receipt.status).toBe('pending')
+  expect(receipt.providerContact).toBe(true)
+  const row = store.db.prepare("SELECT error FROM effect WHERE kind = 'reply' AND key = 'crash-window'").get() as { error: string }
+  expect(row.error).toContain('blocked:unknown_outcome')
+})
+
 function level() {
   const dir = mkdtempSync(join(tmpdir(), 'rearm-')); dirs.push(dir)
   const store = new Store(join(dir, 'o.sqlite'), () => {}); stores.push(store)

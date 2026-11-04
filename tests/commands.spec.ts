@@ -219,6 +219,18 @@ it('stops a running command when the signal of its work aborts, or the lifetime,
   expect(Date.now() - started).toBeLessThan(4000)
 })
 
+it('a transient failure of the pre-POST review-comment read is provably not-attempted, never parked as unknown', async () => {
+    const commands = new Commands(() => deployment, {}, new AbortController().signal)
+    vi.spyOn(commands, 'api').mockImplementation(async (_schema: unknown, path: unknown) => {
+      if (String(path).startsWith('pulls/comments/')) throw new CliError('gh: HTTP 503', 503)
+      throw new Error(`unexpected api call ${String(path)}`)
+    })
+    const message = { id: 'a'.repeat(32), channel: { source: 'github', thread: 't:42', address: { number: '42', url: `https://github.com/${REPOSITORY}/pull/42#discussion_r1` } }, text: 'hi', kind: 'reply' as const }
+    const failure = await send(commands, message).catch((error: unknown) => error)
+    const { SendNotAttempted } = await import('../src/sources/send.ts')
+    expect(failure).toBeInstanceOf(SendNotAttempted)
+  })
+
 describe('trusted transport metadata: real provider Retry-After at the gh boundary', () => {
   const dirs: string[] = []
   afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }) })

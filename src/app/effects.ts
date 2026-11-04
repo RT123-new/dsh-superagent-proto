@@ -170,6 +170,9 @@ export class Effects {
       if (mustPark) parked++
       if (error !== row.error) this.store.db.prepare('UPDATE effect SET error = ? WHERE kind = ? AND key = ? AND error = ?')
         .run(error, row.kind, row.key, row.error)
+      // The attempt marker is the conservative upper bound of provider contact: a crash-parked reply must carry that
+      // uncertainty onto its receipt so the pre-dispatch idempotency-window gate can never redispatch it blindly.
+      if (mustPark) this.store.receipts.markProviderContact(row.key)
     }
     if (interrupted) this.probe.count('effect_attempt_unknown', interrupted)
     if (parked) {

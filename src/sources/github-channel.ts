@@ -30,7 +30,12 @@ export async function sendGithub(host: Pick<SourceContext, 'commands'>, message:
     if (address?.pr && address.discussion && address.number === number) {
       // Fall back to a top-level PR comment if the target inline review comment was deleted.
       const source = await commands.api(CommentSchema, `pulls/comments/${address.discussion}`)
-        .catch((error: unknown) => { if (missing(error)) return undefined; throw error })
+        .catch((error: unknown) => {
+          if (missing(error)) return undefined
+          // A permanently gone target keeps its settlement; every other pre-POST read failure is provably not-attempted.
+          if (gone(error)) throw error
+          throw new SendNotAttempted(error instanceof Error ? error.message : String(error))
+        })
       rootId = source ? source.in_reply_to_id ?? source.id : undefined
     }
     const path = rootId === undefined ? `issues/${number}/comments` : `pulls/${number}/comments`
