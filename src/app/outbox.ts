@@ -5,6 +5,7 @@ import { checkedImText } from '../infra/text.ts'
 import type { SourceRegistry } from '../sources/registry.ts'
 import { FAILURES_BEFORE_ERROR, Later, type Effects } from './effects.ts'
 import type { Store } from './store.ts'
+import type { Probe } from '../infra/metrics-probe.ts'
 
 export interface OutboxHost {
   readonly store: Pick<Store, 'atomic' | 'receipts'>
@@ -12,6 +13,8 @@ export interface OutboxHost {
   readonly sources: Pick<SourceRegistry, 'instance' | 'channelAllowed' | 'send'>
   readonly commands: Commands
   paused(): boolean
+  /** Optional instrumentation; absent means none. */
+  readonly probe?: Probe
 }
 
 /**
@@ -20,6 +23,8 @@ export interface OutboxHost {
  * Messages wait while processing is paused or their source is unavailable, and settle as dropped when the target conversation is ignored or gone.
  */
 export class Outbox implements OutboxPort {
+  /** Local monotonic stamps of receipts queued by this process, until sent; receipts queued before a restart are not timed. */
+  private readonly queued = new Map<string, number>()
   constructor(private readonly host: OutboxHost) {
     host.effects.handle('reply', (_payload, id) => this.deliver(id), { limit: () => host.paused() ? 0 : 1, retry: [5000, 300_000] })
   }
@@ -29,6 +34,7 @@ export class Outbox implements OutboxPort {
     if (message.kind === 'reply' && message.channel.source === 'feishu') checkedImText(message.text)
     const { store, effects } = this.host
     store.atomic(() => { if (store.receipts.add(message)) effects.enqueue('reply', message.id, {}) })
+    if (this.host.probe?.enabled && !this.queued.has(message.id)) { if (this.queued.size >= 5000) this.queued.delete(this.queued.keys().next().value!); this.queued.set(message.id, performance.now()) }
   }
   status(id: string): ReplyStatus | undefined { return this.host.store.receipts.get(id)?.status }
   withdraw(id: string): void {
@@ -48,5 +54,9 @@ export class Outbox implements OutboxPort {
     const result = await sources.send(receipt, commands)
     if (result === 'waiting') throw new Later('The Source is not installed')
     store.receipts.settle(receipt, result === 'gone' ? 'channelGone' : 'sent')
+    // Receipt queued -> the Source acknowledged the send; a `gone` target is counted apart, never as a response.
+    const at = this.queued.get(id); this.queued.delete(id)
+    if (result === 'gone') this.host.probe?.count('reply_gone')
+    else if (at !== undefined) this.host.probe?.observe('report_to_response', 'internal', Math.max(0, performance.now() - at))
   }
 }
