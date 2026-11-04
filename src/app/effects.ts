@@ -276,10 +276,13 @@ export class Effects {
       this.store.db.prepare(`UPDATE effect SET due = ?, error = ? WHERE ${own}`).run(this.now() + handler.retry[0], row.error, ...ownRow)
     } else if (failure.error instanceof SendNotAttempted && !failure.error.permanent) {
       // Proven not attempted against the PROVIDER (a pre-send read failed): the original cause keeps its policy -
-      // unauthorised parks visibly, a typed rate-limit embargo floors the next attempt - while the row keeps
-      // not-attempted semantics: no attempt marker survives and a retry does not consume an attempt.
+      // unauthorised parks visibly, a typed rate-limit embargo floors the next attempt - while no remote attempt
+      // marker is written and no POST occurs. A retry DOES advance the retry counter and persist a bounded classified
+      // error record: the counter is a read-failure count (never a remote-attempt marker) and without it the row would
+      // retry forever at first-attempt jitter with health stuck at ready.
       const decision = retryDecision(failure.error.cause, row.attempts, handler.retry[0], handler.retry[1], this.rng, this.now())
-      if (decision.retry) this.store.db.prepare(`UPDATE effect SET due = ?, error = ? WHERE ${own}`).run(this.now() + decision.delay, row.error, ...ownRow)
+      if (decision.retry) this.store.db.prepare(`UPDATE effect SET attempts = attempts + 1, error = ?, due = ? WHERE ${own}`)
+        .run(keep(neutralise(errorRecord(failure.error.cause, decision.class))), this.now() + decision.delay, ...ownRow)
       else this.store.db.prepare(`UPDATE effect SET attempts = attempts + 1, error = ?, due = ? WHERE ${own}`)
         .run(keep(neutralise(`blocked:${decision.class}: ${errorRecord(failure.error.cause, decision.class)}`)), this.now() + BLOCKED_RECHECK_MS, ...ownRow)
     } else if (failure.error instanceof SendNotAttempted) {
