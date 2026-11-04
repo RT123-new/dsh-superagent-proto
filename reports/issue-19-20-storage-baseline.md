@@ -84,3 +84,11 @@ Paired repeated measurement, 100k triggers, 6 alternating process runs each (med
 (threads.list difference is unrelated code: noise/layout; not claimed.) 1M figures for the candidate are not yet paired - only baseline 1M exists. "since 90%" is a 10% window; production views use a 24h window, so real gain depends on arrival rate. "since all" stays O(window=all).
 Costs: upgrade-open of an existing 1M-trigger/500k-decision DB took 2.0 s once (index + link backfill), file grew ~14% (483 -> 549 MB); steady reopen 0.31 s. decisions.save now does one extra DELETE + INSERT per trigger id (not separately benchmarked). triggers.save unchanged (3.70 vs 3.64 ms).
 Not changed / still open: search LIKE (linear), OFFSET paging, unbounded list loads, retention, FTS5 evaluation.
+
+## Candidate 1 decisions.save regression (measured, scripts/storage/decision-save-bench.ts; single runs per N, mean ms per save)
+| N decisions | baseline autocommit / batched | candidate autocommit / batched |
+|---|---|---|
+| 2k | 0.142 / 0.009 | 0.248 / 0.239 |
+| 10k | 0.152 / 0.007 | 0.394 / 0.411 |
+| 40k | 0.095 / 0.009 | 1.102 / 1.171 |
+Candidate cost grows linearly with history: `DELETE FROM decision_trigger WHERE decision=?` cannot use the (trigger, decision) primary key and full-scans the link table. This is a real regression introduced by Candidate 1 as committed in b57bbce (about 12x autocommit, >100x batched at 40k; extrapolates to ~tens of ms per save at 1M). The 100k/6-run version timed out the harness, so only single runs are claimed. A repair needs a (decision) index or PK order change; independent reviewer owns that repair. Candidate 1 read gains stand, but it must not be adopted as committed.
