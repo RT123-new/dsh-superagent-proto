@@ -78,7 +78,7 @@ export function executorTools(host: ExecutorToolsHost, ticket: Ticket): Tool[] {
       schema: z.object({
         state: z.enum(['progress', 'ready', 'blocked', 'failed', 'dropped']),
         summary: z.string().min(1),
-        resume_snapshot: ResumeSnapshotInputSchema.optional().describe('Only when resume snapshots are enabled: concise state, one next action, uncertainty and evidence. Do not add extra tool calls to generate it.'),
+        resume_snapshot: z.unknown().optional().describe('Experimental only: object with currentState, nextAction, openQuestion (strings); completedWork, testsPerformed, remainingWork, evidenceRefs (string arrays); optional gitHeadAtCapture. Invalid hints are ignored.'),
         human_action: z.string().trim().min(1).max(1000).nullish().describe('One concrete question for a person, also with state=progress; omit to keep the pending one, null to clear it.'),
         question_for_trigger_id: z.string().optional().describe('With human_action: the human message that raised the question, which is asked where that person wrote.'),
         pr_number: z.number().int().positive().nullish().describe(`The ticket's PR: its source PR, or one by ${host.github.deployment.github.login} from a branch named after this ticket (DSH_SUPERAGENT_NAME).`),
@@ -96,17 +96,20 @@ export function executorTools(host: ExecutorToolsHost, ticket: Ticket): Tool[] {
             throw new Error('Ticket or assignment changed while preparing report')
           const refused = pull && claimPull(host.github, ticketId, pull)
           if (refused) throw new Error(refused)
+          const snapshotEnabled = host.store.settings().executor.resumeSnapshotsEnabled
+          const snapshot = snapshotEnabled && args.resume_snapshot !== undefined
+            ? ResumeSnapshotInputSchema.safeParse(args.resume_snapshot) : undefined
           const report = { state: args.state, summary: args.summary, ...(args.human_action !== undefined ? { question: args.human_action } : {}),
             ...(args.question_for_trigger_id ? { askedBy: args.question_for_trigger_id } : {}),
             ...(args.reply_to_trigger_id ? { answers: args.reply_to_trigger_id } : {}),
-            ...(host.store.settings().executor.resumeSnapshotsEnabled && args.resume_snapshot
-              ? { resumeSnapshot: ResumeSnapshotInputSchema.parse(args.resume_snapshot) } : {}),
+            ...(snapshot?.success ? { resumeSnapshot: snapshot.data } : {}),
             assignmentId: expectedAssignment }
           const updated = host.engine.report(ticketId, report)
           const relay = reportRelay(updated, report)
           if (relay) host.sessions.relay(relay.id, relay.text)
           const notification = relay ? 'orchestrator' : 'internal_only'
-          return { reported: true, notification, ...(updated.attention ? { attention: updated.attention } : {}) }
+          return { reported: true, notification, ...(snapshot && !snapshot.success ? { snapshot_ignored: 'invalid' } : {}),
+            ...(updated.attention ? { attention: updated.attention } : {}) }
         })
       },
     }),
