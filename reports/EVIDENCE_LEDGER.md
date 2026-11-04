@@ -1,5 +1,7 @@
 # EVIDENCE LEDGER
 
+> **HISTORICAL RECORD — entries stop at 8696143 (source frozen 90e6d47, 1498/102 tests).** Kept as evidence of that checkpoint; not current validation. This review round's evidence continues in `reports/evidence/` and the current-round ledger sections of the new implementation report at the current head SHA.
+
 Running ledger: Tested → Passed → Failed → Unproven → Next experiment.
 Classifications: CONFIRMED / SOURCE-SUPPORTED / HYPOTHESIS / REFUTED / NOT TESTED.
 
