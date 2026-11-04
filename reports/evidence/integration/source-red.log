@@ -1,0 +1,37 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/home/sandbox/work/dsh-superagent-proto[39m
+
+(node:7826) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [31m❯[39m tests/issue-9-source-queue-review.spec.ts [2m([22m[2m3 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 99[2mms[22m[39m
+[31m   [31m×[31m throwing receipt instrumentation cannot suppress intake, change filtered/duplicate results or mask the engine error[39m[32m 5[2mms[22m[39m
+   [32m✓[39m Runtime records only committed receipt-to-eval-queue, rolls back cleanly and retries the same ID with a fresh stamp[32m 93[2mms[22m[39m
+   [32m✓[39m restart/no receipt and non-intake requeue never invent a source receipt sample; next fresh ID uses a fresh stamp[32m 0[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/issue-9-source-queue-review.spec.ts[2m > [22mthrowing receipt instrumentation cannot suppress intake, change filtered/duplicate results or mask the engine error
+[31m[1mAssertionError[22m: expected [Function] to not throw an error but 'Error: note' was thrown[39m
+
+[32m- Expected:[39m
+undefined
+
+[31m+ Received:[39m
+"Error: note"
+
+[36m [2m❯[22m tests/issue-9-source-queue-review.spec.ts:[2m17:54[22m[39m
+    [90m 15|[39m  const passes=new Passes({engine,effects:{kick:()=>{},idle:async()=>{}…
+    [90m 16|[39m  probe:new Probe(metrics),arrival:{note:()=>{throw new Error('note')},…
+    [90m 17|[39m  [34mexpect[39m(()[33m=>[39mpasses[33m.[39m[34mreceive[39m({id[33m:[39m[32m's'[39m} [35mas[39m [33mTrigger[39m))[33m.[39mnot[33m.[39m[34mtoThrow[39m()
+    [90m   |[39m                                                      [31m^[39m
+    [90m 18|[39m  [34mexpect[39m(engine[33m.[39mreceive)[33m.[39m[34mtoHaveBeenCalledTimes[39m([34m1[39m)
+    [90m 19|[39m  engine.receive.mockReturnValueOnce('filtered');expect(passes.receive(…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m2 passed[39m[22m[90m (3)[39m
+[2m   Start at [22m 07:32:58
+[2m   Duration [22m 846ms[2m (transform 479ms, setup 0ms, import 655ms, tests 99ms, environment 0ms)[22m
+

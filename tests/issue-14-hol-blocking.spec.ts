@@ -33,7 +33,7 @@ beforeEach(() => {
   store = new Store(join(directory, 'db.sqlite'))
   clock = Date.parse('2026-09-09T00:00:00Z')
   board = new HealthBoard()
-  effects = new Effects(store, board, () => clock)
+  effects = new Effects(store, board, () => clock, undefined, () => 0.5)
   effects.start()
 })
 afterEach(() => { store.close(); rmSync(directory, { recursive: true, force: true }) })
@@ -50,7 +50,7 @@ it('FAULT: one failing relay holds back every later unrelated relay for its whol
   effects.enqueue('relay', 'b2', { text: 'report from ticket C' })
   await flush()
   expect(ran).toEqual(['a1']) // b1 and b2 never dispatched: the queue head is backed off, not just failing
-  // Walk the deterministic backoff schedule: 2s, 4s, 8s, 16s, 32s, 60s (cap) — b1/b2 stay blocked throughout.
+  // Current reviewed jitter: seeded midpoint RNG gives 0.75 * capped exponential; b1/b2 stay blocked.
   const schedule: number[] = []
   for (let failure = 0; failure < 6; failure++) {
     const row = relays().find(r => r.key === 'a1')!
@@ -61,11 +61,11 @@ it('FAULT: one failing relay holds back every later unrelated relay for its whol
     // Through five full backoff steps the unrelated b1/b2 have still never been dispatched.
     if (failure < 5) expect(ran.filter(key => key !== 'a1')).toEqual([])
   }
-  expect(schedule).toEqual([2000, 4000, 8000, 16000, 32000, 60000])
-  // The seventh attempt lets a1 through; only then do the unrelated b1/b2 run, 122 seconds after enqueue.
+  expect(schedule).toEqual([1500, 3000, 6000, 12000, 24000, 45000])
+  // The seventh attempt lets a1 through; only then do unrelated b1/b2 run after the entire seeded schedule.
   await effects.idle()
   expect(ran).toEqual(['a1', 'a1', 'a1', 'a1', 'a1', 'a1', 'a1', 'b1', 'b2'])
-  expect(clock - Date.parse('2026-09-09T00:00:00Z')).toBe(2000 + 4000 + 8000 + 16000 + 32000 + 60000)
+  expect(clock - Date.parse('2026-09-09T00:00:00Z')).toBe(1500 + 3000 + 6000 + 12000 + 24000 + 45000)
   expect(effects.pending('relay')).toBe(false)
 })
 
