@@ -76,7 +76,10 @@ OS-boundary honesty: no application-level guard is claimed as a hard operating-s
 
 ## Phase 10 - UI and operational visibility
 
-PARTIAL. Blocked-tasks operator UI (Execution tab section, rearm with confirmation + unknown-outcome duplicate warning) accepted narrow as readable-in-render: real React DOM in jsdom + flat palette screenshots at 1280/390 zh inspected by main, adversary and lead. NOT verified: real host theme, en locale pixels, keyboard/focus flow, touch, dark/light. Health-state distinctions and no-invented-zeroes rules per metrics workstream; final UI ledger row stays open pending en/keyboard checks.
+PARTIAL, strengthened. Blocked-tasks operator UI (Execution tab section, rearm with confirmation + unknown-outcome duplicate warning):
+- Real-browser verification (metrics workstream, evidence cherry-picked at 9e0c7a3 = review/metrics-ui 544400b): real React App from combined 191db58 bundled and served by the repo's fake panel server with 2 blocked effects (one attemptUnknown, one very long key); headless Chrome over CDP with real Input key and touch events. 8 runs (en/zh x 360 touch / 1000 keyboard x light/dark), all ending "page errors: []" and "POSTs after Cancel: []". Confirmed in all 8: Tab reaches Rearm, Enter opens dialog with focus; 6 Tabs + Shift+Tab trapped in dialog; Escape/Cancel close with focus returned to Rearm and no POST; Confirm sends exactly one POST effects/relay/rearm {"key":"r1"} then list reloads; unknown-outcome warning only on the attemptUnknown row (en + zh); long key wraps, no horizontal overflow; touch tap at 360px opens the dialog. Four pixel screenshots inspected by main and lead - legible in both locales and both themes.
+- Earlier jsdom + flat-palette renders (1280/390 zh) accepted narrow as readable-in-render.
+STILL NOT VERIFIED: real host theme (--dsw-* palette is a documented stand-in; without host tokens the modal is transparent - evidence harness theme.js can be pointed at the real host drop later); 28px touch-target risk documented, not changed; no full host/a11y audit claim. Health-state distinctions and no-invented-zeroes rules per metrics workstream.
 
 ## Phase 11 - testing and independent acceptance
 
