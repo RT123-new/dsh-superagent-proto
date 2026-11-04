@@ -37,4 +37,3 @@
 [2m      Tests [22m [1m[31m1 failed[39m[22m[90m (10)[39m
 [2m   Start at [22m 06:52:43
 [2m   Duration [22m 2.90s[2m (transform 366ms, setup 0ms, import 517ms, tests 2.30s, environment 0ms)[22m
-
