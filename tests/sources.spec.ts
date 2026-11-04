@@ -1043,12 +1043,13 @@ describe('feishu event consumer', () => {
    * A bot CLI whose `event consume` behaves as `mode` says: `never` gets ready, `warn` warns once ready, `ready` stays up,
    * and `flaky` exits after its first ready. It records each run and the PID of the latest.
    */
-  function cli(mode: 'never' | 'warn' | 'ready' | 'flaky' | 'events' | 'late'): string {
+  function cli(mode: 'never' | 'warn' | 'ready' | 'flaky' | 'events' | 'late' | 'late-ready'): string {
     const path = join(dir, 'lark-bot')
     writeFileSync(path, `#!/bin/sh
   [ "$1" = event ] || { echo '{"ok":true,"data":{}}'; exit 0; }
   n=$(cat '${dir}/runs' 2>/dev/null || echo 0); n=$((n + 1)); echo $n > '${dir}/runs'; echo $$ > '${dir}/pid'
   case ${mode} in
+    late-ready) printf 'not json\n'; sleep 0.1; echo '[event] ready' >&2; sleep 0.1; cat '${dir}/events'; exec sleep 60 ;;
     never) exec sleep 60 ;;
     warn) echo '[event] ready' >&2; echo 'WARN the connection was reset' >&2; exec sleep 60 ;;
     ready) echo '[event] ready' >&2; exec sleep 60 ;;
@@ -1096,6 +1097,15 @@ describe('feishu event consumer', () => {
     expect(store.get(KV.feishu.chats)).toEqual({ oc_group: false, oc_dm: true })
     expect(health.feishu).toMatchObject({ state: 'error', detail: expect.stringContaining('JSON') })
     controller.abort(); await running; store.close()
+  }, 20_000)
+  it('PRE-1: a delayed readiness line cannot clear a malformed-event diagnostic', async () => {
+    writeFileSync(join(dir, 'events'), event('om_after_ready', 'oc_group', 'group') + '\n')
+    const { ctx, health, store } = consumerSource(cli('late-ready'))
+    running = runFeishu(ctx, controller.signal)
+    try {
+      await vi.waitFor(() => expect(store.triggers.get(feishuTriggerId('om_after_ready'))).toBeDefined(), until)
+      expect(health.feishu).toMatchObject({ state: 'error', detail: expect.stringContaining('JSON') })
+    } finally { controller.abort(); await running; store.close() }
   }, 20_000)
   it('drops the events it reads once the Source is off', async () => {
     writeFileSync(join(dir, 'events'), event('om_9', 'oc_group', 'group') + '\n')
