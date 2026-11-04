@@ -47,7 +47,7 @@ it('reopen keeps re-saved links and database integrity',()=>{
 
 it('upgrades an existing stale link table once and catches direct REPLACE and id changes',()=>{
  let s=setup();s.decisions.save(decision(['a']))
- s.db.exec('DROP TRIGGER decision_link_insert_v1; DROP TRIGGER decision_link_update_v1; DROP TRIGGER decision_link_delete_v1; DELETE FROM decision_trigger')
+ s.db.exec('DROP TRIGGER decision_link_insert_v2; DROP TRIGGER decision_link_update_v2; DROP TRIGGER decision_link_delete_v2; DELETE FROM decision_trigger')
  s.close();store=undefined;s=new Store(join(root,'db'));store=s
  expect(s.read.flow(since)).toEqual({judged:1,accepted:1})
  s.db.prepare('INSERT OR REPLACE INTO decision(id,thread,value) VALUES(?,?,?)').run('d','github:1',JSON.stringify(decision(['b','b'])))
