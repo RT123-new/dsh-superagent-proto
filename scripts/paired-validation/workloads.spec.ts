@@ -73,6 +73,7 @@ describe('paired synthetic completion workloads',()=>{
      const cases=[[-2,0,10,0],[5,0,10,5],[20,0,10,10],[0,-5,-1,-1],[-7,-5,-1,-5],[4,4,4,4]]
      for(let i=0;i<200;i++){const low=(i*seed)%31-20,high=low+((i+seed)%17);const n=i%53-30;cases.push([n,low,high,Math.min(high,Math.max(low,n))])}
      completed=cases.every(([n,low,high,want])=>evaluate(ast,{n:n!,low:low!,high:high!})===want)
+     if(live&&!completed)throw Error('Synthetic clamp oracle failed')
      h.engine.report(ticket.id,{state:completed?'ready':'failed',summary:completed?'Synthetic clamp checks passed':'Synthetic clamp checks failed'})
      if(completed)h.engine.reply({ticketId:ticket.id,purpose:'result',text:'Clamp checks passed'})
     }
