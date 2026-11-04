@@ -28,9 +28,9 @@ export function storeReads(db: DatabaseSync) {
    * and how many accept/reopen decisions those same arrivals produced (driven from the arrival window through `decision_trigger`).
    */
   flow: (since: string): { judged: number; accepted: number } => {
-    const judged = db.prepare(`SELECT COUNT(DISTINCT t.id) AS n FROM trigger t JOIN decision_trigger l ON l.trigger = t.id
+    const judged = db.prepare(`SELECT COUNT(DISTINCT t.id) AS n FROM trigger t INDEXED BY trigger_at CROSS JOIN decision_trigger l ON l.trigger = t.id
       WHERE t.at >= ? AND NOT EXISTS (SELECT 1 FROM disposition s WHERE s.id = t.id AND json_extract(s.value, '$.filtered') IS NOT NULL)`).get(since)
-    const accepted = db.prepare(`SELECT COUNT(DISTINCT d.id) AS n FROM trigger t JOIN decision_trigger l ON l.trigger = t.id JOIN decision d ON d.id = l.decision
+    const accepted = db.prepare(`SELECT COUNT(DISTINCT d.id) AS n FROM trigger t INDEXED BY trigger_at CROSS JOIN decision_trigger l ON l.trigger = t.id JOIN decision d ON d.id = l.decision
       WHERE t.at >= ? AND json_extract(d.value, '$.kind') IN ('accept', 'reopen')`).get(since)
     return { judged: Number(judged?.n ?? 0), accepted: Number(accepted?.n ?? 0) }
   },

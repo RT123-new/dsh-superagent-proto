@@ -1,0 +1,61 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/ensure-review/repo[39m
+
+(node:3603) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [31m❯[39m tests/issue-20-adversarial.spec.ts [2m([22m[2m4 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 34[2mms[22m[39m
+[31m   [31m×[31m decision-link replacement deletes use an index keyed by decision, not a full history scan[39m[32m 10[2mms[22m[39m
+[31m   [31m×[31m direct insert/update/delete through the exposed database keep derived flow consistent[39m[32m 8[2mms[22m[39m
+   [32m✓[39m an outer rollback restores both decisions and link rows, including a failed nested save[32m 8[2mms[22m[39m
+   [32m✓[39m reopen keeps re-saved links and database integrity[32m 7[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/issue-20-adversarial.spec.ts[2m > [22mdecision-link replacement deletes use an index keyed by decision, not a full history scan
+[31m[1mAssertionError[22m: expected 'SCAN decision_trigger' to match /SEARCH.*INDEX/[39m
+
+[32m- Expected:[39m
+/SEARCH.*INDEX/
+
+[31m+ Received:[39m
+"SCAN decision_trigger"
+
+[36m [2m❯[22m tests/issue-20-adversarial.spec.ts:[2m19:15[22m[39m
+    [90m 17|[39m  [35mconst[39m s[33m=[39m[34msetup[39m()
+    [90m 18|[39m  const plan=s.db.prepare('EXPLAIN QUERY PLAN DELETE FROM decision_trig…
+    [90m 19|[39m  [34mexpect[39m(plan)[33m.[39m[34mtoMatch[39m([36m/SEARCH.*INDEX/[39m)
+    [90m   |[39m               [31m^[39m
+    [90m 20|[39m })
+    [90m 21|[39m it('direct insert/update/delete through the exposed database keep deri…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-20-adversarial.spec.ts[2m > [22mdirect insert/update/delete through the exposed database keep derived flow consistent
+[31m[1mAssertionError[22m: expected { judged: +0, accepted: +0 } to deeply equal { judged: 1, accepted: 1 }[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "accepted": 1,[39m
+[32m-   "judged": 1,[39m
+[31m+   "accepted": 0,[39m
+[31m+   "judged": 0,[39m
+[2m  }[22m
+
+[36m [2m❯[22m tests/issue-20-adversarial.spec.ts:[2m24:29[22m[39m
+    [90m 22|[39m  [35mconst[39m s[33m=[39m[34msetup[39m()
+    [90m 23|[39m  s.db.prepare('INSERT INTO decision(id,thread,value) VALUES(?,?,?)').r…
+    [90m 24|[39m  [34mexpect[39m(s[33m.[39mread[33m.[39m[34mflow[39m(since))[33m.[39m[34mtoEqual[39m({judged[33m:[39m[34m1[39m[33m,[39maccepted[33m:[39m[34m1[39m})
+    [90m   |[39m                             [31m^[39m
+    [90m 25|[39m  s.db.prepare('UPDATE decision SET value=? WHERE id=?').run(JSON.strin…
+    [90m 26|[39m  [34mexpect[39m(s[33m.[39mread[33m.[39m[34mflow[39m(since))[33m.[39m[34mtoEqual[39m({judged[33m:[39m[34m2[39m[33m,[39maccepted[33m:[39m[34m0[39m})
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m2 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 06:59:27
+[2m   Duration [22m 546ms[2m (transform 303ms, setup 0ms, import 425ms, tests 34ms, environment 0ms)[22m
+

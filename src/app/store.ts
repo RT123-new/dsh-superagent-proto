@@ -69,7 +69,8 @@ export class Store implements Repositories {
       const migrating = version !== undefined && version < SCHEMA_VERSION
       try {
         this.atomic(() => {
-          const linked = this.db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'decision_trigger'").get() !== undefined
+          const linked = this.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='decision_trigger'").get() !== undefined
+          const maintained = this.db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger' AND name IN ('decision_link_insert_v1','decision_link_update_v1','decision_link_delete_v1')").get()?.n === 3
           this.db.exec(`
             CREATE TABLE IF NOT EXISTS trigger (id TEXT PRIMARY KEY, value TEXT NOT NULL, at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS disposition (id TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -89,8 +90,25 @@ export class Store implements Repositories {
             CREATE TABLE IF NOT EXISTS decision_trigger (trigger TEXT NOT NULL, decision TEXT NOT NULL, PRIMARY KEY (trigger, decision)) WITHOUT ROWID;
           `)
           this.addColumns()
-          // Derived index of which Decisions judged which Triggers; rebuilt once from the Decision records when first created.
-          if (!linked) this.db.exec(`INSERT OR IGNORE INTO decision_trigger SELECT j.value, d.id FROM decision d, json_each(d.value, '$.triggerIds') j`)
+          // Keep the derived index correct for every writer, including direct SQL/imports and older clients.
+          // Index by decision as well: updates/deletes must not scan all historical trigger links.
+          this.db.exec(`
+            CREATE INDEX IF NOT EXISTS decision_trigger_decision ON decision_trigger(decision);
+            CREATE TRIGGER IF NOT EXISTS decision_link_insert_v1 AFTER INSERT ON decision BEGIN
+              DELETE FROM decision_trigger WHERE decision = new.id;
+              INSERT INTO decision_trigger SELECT DISTINCT j.value, new.id FROM json_each(new.value, '$.triggerIds') j;
+            END;
+            CREATE TRIGGER IF NOT EXISTS decision_link_update_v1 AFTER UPDATE OF id,value ON decision BEGIN
+              DELETE FROM decision_trigger WHERE decision = old.id;
+              INSERT INTO decision_trigger SELECT DISTINCT j.value, new.id FROM json_each(new.value, '$.triggerIds') j;
+            END;
+            CREATE TRIGGER IF NOT EXISTS decision_link_delete_v1 AFTER DELETE ON decision BEGIN
+              DELETE FROM decision_trigger WHERE decision = old.id;
+            END;
+          `)
+          // One-time reconciliation also repairs any drift produced by the earlier application-only link writer.
+          if (!maintained || !linked) this.db.exec(`DELETE FROM decision_trigger;
+            INSERT OR IGNORE INTO decision_trigger SELECT j.value, d.id FROM decision d, json_each(d.value, '$.triggerIds') j`)
           if (migrating) migrateTo11(this)
           if (version !== SCHEMA_VERSION) this.set(KV.store.schema, SCHEMA_VERSION)
         })
@@ -249,12 +267,7 @@ export class Store implements Repositories {
   }
   readonly decisions = {
     get: (id: string): Decision | undefined => { const row = this.db.prepare('SELECT value FROM decision WHERE id=?').get(id); return row ? JSON.parse(String(row.value)) as Decision : undefined },
-    save: (decision: Decision): void => this.atomic(() => {
-      this.db.prepare('INSERT INTO decision VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET value=excluded.value, thread=excluded.thread').run(decision.id, decision.threadKey, JSON.stringify(decision))
-      this.db.prepare('DELETE FROM decision_trigger WHERE decision=?').run(decision.id)
-      const link = this.db.prepare('INSERT OR IGNORE INTO decision_trigger VALUES (?,?)')
-      for (const triggerId of decision.triggerIds) link.run(triggerId, decision.id)
-    }),
+    save: (decision: Decision): void => { this.db.prepare('INSERT INTO decision VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET value=excluded.value, thread=excluded.thread').run(decision.id, decision.threadKey, JSON.stringify(decision)) },
     byThread: (threadKeyValue: string): Decision[] => this.db.prepare('SELECT value FROM decision WHERE thread=? ORDER BY rowid').all(threadKeyValue).map(row => JSON.parse(String(row.value)) as Decision),
   }
   /** Read-only queries for management views, orchestrator tools, and source polling (see `storeReads`). */
