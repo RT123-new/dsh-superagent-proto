@@ -11,18 +11,27 @@ export function storeReads(db: DatabaseSync) {
   /** Per-source trigger counts since `since`, plus the latest arrival timestamp across all time. */
   triggerStats: (since: string): Record<string, { received: number; filtered: number; lastAt: string }> => {
     const result: Record<string, { received: number; filtered: number; lastAt: string }> = {}
-    for (const row of db.prepare("SELECT json_extract(t.value, '$.source') AS source, MAX(t.at) AS last, SUM(t.at >= ?) AS received, SUM(t.at >= ? AND json_extract(d.value, '$.filtered') IS NOT NULL) AS filtered FROM trigger t LEFT JOIN disposition d ON d.id = t.id GROUP BY source").all(since, since))
-      result[String(row.source)] = { received: Number(row.received ?? 0), filtered: Number(row.filtered ?? 0), lastAt: String(row.last ?? '') }
+    // Loose index scan over distinct sources, then an index range per source: cost follows the window, not the whole history.
+    const sources = db.prepare(`WITH RECURSIVE s(source) AS (SELECT MIN(source) FROM trigger UNION ALL
+      SELECT (SELECT MIN(source) FROM trigger WHERE source > s.source) FROM s WHERE s.source IS NOT NULL) SELECT source FROM s WHERE source IS NOT NULL`).all()
+    const last = db.prepare('SELECT MAX(at) AS last FROM trigger WHERE source = ?')
+    const window = db.prepare(`SELECT COUNT(*) AS received, SUM(json_extract(d.value, '$.filtered') IS NOT NULL) AS filtered
+      FROM trigger t LEFT JOIN disposition d ON d.id = t.id WHERE t.source = ? AND t.at >= ?`)
+    for (const { source } of sources) {
+      const counts = window.get(source as string, since)
+      result[String(source)] = { received: Number(counts?.received ?? 0), filtered: Number(counts?.filtered ?? 0), lastAt: String(last.get(source as string)?.last ?? '') }
+    }
     return result
   },
   /**
    * Counts triggers arriving at or after `since` that passed source filtering and reached a decision,
-   * and how many accept/reopen decisions those same arrivals produced.
+   * and how many accept/reopen decisions those same arrivals produced (driven from the arrival window through `decision_trigger`).
    */
   flow: (since: string): { judged: number; accepted: number } => {
-    const passed = "t.at >= ? AND NOT EXISTS (SELECT 1 FROM disposition s WHERE s.id = t.id AND json_extract(s.value, '$.filtered') IS NOT NULL)"
-    const judged = db.prepare(`SELECT COUNT(DISTINCT t.id) AS n FROM decision d, json_each(json_extract(d.value, '$.triggerIds')) j JOIN trigger t ON t.id = j.value WHERE ${passed}`).get(since)
-    const accepted = db.prepare(`SELECT COUNT(DISTINCT d.id) AS n FROM decision d, json_each(json_extract(d.value, '$.triggerIds')) j JOIN trigger t ON t.id = j.value WHERE json_extract(d.value, '$.kind') IN ('accept', 'reopen') AND t.at >= ?`).get(since)
+    const judged = db.prepare(`SELECT COUNT(DISTINCT t.id) AS n FROM trigger t JOIN decision_trigger l ON l.trigger = t.id
+      WHERE t.at >= ? AND NOT EXISTS (SELECT 1 FROM disposition s WHERE s.id = t.id AND json_extract(s.value, '$.filtered') IS NOT NULL)`).get(since)
+    const accepted = db.prepare(`SELECT COUNT(DISTINCT d.id) AS n FROM trigger t JOIN decision_trigger l ON l.trigger = t.id JOIN decision d ON d.id = l.decision
+      WHERE t.at >= ? AND json_extract(d.value, '$.kind') IN ('accept', 'reopen')`).get(since)
     return { judged: Number(judged?.n ?? 0), accepted: Number(accepted?.n ?? 0) }
   },
   triggers: (options: { source?: string; filtered?: boolean }, offset = 0, limit = 50): { items: Trigger[]; more: boolean } => {

@@ -28,6 +28,7 @@ export interface SettingsVersion {
  * Older databases missing a column get it added on open and populated by SQLite from stored JSON rows.
  */
 const SETS: Record<string, Record<string, string>> = {
+  trigger: { source: "TEXT AS (value ->> '$.source')" },
   ticket: {
     open: "INTEGER AS (CASE WHEN value -> '$.ended' IS NULL THEN 1 END)",
     // Only the latest assignment can be pending or running because the Engine closes one before adding the next.
@@ -68,6 +69,7 @@ export class Store implements Repositories {
       const migrating = version !== undefined && version < SCHEMA_VERSION
       try {
         this.atomic(() => {
+          const linked = this.db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'decision_trigger'").get() !== undefined
           this.db.exec(`
             CREATE TABLE IF NOT EXISTS trigger (id TEXT PRIMARY KEY, value TEXT NOT NULL, at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS disposition (id TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -84,8 +86,11 @@ export class Store implements Repositories {
             CREATE INDEX IF NOT EXISTS trigger_thread_at ON trigger_thread(thread, at);
             CREATE INDEX IF NOT EXISTS decision_thread ON decision(thread);
             CREATE INDEX IF NOT EXISTS effect_due ON effect(kind, due, seq);
+            CREATE TABLE IF NOT EXISTS decision_trigger (trigger TEXT NOT NULL, decision TEXT NOT NULL, PRIMARY KEY (trigger, decision)) WITHOUT ROWID;
           `)
           this.addColumns()
+          // Derived index of which Decisions judged which Triggers; rebuilt once from the Decision records when first created.
+          if (!linked) this.db.exec(`INSERT OR IGNORE INTO decision_trigger SELECT j.value, d.id FROM decision d, json_each(d.value, '$.triggerIds') j`)
           if (migrating) migrateTo11(this)
           if (version !== SCHEMA_VERSION) this.set(KV.store.schema, SCHEMA_VERSION)
         })
@@ -116,6 +121,8 @@ export class Store implements Repositories {
         this.db.exec(`CREATE INDEX IF NOT EXISTS ${table}_${name} ON ${table}(${name}) WHERE ${name} IS NOT NULL`)
       }
     }
+    // Source-and-time index lets per-source counts and last-arrival read an index range instead of scanning every Trigger.
+    this.db.exec('CREATE INDEX IF NOT EXISTS trigger_source_at ON trigger(source, at)')
     if (!columns('effect').has('generation')) this.db.exec('ALTER TABLE effect ADD COLUMN generation INTEGER NOT NULL DEFAULT 0')
   }
   /** Closes the underlying SQLite database connection. */
@@ -242,7 +249,12 @@ export class Store implements Repositories {
   }
   readonly decisions = {
     get: (id: string): Decision | undefined => { const row = this.db.prepare('SELECT value FROM decision WHERE id=?').get(id); return row ? JSON.parse(String(row.value)) as Decision : undefined },
-    save: (decision: Decision): void => { this.db.prepare('INSERT INTO decision VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET value=excluded.value, thread=excluded.thread').run(decision.id, decision.threadKey, JSON.stringify(decision)) },
+    save: (decision: Decision): void => this.atomic(() => {
+      this.db.prepare('INSERT INTO decision VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET value=excluded.value, thread=excluded.thread').run(decision.id, decision.threadKey, JSON.stringify(decision))
+      this.db.prepare('DELETE FROM decision_trigger WHERE decision=?').run(decision.id)
+      const link = this.db.prepare('INSERT OR IGNORE INTO decision_trigger VALUES (?,?)')
+      for (const triggerId of decision.triggerIds) link.run(triggerId, decision.id)
+    }),
     byThread: (threadKeyValue: string): Decision[] => this.db.prepare('SELECT value FROM decision WHERE thread=? ORDER BY rowid').all(threadKeyValue).map(row => JSON.parse(String(row.value)) as Decision),
   }
   /** Read-only queries for management views, orchestrator tools, and source polling (see `storeReads`). */

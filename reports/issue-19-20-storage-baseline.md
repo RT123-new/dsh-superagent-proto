@@ -63,3 +63,24 @@ Median ms (all synchronous, i.e. each blocks the event loop for that long):
 - VACUUM INTO 96 ms, sqlite backup API 66 ms (57-59 MB); both copies: integrity_check ok, row counts equal source.
 - 8 SIGKILL trials during 500-row-batch delete (trigger + trigger_thread + disposition in one BEGIN IMMEDIATE txn): every trial integrity ok, deleted counts multiples of batch size, the three tables always in step; rerun resumed to the exact expected 40000 rows.
 - Limits: process kill only, NOT power loss/fsync fault; eligibility predicate in the script is age only (placeholder), not the reference-safe predicate; 100k only so far; backup run while idle (no concurrent writers).
+
+## Candidate 1 (Issue 20): windowed triggerStats and flow (commit follows this report)
+Changes: generated column `trigger.source` + index `trigger_source_at(source, at)`; derived table `decision_trigger(trigger, decision)` (WITHOUT ROWID) maintained inside `decisions.save` (atomic) and rebuilt once from Decision records when first created. triggerStats uses a loose index scan over sources + per-source index ranges; flow is driven from the arrival window. Result semantics unchanged: tests/issue-19-20-storage.spec.ts compares both against the previous SQL verbatim on randomized data (filtered/unfiltered dispositions, re-saved decisions with changed triggerIds, decisions referencing missing triggers, sources with no window rows keep lastAt). Failing-first: the link-rebuild and index-plan tests fail on the base source; the equivalence test passes on both by design. Full pnpm check on this branch (rebased on 6846973): 1318/1318 tests, 73 files, typecheck+build PASS.
+
+Paired repeated measurement, 100k triggers, 6 alternating process runs each (median of 3-5 inner reps per run), mean ± sd:
+| query | baseline ms (mean ± sd, n=6) | candidate ms (mean ± sd, n=6) | ratio |
+|---|---|---|---|
+| recentTriggers(offset=N/2,50) | 5.12 ± 0.59 | 4.66 ± 0.19 | 1.1x |
+| triggerStats(since 90%) | 182.84 ± 1.95 | 8.45 ± 0.06 | 21.6x |
+| triggerStats(since all) | 178.99 ± 2.55 | 84.53 ± 0.66 | 2.1x |
+| flow(since 90%) | 97.40 ± 1.57 | 28.44 ± 0.29 | 3.4x |
+| triggers(filtered, offset N/8) | 34.48 ± 0.30 | 34.49 ± 0.28 | 1.0x |
+| search(text LIKE miss) | 112.58 ± 1.15 | 112.88 ± 0.86 | 1.0x |
+| search(text LIKE hit rare) | 24.57 ± 0.15 | 24.63 ± 0.08 | 1.0x |
+| decisionsOfKinds | 14.37 ± 0.12 | 14.31 ± 0.09 | 1.0x |
+| threads.list() | 17.91 ± 3.31 | 25.45 ± 1.82 | 0.7x |
+| tickets.list() | 9.61 ± 3.16 | 8.90 ± 1.59 | 1.1x |
+| triggers.save(1) | 3.70 ± 0.24 | 3.64 ± 0.06 | 1.0x |
+(threads.list difference is unrelated code: noise/layout; not claimed.) 1M figures for the candidate are not yet paired - only baseline 1M exists. "since 90%" is a 10% window; production views use a 24h window, so real gain depends on arrival rate. "since all" stays O(window=all).
+Costs: upgrade-open of an existing 1M-trigger/500k-decision DB took 2.0 s once (index + link backfill), file grew ~14% (483 -> 549 MB); steady reopen 0.31 s. decisions.save now does one extra DELETE + INSERT per trigger id (not separately benchmarked). triggers.save unchanged (3.70 vs 3.64 ms).
+Not changed / still open: search LIKE (linear), OFFSET paging, unbounded list loads, retention, FTS5 evaluation.
