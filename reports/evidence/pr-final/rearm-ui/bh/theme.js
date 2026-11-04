@@ -1,0 +1,8 @@
+// STAND-IN palette. The real --dsw-* tokens come from the DSH host, which is not available here. This is NOT host proof.
+const dark = /theme=dark/.test(location.search)
+const P = dark ? { b: '#111418', l1: '#171b21', l2: '#1e232b', l3: '#262c36', t: '#e8ecf2', s: '#aab3c0', d: '#7d8695', m: 'rgba(0,0,0,.6)', bd: '#2f3743', br: '#6aa6ff', bf: '#10151c' } : { b: '#fff', l1: '#f6f7f9', l2: '#fff', l3: '#eef0f4', t: '#14181f', s: '#4a5463', d: '#7b8494', m: 'rgba(20,24,31,.45)', bd: '#d5dae2', br: '#2563eb', bf: '#fff' }
+const v = { 'bg-base': P.b, 'bg-layer-1': P.l1, 'bg-layer-2': P.l2, 'bg-layer-3': P.l3, 'bg-mask-1': P.m, 'bg-module-platform': P.l1, 'border-l2': P.bd, 'border-l3': P.bd, 'border-l4': P.bd, 'brand-primary': P.br, 'button-ghost-active-border': P.br, 'button-ghost-active-fill': P.l3, 'button-primary-fill': P.br, 'button-primary-hover': P.br, 'interactive-bg-active': P.l3, 'interactive-bg-hover': P.l3, 'label-caption': P.d, 'label-dimmed': P.d, 'label-primary': P.t, 'label-primary-foreground': P.bf, 'label-secondary': P.s, 'label-tertiary': P.d, link: P.br, 'state-business-primary': P.br, 'state-error-primary': '#dc2626', 'state-idle-primary': P.d, 'state-success-primary': '#16a34a', 'state-warn-primary': '#d97706', 'toast-bg': P.l3, 'tooltip-bg': P.l3, 'static-neutral-bluish-00': P.bf }
+const s = document.documentElement.style
+for (const [k, x] of Object.entries(v)) s.setProperty('--dsw-alias-' + k, x)
+s.setProperty('--dsw-elevation-prominent', '0 8px 32px rgba(0,0,0,.25)'); s.setProperty('--dsw-elevation-soft', '0 2px 8px rgba(0,0,0,.15)'); s.setProperty('--dsw-shadow-lv3', '0 8px 32px rgba(0,0,0,.25)'); s.setProperty('--dsw-mask-blur', 'blur(2px)')
+document.body.style.background = P.b; document.body.style.color = P.t

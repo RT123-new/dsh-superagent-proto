@@ -1,0 +1,176 @@
+=== lang=en width=360 touch=1 theme=light
+blocked section: Blocked background tasks | relay · r1 · permanent · 3 attempts | The last attempt's outcome is unknown; rearming may send a duplicate. | Rearm | relay · r2-a-very-long-key-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx · rate_limited · 12 attempts | Rearm
+geometry: {"docW":360,"winW":360}
+tabs to first Rearm: 13
+focused: {"tag":"BUTTON","text":"Rearm","aria":null,"inDialog":false,"role":null}
+dialog after Enter: {"label":"Rearm","text":"Rearm | Rearm this blocked task by hand? Nothing retries it automatically. The last attempt's outcome is unknown; rearming may send a duplicate. | Cancel | Confirm","w":312,"vw":360}
+focus after open: {"tag":"DIV","text":"RearmRearm this blocked task b","aria":"Rearm","inDialog":true,"role":"dialog"}
+focus stays in dialog over 6 Tabs: true
+shift+tab stays: true
+dialog after Escape: null
+focus returns to: {"tag":"BUTTON","text":"Rearm","aria":null,"inDialog":false,"role":null}
+focused cancel: {"tag":"BUTTON","text":"Cancel","aria":null,"inDialog":true,"role":null}
+dialog after Cancel: null
+POSTs after Cancel: []
+rearm buttons: 2
+dialog for known outcome: {"label":"Rearm","text":"Rearm | Rearm this blocked task by hand? Nothing retries it automatically. | Cancel | Confirm","w":312,"vw":360}
+focused confirm: {"tag":"BUTTON","text":"Confirm","aria":null,"inDialog":true,"role":null}
+dialog after Confirm: null
+POSTs after Confirm: [{"path":"effects/relay/rearm","method":"POST","body":{"key":"r1"}}]
+geometry end: {"docW":360,"winW":360}
+page errors: []
+touch target size px: {"w":74,"h":28}
+dialog after tap: {"label":"Rearm","text":"Rearm | Rearm this blocked task by hand? Nothing retries it automatically. | Cancel | Confirm","w":312,"vw":360}
+=== lang=zh width=360 touch=1 theme=light
+blocked section: 受阻的后台任务 | relay · r1 · permanent · 尝试 3 次 | 上次尝试的结果未知，重新启动可能重复发送。 | 重新启动 | relay · r2-a-very-long-key-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx · rate_limited · 尝试 12 次 | 重新启动
+geometry: {"docW":360,"winW":360}
+tabs to first Rearm: 13
+focused: {"tag":"BUTTON","text":"重新启动","aria":null,"inDialog":false,"role":null}
+dialog after Enter: {"label":"重新启动","text":"重新启动 | 手动重新启动这个受阻的任务？不会自动重试。 上次尝试的结果未知，重新启动可能重复发送。 | 取消 | 确定","w":312,"vw":360}
+focus after open: {"tag":"DIV","text":"重新启动手动重新启动这个受阻的任务？不会自动重试。 上次尝试","aria":"重新启动","inDialog":true,"role":"dialog"}
+focus stays in dialog over 6 Tabs: true
+shift+tab stays: true
+dialog after Escape: null
+focus returns to: {"tag":"BUTTON","text":"重新启动","aria":null,"inDialog":false,"role":null}
+focused cancel: {"tag":"BUTTON","text":"取消","aria":null,"inDialog":true,"role":null}
+dialog after Cancel: null
+POSTs after Cancel: []
+rearm buttons: 2
+dialog for known outcome: {"label":"重新启动","text":"重新启动 | 手动重新启动这个受阻的任务？不会自动重试。 | 取消 | 确定","w":312,"vw":360}
+focused confirm: {"tag":"BUTTON","text":"确定","aria":null,"inDialog":true,"role":null}
+dialog after Confirm: null
+POSTs after Confirm: [{"path":"effects/relay/rearm","method":"POST","body":{"key":"r1"}}]
+geometry end: {"docW":360,"winW":360}
+page errors: []
+touch target size px: {"w":90,"h":28}
+dialog after tap: {"label":"重新启动","text":"重新启动 | 手动重新启动这个受阻的任务？不会自动重试。 | 取消 | 确定","w":312,"vw":360}
+=== lang=en width=1000 touch=0 theme=light
+blocked section: Blocked background tasks | relay · r1 · permanent · 3 attempts | The last attempt's outcome is unknown; rearming may send a duplicate. | Rearm | relay · r2-a-very-long-key-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx · rate_limited · 12 attempts | Rearm
+geometry: {"docW":1000,"winW":1000}
+tabs to first Rearm: 13
+focused: {"tag":"BUTTON","text":"Rearm","aria":null,"inDialog":false,"role":null}
+dialog after Enter: {"label":"Rearm","text":"Rearm | Rearm this blocked task by hand? Nothing retries it automatically. The last attempt's outcome is unknown; rearming may send a duplicate. | Cancel | Confirm","w":380,"vw":1000}
+focus after open: {"tag":"DIV","text":"RearmRearm this blocked task b","aria":"Rearm","inDialog":true,"role":"dialog"}
+focus stays in dialog over 6 Tabs: true
+shift+tab stays: true
+dialog after Escape: null
+focus returns to: {"tag":"BUTTON","text":"Rearm","aria":null,"inDialog":false,"role":null}
+focused cancel: {"tag":"BUTTON","text":"Cancel","aria":null,"inDialog":true,"role":null}
+dialog after Cancel: null
+POSTs after Cancel: []
+rearm buttons: 2
+dialog for known outcome: {"label":"Rearm","text":"Rearm | Rearm this blocked task by hand? Nothing retries it automatically. | Cancel | Confirm","w":380,"vw":1000}
+focused confirm: {"tag":"BUTTON","text":"Confirm","aria":null,"inDialog":true,"role":null}
+dialog after Confirm: null
+POSTs after Confirm: [{"path":"effects/relay/rearm","method":"POST","body":{"key":"r1"}}]
+geometry end: {"docW":1000,"winW":1000}
+page errors: []
+=== lang=zh width=1000 touch=0 theme=light
+blocked section: 受阻的后台任务 | relay · r1 · permanent · 尝试 3 次 | 上次尝试的结果未知，重新启动可能重复发送。 | 重新启动 | relay · r2-a-very-long-key-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx · rate_limited · 尝试 12 次 | 重新启动
+geometry: {"docW":1000,"winW":1000}
+tabs to first Rearm: 13
+focused: {"tag":"BUTTON","text":"重新启动","aria":null,"inDialog":false,"role":null}
+dialog after Enter: {"label":"重新启动","text":"重新启动 | 手动重新启动这个受阻的任务？不会自动重试。 上次尝试的结果未知，重新启动可能重复发送。 | 取消 | 确定","w":380,"vw":1000}
+focus after open: {"tag":"DIV","text":"重新启动手动重新启动这个受阻的任务？不会自动重试。 上次尝试","aria":"重新启动","inDialog":true,"role":"dialog"}
+focus stays in dialog over 6 Tabs: true
+shift+tab stays: true
+dialog after Escape: null
+focus returns to: {"tag":"BUTTON","text":"重新启动","aria":null,"inDialog":false,"role":null}
+focused cancel: {"tag":"BUTTON","text":"取消","aria":null,"inDialog":true,"role":null}
+dialog after Cancel: null
+POSTs after Cancel: []
+rearm buttons: 2
+dialog for known outcome: {"label":"重新启动","text":"重新启动 | 手动重新启动这个受阻的任务？不会自动重试。 | 取消 | 确定","w":380,"vw":1000}
+focused confirm: {"tag":"BUTTON","text":"确定","aria":null,"inDialog":true,"role":null}
+dialog after Confirm: null
+POSTs after Confirm: [{"path":"effects/relay/rearm","method":"POST","body":{"key":"r1"}}]
+geometry end: {"docW":1000,"winW":1000}
+page errors: []
+=== lang=en width=360 touch=1 theme=dark
+blocked section: Blocked background tasks | relay · r1 · permanent · 3 attempts | The last attempt's outcome is unknown; rearming may send a duplicate. | Rearm | relay · r2-a-very-long-key-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx · rate_limited · 12 attempts | Rearm
+geometry: {"docW":360,"winW":360}
+tabs to first Rearm: 13
+focused: {"tag":"BUTTON","text":"Rearm","aria":null,"inDialog":false,"role":null}
+dialog after Enter: {"label":"Rearm","text":"Rearm | Rearm this blocked task by hand? Nothing retries it automatically. The last attempt's outcome is unknown; rearming may send a duplicate. | Cancel | Confirm","w":312,"vw":360}
+focus after open: {"tag":"DIV","text":"RearmRearm this blocked task b","aria":"Rearm","inDialog":true,"role":"dialog"}
+focus stays in dialog over 6 Tabs: true
+shift+tab stays: true
+dialog after Escape: null
+focus returns to: {"tag":"BUTTON","text":"Rearm","aria":null,"inDialog":false,"role":null}
+focused cancel: {"tag":"BUTTON","text":"Cancel","aria":null,"inDialog":true,"role":null}
+dialog after Cancel: null
+POSTs after Cancel: []
+rearm buttons: 2
+dialog for known outcome: {"label":"Rearm","text":"Rearm | Rearm this blocked task by hand? Nothing retries it automatically. | Cancel | Confirm","w":312,"vw":360}
+focused confirm: {"tag":"BUTTON","text":"Confirm","aria":null,"inDialog":true,"role":null}
+dialog after Confirm: null
+POSTs after Confirm: [{"path":"effects/relay/rearm","method":"POST","body":{"key":"r1"}}]
+geometry end: {"docW":360,"winW":360}
+page errors: []
+touch target size px: {"w":74,"h":28}
+dialog after tap: {"label":"Rearm","text":"Rearm | Rearm this blocked task by hand? Nothing retries it automatically. | Cancel | Confirm","w":312,"vw":360}
+=== lang=zh width=360 touch=1 theme=dark
+blocked section: 受阻的后台任务 | relay · r1 · permanent · 尝试 3 次 | 上次尝试的结果未知，重新启动可能重复发送。 | 重新启动 | relay · r2-a-very-long-key-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx · rate_limited · 尝试 12 次 | 重新启动
+geometry: {"docW":360,"winW":360}
+tabs to first Rearm: 13
+focused: {"tag":"BUTTON","text":"重新启动","aria":null,"inDialog":false,"role":null}
+dialog after Enter: {"label":"重新启动","text":"重新启动 | 手动重新启动这个受阻的任务？不会自动重试。 上次尝试的结果未知，重新启动可能重复发送。 | 取消 | 确定","w":312,"vw":360}
+focus after open: {"tag":"DIV","text":"重新启动手动重新启动这个受阻的任务？不会自动重试。 上次尝试","aria":"重新启动","inDialog":true,"role":"dialog"}
+focus stays in dialog over 6 Tabs: true
+shift+tab stays: true
+dialog after Escape: null
+focus returns to: {"tag":"BUTTON","text":"重新启动","aria":null,"inDialog":false,"role":null}
+focused cancel: {"tag":"BUTTON","text":"取消","aria":null,"inDialog":true,"role":null}
+dialog after Cancel: null
+POSTs after Cancel: []
+rearm buttons: 2
+dialog for known outcome: {"label":"重新启动","text":"重新启动 | 手动重新启动这个受阻的任务？不会自动重试。 | 取消 | 确定","w":312,"vw":360}
+focused confirm: {"tag":"BUTTON","text":"确定","aria":null,"inDialog":true,"role":null}
+dialog after Confirm: null
+POSTs after Confirm: [{"path":"effects/relay/rearm","method":"POST","body":{"key":"r1"}}]
+geometry end: {"docW":360,"winW":360}
+page errors: []
+touch target size px: {"w":90,"h":28}
+dialog after tap: {"label":"重新启动","text":"重新启动 | 手动重新启动这个受阻的任务？不会自动重试。 | 取消 | 确定","w":312,"vw":360}
+=== lang=en width=1000 touch=0 theme=dark
+blocked section: Blocked background tasks | relay · r1 · permanent · 3 attempts | The last attempt's outcome is unknown; rearming may send a duplicate. | Rearm | relay · r2-a-very-long-key-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx · rate_limited · 12 attempts | Rearm
+geometry: {"docW":1000,"winW":1000}
+tabs to first Rearm: 13
+focused: {"tag":"BUTTON","text":"Rearm","aria":null,"inDialog":false,"role":null}
+dialog after Enter: {"label":"Rearm","text":"Rearm | Rearm this blocked task by hand? Nothing retries it automatically. The last attempt's outcome is unknown; rearming may send a duplicate. | Cancel | Confirm","w":380,"vw":1000}
+focus after open: {"tag":"DIV","text":"RearmRearm this blocked task b","aria":"Rearm","inDialog":true,"role":"dialog"}
+focus stays in dialog over 6 Tabs: true
+shift+tab stays: true
+dialog after Escape: null
+focus returns to: {"tag":"BUTTON","text":"Rearm","aria":null,"inDialog":false,"role":null}
+focused cancel: {"tag":"BUTTON","text":"Cancel","aria":null,"inDialog":true,"role":null}
+dialog after Cancel: null
+POSTs after Cancel: []
+rearm buttons: 2
+dialog for known outcome: {"label":"Rearm","text":"Rearm | Rearm this blocked task by hand? Nothing retries it automatically. | Cancel | Confirm","w":380,"vw":1000}
+focused confirm: {"tag":"BUTTON","text":"Confirm","aria":null,"inDialog":true,"role":null}
+dialog after Confirm: null
+POSTs after Confirm: [{"path":"effects/relay/rearm","method":"POST","body":{"key":"r1"}}]
+geometry end: {"docW":1000,"winW":1000}
+page errors: []
+=== lang=zh width=1000 touch=0 theme=dark
+blocked section: 受阻的后台任务 | relay · r1 · permanent · 尝试 3 次 | 上次尝试的结果未知，重新启动可能重复发送。 | 重新启动 | relay · r2-a-very-long-key-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx · rate_limited · 尝试 12 次 | 重新启动
+geometry: {"docW":1000,"winW":1000}
+tabs to first Rearm: 13
+focused: {"tag":"BUTTON","text":"重新启动","aria":null,"inDialog":false,"role":null}
+dialog after Enter: {"label":"重新启动","text":"重新启动 | 手动重新启动这个受阻的任务？不会自动重试。 上次尝试的结果未知，重新启动可能重复发送。 | 取消 | 确定","w":380,"vw":1000}
+focus after open: {"tag":"DIV","text":"重新启动手动重新启动这个受阻的任务？不会自动重试。 上次尝试","aria":"重新启动","inDialog":true,"role":"dialog"}
+focus stays in dialog over 6 Tabs: true
+shift+tab stays: true
+dialog after Escape: null
+focus returns to: {"tag":"BUTTON","text":"重新启动","aria":null,"inDialog":false,"role":null}
+focused cancel: {"tag":"BUTTON","text":"取消","aria":null,"inDialog":true,"role":null}
+dialog after Cancel: null
+POSTs after Cancel: []
+rearm buttons: 2
+dialog for known outcome: {"label":"重新启动","text":"重新启动 | 手动重新启动这个受阻的任务？不会自动重试。 | 取消 | 确定","w":380,"vw":1000}
+focused confirm: {"tag":"BUTTON","text":"确定","aria":null,"inDialog":true,"role":null}
+dialog after Confirm: null
+POSTs after Confirm: [{"path":"effects/relay/rearm","method":"POST","body":{"key":"r1"}}]
+geometry end: {"docW":1000,"winW":1000}
+page errors: []
