@@ -46,7 +46,8 @@ Legend for workstream ownership: W13 = ingestion (1-3), W45 = workspace/cancella
 
 - Source: src/executor/dsh.ts (prepareDirectory:247-262, launch:434-437). Owner: W45.
 - Source evidence (INT, 2026-11-04): launch() treats `stat(workspace)` success as "already prepared" (comment at :434 admits it, including legacy worktrees). prepareDirectory on failure removes only an EMPTY leftover dir; a non-empty partial directory is kept and is then accepted as prepared on retry (comment at :278-281 admits this). No durable prep state, no config-identity validation.
-- Classification: SOURCE-SUPPORTED (behaviour explicit in code and comments; executable tests owed by W45).
+- Classification: CONFIRMED (W45 failing-first: 11/17 new tests fail at baseline 8c32a9d, reproduced by INT).
+- W45 fix @4fc0ecc (durable atomic records, SHA-256 identity, legacy adopt-after-verify): typecheck/build PASS, 1213/1214 (only PRE-1). NOT ACCEPTED: independent reviewer found adoption accepts empty/partial dirs (verifyDirectory checks credential config only) and waitForExit descendant gap; repair in flight on review/issue-4-5-adversarial. Legacy-split resolution (empty→run command; non-empty legacy→verify+adopt; corrupt marker→no record) proposed by INT to parent 2026-11-04 06:33 UTC.
 - Plan: durable prep state machine (unprepared/preparing/prepared/failed/cancelled); atomic marker; config-identity hash (no secrets); legacy workspace migration; partial-creation/failure/timeout/interrupt/restart/config-change tests.
 - Status: OPEN.
 
@@ -54,7 +55,8 @@ Legend for workstream ownership: W13 = ingestion (1-3), W45 = workspace/cancella
 
 - Owner: W45.
 - Source evidence (INT, 2026-11-04): prepareDirectory's signal is AbortSignal.any([host.lifetime, timeout]) only (dsh.ts:253-254) — no assignment-cancellation input. launch() polls `current()` at discrete points but cannot interrupt an in-flight runAsWorker prepare. Cancellation does not reach the prepare child process.
-- Classification: SOURCE-SUPPORTED.
+- Classification: CONFIRMED (W45 failing-first reproduced by INT).
+- W45 fix @4fc0ecc (assignment-scoped controller, combined signal, settle-before-reuse): NOT ACCEPTED pending adversarial repair (cancellation not reaching verification subprocess; descendant-settlement via handle.done vs waitForExit; config-change window during sessions.ensure).
 - Plan: assignment-scoped cancellation controller; propagate to command, child processes, session creation, launch; settle before reuse; cancel at every async boundary tests.
 - Status: OPEN.
 
