@@ -1,0 +1,12 @@
+2026-11-04T10:15:51.919Z boot 0 launched (launcher pid 52994)
+2026-11-04T10:16:21.949Z SIGKILL host pids: 53008 
+2026-11-04T10:16:22.957Z after kill, remaining pids: []
+2026-11-04T10:16:58.959Z boot 1 launched (launcher pid 53074)
+2026-11-04T10:17:12.990Z SIGKILL host pids: 53088 
+2026-11-04T10:17:13.998Z after kill, remaining pids: []
+2026-11-04T10:17:50.137Z boot 2 launched (launcher pid 53179)
+2026-11-04T10:18:04.169Z SIGKILL host pids: 53193 
+2026-11-04T10:18:05.177Z after kill, remaining pids: []
+2026-11-04T10:18:47.929Z boot 3 launched (launcher pid 53353)
+2026-11-04T10:19:07.966Z SIGKILL host pids: 53367 
+2026-11-04T10:19:08.975Z after kill, remaining pids: []

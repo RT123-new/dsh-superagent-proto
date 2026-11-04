@@ -1,0 +1,10 @@
+2026-11-04T10:15:51.938Z pid=53008 overlay active
+2026-11-04T10:15:52.351Z pid=53008 permissionPresets.set orchestrator-3c77bdbf1abfa0e0f8582efe08496876 danger-full-access
+2026-11-04T10:16:58.959Z pid=53088 overlay active
+2026-11-04T10:16:59.394Z pid=53088 permissionPresets.set orchestrator-3c77bdbf1abfa0e0f8582efe08496876 danger-full-access
+2026-11-04T10:16:59.479Z pid=53088 permissionPresets.set worker-6f84b856b7e3fd4e69c7f0fbf809d9aa danger-full-access
+2026-11-04T10:16:59.542Z pid=53088 llm/stream requested
+2026-11-04T10:17:50.149Z pid=53193 overlay active
+2026-11-04T10:17:50.549Z pid=53193 permissionPresets.set orchestrator-3c77bdbf1abfa0e0f8582efe08496876 danger-full-access
+2026-11-04T10:17:50.668Z pid=53193 permissionPresets.set worker-6f84b856b7e3fd4e69c7f0fbf809d9aa danger-full-access
+2026-11-04T10:17:50.726Z pid=53193 llm/stream requested

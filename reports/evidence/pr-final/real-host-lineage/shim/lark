@@ -1,0 +1,8 @@
+#!/bin/sh
+echo "$(date +%T) $*" >> /tmp/shim/lark-calls.log
+case "$*" in
+  *"auth status"*) echo '{"appId":"cli_abc123","brand":"feishu","identities":{"bot":{"status":"ready"}}}';;
+  *"strict-mode"*) echo 'strict-mode: bot';;
+  *"bot/v3/info"*) echo '{"bot":{"open_id":"ou_bot","app_name":"bot"}}';;
+  *) echo '{}';;
+esac
