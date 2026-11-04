@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { key } from '../src/core/index.ts'
 import { commandError } from '../src/infra/commands.ts'
-import { pollRound } from '../src/sources/github.ts'
+import { pollRound, rearmParked } from '../src/sources/github.ts'
 import { closeHost, githubComment, githubIssue, githubServer, hostDir, sourceHost, type GithubServer, type MockNotification } from './fixtures/source-host.ts'
 
 const notified = (number: number, updatedAt: string): MockNotification => ({ id: `n${number}`, updated_at: updatedAt, number })
@@ -78,7 +78,7 @@ describe('3.1 remaining faults', () => {
     closeHost(h)
   })
 
-  it('CHARACTERIZATION: after 24h of 401 the retry record is deleted, health reads ready, and the event is not stored even once access returns', async () => {
+  it('after 24h of 401 the read is parked durably with its boundary, health stays error, nothing loops, and an explicit rearm stores it', async () => {
     const h = sourceHost(hostDir('f31-'))
     const at = ago(26 * 3_600_000)
     h.store.set('github-since', ago(60_000))
@@ -86,12 +86,24 @@ describe('3.1 remaining faults', () => {
     const feed: GithubServer = { notifications: [], issues: { 12: commandError({ stderr: 'gh: Bad credentials (HTTP 401)', code: 1 }) as unknown as Record<string, unknown> }, comments: { 12: [githubComment(12, 12, at)] } }
     githubServer(h, feed)
     await pollRound(h)
-    expect(h.store.get<Record<string, unknown>>('github-retry')).toEqual({})
-    expect(h.health.github?.state).toBe('ready')
+    const parked = h.store.get<Record<string, { parked?: boolean; since: string }>>('github-retry')!['12']
+    expect(parked?.parked).toBe(true)
+    expect(Date.parse(parked!.since)).toBeLessThan(Date.parse(at))
+    expect(h.health.github?.detail).toContain('parked')
+    expect(h.health.github?.detail).toContain('#12')
+    expect(h.health.github?.state).toBe('error')
+    // Parked reads are not retried, even once credentials return, until an explicit rearm.
     feed.issues[12] = githubIssue(12)
     await pollRound(h)
     await pollRound(h)
     expect(h.store.triggers.get(commentId(12, 12, at))).toBeUndefined()
+    expect(h.health.github?.state).toBe('error')
+    expect(h.store.get<Record<string, { parked?: boolean }>>('github-retry')!['12']?.parked).toBe(true)
+    expect(rearmParked(h)).toBe(1)
+    await pollRound(h)
+    expect(h.store.triggers.get(commentId(12, 12, at))).toBeDefined()
+    expect(h.store.get<Record<string, unknown>>('github-retry')).toEqual({})
+    expect(h.health.github?.state).toBe('ready')
     closeHost(h)
   })
 })

@@ -655,7 +655,7 @@ describe('github source', () => {
     expect(h.health.github).toMatchObject({ state: 'ready', detail: '2 notifications; next poll ≥ 120s' })
     h.store.close()
   })
-  it('drops a notified Issue whose reads fail for a day, so the Source leaves the error, and keeps its read position', async () => {
+  it('parks a notified Issue whose reads fail for a day: the record and read position stay, and the health stays error until rearmed', async () => {
     const h = host()
     h.store.set('github-since', '2026-09-08T00:00:00.000Z')
     h.store.threads.save({ key: 'github:16', ref: { source: 'github', id: '16' }, createdAt: '', subscriptions: [], correlated: [], pending: [],
@@ -669,15 +669,14 @@ describe('github source', () => {
     h.store.set('github-retry', { 16: { ...first, attempts: 99 } })
     github(h, { notifications: [] })
     await expect(pollRound(h)).rejects.toThrow('#16')
-    // A day after the first failed read, it is dropped: its Thread keeps the error, the health names it, and the round does not
-    // fail. Its read position stays, so a later read takes in what the failed reads missed.
+    // A day after the first failed read, it is parked: the record keeps its boundary, the Thread keeps the error, the health is an error that names it, and the round does not fail.
     h.store.set('github-retry', { 16: { ...first, failedAt: new Date(Date.now() - 25 * 3600_000).toISOString() } })
     await pollRound(h)
-    expect(h.store.get('github-retry')).toEqual({})
+    expect(h.store.get<Record<string, { parked?: boolean; since: string }>>('github-retry')![16]).toMatchObject({ parked: true, since: expect.any(String) })
     expect(h.store.get('github-cursor:16')).toBe('2026-09-01T00:00:00.000Z')
     expect(h.store.threads.get('github:16')?.meta.pollError).toContain('Not Found')
-    expect(h.health.github).toMatchObject({ state: 'ready',
-      detail: '0 notifications; next poll ≥ 60s; dropped after their reads kept failing: #16' })
+    expect(h.health.github).toMatchObject({ state: 'error',
+      detail: '0 notifications; next poll ≥ 60s; parked, not retried until the source is rearmed: #16' })
     h.store.close()
   })
   it('polls the PRs of open tickets and subscribed Threads although the notifications fail, and then fails the round', async () => {

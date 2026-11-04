@@ -145,6 +145,14 @@ export function pollPauseSeconds(configured: number, failures: number, error: un
   const backoff = decision.retry ? Math.ceil(decision.delay / 1000) : 0
   return Math.max(base, backoff, server)
 }
+/** Rearm: reconnecting (watch restart) or switching the Source back on makes every parked read eligible again, keeping its original `since`. */
+export function rearmParked(ctx: SourceContext): number {
+  const retries = { ...ctx.state.get(KV.github.retries) }
+  let count = 0
+  for (const [number, retry] of Object.entries(retries)) if (retry.parked) { const { parked: _parked, ...rest } = retry; retries[number] = { ...rest, failedAt: new Date().toISOString() }; count += 1 }
+  if (count) ctx.state.set(KV.github.retries, retries)
+  return count
+}
 async function watch(ctx: SourceContext, signal: AbortSignal): Promise<void> {
   let interval = 60
   let failures = 0
@@ -152,8 +160,12 @@ async function watch(ctx: SourceContext, signal: AbortSignal): Promise<void> {
   await ctx.ready
   // Setup restarts dsh-superagent once it resolves the accounts; until then nothing is polled.
   if (!ctx.configured()) { ctx.report('github', health('paused', 'setupPending')); return }
+  rearmParked(ctx)
+  let wasOn = true
   while (!signal.aborted) {
     const config = ctx.config<GithubConfig>(SOURCE)
+    if (config && !wasOn) rearmParked(ctx)
+    wasOn = !!config
     try {
       if (config) interval = await pollRound(ctx, signal)
       else ctx.report('github', health('paused', 'sourceOff'))
@@ -168,20 +180,21 @@ async function watch(ctx: SourceContext, signal: AbortSignal): Promise<void> {
 }
 interface Round {
   started: string; signal?: AbortSignal | undefined
-  pulls: Map<number, Promise<Pull>>; read: Set<number>; failures: string[]; dropped: number[]; abandoned: number[]
+  pulls: Map<number, Promise<Pull>>; read: Set<number>; failures: string[]; dropped: number[]; abandoned: number[]; parked: number[]
   tally: Tally
 }
 const newRound = (signal?: AbortSignal): Round => ({ started: new Date().toISOString(), signal, pulls: new Map(), read: new Set(),
-  failures: [], dropped: [], abandoned: [], tally: { skipped: 0 } })
+  failures: [], dropped: [], abandoned: [], parked: [], tally: { skipped: 0 } })
 const stopped = (ctx: SourceContext, round: Round): boolean => !!round.signal?.aborted || !ctx.config(SOURCE)
-export interface Retry { since: string; pr: boolean; failedAt?: string; attempts?: number }
+/** `parked` marks a read that kept failing past the retry window: it is kept with its original `since`, not retried, and reported as an error until the Source is rearmed. */
+export interface Retry { since: string; pr: boolean; failedAt?: string; attempts?: number; parked?: boolean }
 const RETRY_WINDOW_MS = 24 * 3600_000
 /** True when GitHub returns HTTP 410 (Gone); HTTP 404 is retried because it can indicate revoked access to a private repository. */
 const deleted = (error: unknown): boolean => error instanceof CliError && error.code === 410
 /** Records a failed read on the Thread and in the round; deleted (410) or abandoned (24h+) threads do not fail the round. */
-function failed(ctx: SourceContext, round: Round, number: number, error: unknown, abandoned = false): void {
+function failed(ctx: SourceContext, round: Round, number: number, error: unknown, parked = false): void {
   if (deleted(error)) round.dropped.push(number)
-  else if (abandoned) round.abandoned.push(number)
+  else if (parked) round.parked.push(number)
   else round.failures.push(`#${number}: ${String(error)}`)
   ctx.threads.patch(`github:${number}`, { pollError: String(error) })
 }
@@ -322,11 +335,12 @@ export async function pollRound(ctx: SourceContext, signal?: AbortSignal): Promi
   if (signal?.aborted) return interval
   if (round.failures.length) throw new Error(`${round.failures.length} GitHub reads failed: ${round.failures.slice(0, 3).join('; ')}`)
   const named = (numbers: number[]) => [...new Set(numbers)].sort((a, b) => a - b).map(number => `#${number}`).join(', ')
-  const dropped = (round.dropped.length ? `; deleted on GitHub: ${named(round.dropped)}` : '')
+  const parkedNote = round.parked.length ? `; parked, not retried until the source is rearmed: ${named(round.parked)}` : ''
+  const dropped = parkedNote + (round.dropped.length ? `; deleted on GitHub: ${named(round.dropped)}` : '')
     + (round.abandoned.length ? `; dropped after their reads kept failing: ${named(round.abandoned)}` : '')
     + (round.tally.skipped ? `; ${round.tally.skipped} unreadable items skipped${round.tally.rejected?.length ? ` (${round.tally.rejected.slice(0, 5).map(item => `${item.id ?? '?'}: ${item.fields.join('/')}`).join(', ')})` : ''}` : '')
     + (reconciled ? `; reconciliation recovered ${reconciled} earlier` : '')
-  ctx.report('github', { state: 'ready', detail: `${count} notifications; next poll ≥ ${interval}s${dropped}`, at: round.started })
+  ctx.report('github', { state: round.parked.length ? 'error' : 'ready', detail: `${count} notifications; next poll ≥ ${interval}s${dropped}`, at: round.started })
   return interval
 }
 /** Fetches the first notifications page with `--include`, then follows Link rel="next" pages from page 2 so the first page is never re-requested. */
@@ -396,6 +410,7 @@ async function pollNotifications(ctx: SourceContext, round: Round): Promise<{ co
   }
   for (const [number, item] of items) {
     if (stopped(ctx, round)) return { count: notifications.length, interval, reconciled }
+    if (item.parked) { round.parked.push(number); retries[number] = item; continue }
     round.read.add(number)
     try {
       await readNotified(ctx, round, number, item)
@@ -404,9 +419,9 @@ async function pollNotifications(ctx: SourceContext, round: Round): Promise<{ co
       if (stopped(ctx, round)) return { count: notifications.length, interval, reconciled }
       const retry = { ...item, failedAt: item.failedAt ?? round.started, attempts: (item.attempts ?? 0) + 1 }
       // Abandon notification retries after 24 hours of failures so a permanently unreadable thread does not hold source health in error; its cursor stays so a later notification or thread poll still reads what was missed.
-      const abandoned = Date.parse(round.started) - Date.parse(retry.failedAt) >= RETRY_WINDOW_MS
-      failed(ctx, round, number, error, abandoned)
-      if (!deleted(error) && !abandoned) { retries[number] = retry; continue }
+      const parked = !deleted(error) && Date.parse(round.started) - Date.parse(retry.failedAt) >= RETRY_WINDOW_MS
+      failed(ctx, round, number, error, parked)
+      if (!deleted(error)) { retries[number] = parked ? { ...retry, parked: true } : retry; continue }
       delete retries[number]
     }
   }
