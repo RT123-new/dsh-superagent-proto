@@ -17,6 +17,7 @@ class Pending<K, V> {
     if (this.map.size > this.cap) { const oldest = this.map.keys().next(); if (!oldest.done) { this.map.delete(oldest.value); this.onDrop() } }
   }
   take(key: K): V | undefined { const v = this.map.get(key); if (v !== undefined) this.map.delete(key); return v }
+  peek(key: K): V | undefined { return this.map.get(key) }
   get size(): number { return this.map.size }
 }
 
@@ -63,15 +64,17 @@ export class DomainTimeline {
           // Only a trigger the intake actually queued for an Eval has a queue entry; a ticket owner's or an already waiting trigger has none.
           if (!event.data.queued) { this.probe.count('trigger_not_queued'); break }
           this.received.set(event.data.triggerId, now)
-          // The mandate's t_received is the application's receipt of the trigger (entry of Passes.receive); the queue commit is the fallback.
-          this.taskChain.set(event.data.triggerId, arrival ?? now)
-          if (arrival === undefined) this.probe.count('lifecycle_unmatched')
-          else this.probe.observe('source_to_eval_queue', 'internal', now - arrival)
+          // The mandate's t_received is the application's receipt of the trigger (entry of Passes.receive). A requeue of the same
+          // trigger keeps its ORIGINAL receipt; the queue commit is only the fallback when nothing was ever noted.
+          const known = this.taskChain.peek(event.data.triggerId)
+          this.taskChain.set(event.data.triggerId, known ?? arrival ?? now)
+          if (arrival !== undefined) this.probe.observe('source_to_eval_queue', 'internal', now - arrival)
+          else if (known === undefined) this.probe.count('lifecycle_unmatched')
           break
         }
         case 'eval.started': {
           let earliest: number | undefined
-          for (const id of event.data.triggerIds) { const at = this.received.take(id); if (at !== undefined) this.probe.observe('trigger_to_eval_start', 'internal', now - at); const chain = this.taskChain.take(id); if (chain !== undefined) earliest = earliest === undefined ? chain : Math.min(earliest, chain) }
+          for (const id of event.data.triggerIds) { const at = this.received.take(id); if (at !== undefined) this.probe.observe('trigger_to_eval_start', 'internal', now - at); const chain = this.taskChain.peek(id); if (chain !== undefined) earliest = earliest === undefined ? chain : Math.min(earliest, chain) }
           if (earliest !== undefined) this.evalReceived.set(event.data.evalId, earliest)
           this.evaluating.set(event.data.evalId, now); break
         }
@@ -79,8 +82,11 @@ export class DomainTimeline {
           const evalId = this.evalOfDecision?.(event.data.decisionId)
           if (evalId) {
             this.since(this.evaluating, evalId, 'eval_run')
-            const start = this.evalReceived.take(evalId)
-            if (start !== undefined) this.taskReceived.set(event.data.decisionId, start)
+            // Only an accept can create a ticket, and one eval can accept several times: peek, never consume.
+            if (event.data.kind === 'accept') {
+              const start = this.evalReceived.peek(evalId)
+              if (start !== undefined) this.taskReceived.set(event.data.decisionId, start)
+            }
           } else this.probe.count('lifecycle_unmatched')
           this.decided.set(event.data.decisionId, now); this.probe.count(`decision_${label(String(event.data.kind))}`); break
         case 'ticket.created':

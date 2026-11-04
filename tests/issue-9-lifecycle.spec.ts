@@ -72,6 +72,45 @@ it('a start that was never observed records nothing and is counted, not guessed 
   expect(metrics.snapshot().counters.lifecycle_unmatched).toBe(2)
 })
 
+it('T_i reaches every accepted ticket of an eval: an ignore and earlier accepts never consume the receipt', () => {
+  const byDecision: Record<string, string> = { d1: 'e1', d2: 'e1', d3: 'e1' }
+  const t = new DomainTimeline(probe, () => mono, 5000, id => byDecision[id])
+  t.arrived('t1'); mono += 4
+  t.observe(ev('trigger.received', { triggerId: 't1', threads: [], queued: true })); mono += 5
+  t.observe(ev('eval.started', { evalId: 'e1', threadKey: 'th', triggerIds: ['t1'], strength: 'weak' })); mono += 10
+  t.observe(ev('decision.recorded', { decisionId: 'd1', kind: 'ignore', threadKey: 'th' })); mono += 3
+  t.observe(ev('decision.recorded', { decisionId: 'd2', kind: 'accept', threadKey: 'th' })); mono += 7
+  t.observe(ev('ticket.created', { ticketId: 'k1', decisionId: 'd2', strength: 'weak' })); mono += 2
+  t.observe(ev('decision.recorded', { decisionId: 'd3', kind: 'accept', threadKey: 'th' })); mono += 11
+  t.observe(ev('ticket.created', { ticketId: 'k2', decisionId: 'd3', strength: 'weak' })); mono += 20
+  t.observe(ev('ticket.ended', { ticketId: 'k1', by: 'worker', outcome: 'merged' })); mono += 6
+  t.observe(ev('ticket.ended', { ticketId: 'k2', by: 'worker', outcome: 'merged' }))
+  const d = dur('task_total|internal')
+  expect(d?.count).toBe(2)                                                            // both accepted tickets measured; the ignore consumed nothing
+  expect(d?.maxMs).toBe(68)                                                           // k2: 4+5+10+3+7+2+11+20+6 from the original receipt
+  expect(d?.sumMs).toBe(130)                                                          // k1: 62, k2: 68
+})
+
+it('T_i keeps the original receipt across a requeue of the same trigger, with no spurious unmatched', () => {
+  const byDecision: Record<string, string> = { d1: 'e1', d2: 'e2' }
+  const t = new DomainTimeline(probe, () => mono, 5000, id => byDecision[id])
+  t.arrived('t1'); mono += 4
+  t.observe(ev('trigger.received', { triggerId: 't1', threads: [], queued: true })); mono += 5
+  t.observe(ev('eval.started', { evalId: 'e1', threadKey: 'th', triggerIds: ['t1'], strength: 'weak' })); mono += 10
+  t.observe(ev('decision.recorded', { decisionId: 'd1', kind: 'accept', threadKey: 'th' })); mono += 3
+  t.observe(ev('ticket.created', { ticketId: 'k1', decisionId: 'd1', strength: 'weak' })); mono += 8
+  t.observe(ev('ticket.ended', { ticketId: 'k1', by: 'human', outcome: 'stopped' })); mono += 30
+  // The same trigger is queued again; the intake does not re-note an arrival for it.
+  const unmatchedBefore = metrics.snapshot().counters.lifecycle_unmatched ?? 0
+  t.observe(ev('trigger.received', { triggerId: 't1', threads: [], queued: true })); mono += 6
+  expect(metrics.snapshot().counters.lifecycle_unmatched ?? 0).toBe(unmatchedBefore)   // the round-1 arrival was already accounted
+  t.observe(ev('eval.started', { evalId: 'e2', threadKey: 'th', triggerIds: ['t1'], strength: 'weak' })); mono += 9
+  t.observe(ev('decision.recorded', { decisionId: 'd2', kind: 'accept', threadKey: 'th' })); mono += 4
+  t.observe(ev('ticket.created', { ticketId: 'k2', decisionId: 'd2', strength: 'weak' })); mono += 12
+  t.observe(ev('ticket.ended', { ticketId: 'k2', by: 'worker', outcome: 'merged' }))
+  expect(dur('task_total|internal')?.maxMs).toBe(91)                                  // k2 still measures from the original receipt (mono 0)
+})
+
 it('pending state is bounded: the oldest unmatched entry drops and is counted', () => {
   const t = new DomainTimeline(probe, () => mono, 3)
   for (let i = 0; i < 10; i++) t.observe(ev('trigger.received', { triggerId: `t${i}`, threads: [], queued: true }))
