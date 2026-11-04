@@ -470,6 +470,9 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/review-db-malformed-reads.spec.ts` | Scope of malformed-decision tolerance: metrics queries tolerate it, decision readers still reject it (baseline behaviour) |
 | `tests/review-db-flow-snapshot.spec.ts` | flow reads judged and accepted from one snapshot while another connection commits |
 | `tests/review-db-migrate-links.spec.ts` | Failed schema 10 migration rolls back link table and triggers; later open links valid rows once, idempotent |
+| `tests/review-poll-failure-recovery.spec.ts` | Reads that failed in one poll round are stored by the next round; none lost (explains the pool benchmark 189 of 200) |
+| `tests/review-ordered-blocked-head.spec.ts` | Characterisation: a parked (blocked) ordered head holds back later rows across time and restart |
+| `tests/stage-d/review-w-matrix.spec.ts` | Worker capacity 1/3/6/12 light and saturated matrix (opt-in) and pause under load (no start while paused) |
 | `tests/issue-19-20-storage.spec.ts` | Windowed triggerStats/flow equal the previous full-scan queries; decision link rebuild; index-range plans |
 | `tests/issue-4-5-adversarial.spec.ts` | Independent regressions for legacy/corrupt state, cancellation during verification, config-change races and descendant quiescence |
 | `tests/review-phase2-workspace.spec.ts` | Final review: preparation record unwritable/unreadable/corrupt fail closed before any command runs |
