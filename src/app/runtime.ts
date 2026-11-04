@@ -114,7 +114,7 @@ export class Runtime extends Service implements SourceHost {
       const probe = this.probe = new Probe(this.metrics)
       const commands = this.commands = new Commands(() => setup.deployment, setup.commandEnvironment, this.lifetime, probe)
       const board = this.board
-      const effects = this.effects = new Effects(store, board, undefined, probe)
+      const effects = this.effects = new Effects(store, board, undefined, probe, undefined, () => this.closing())
       const sources = this.sources = new SourceRegistry(() => store.settings(), board, kind => {
         // Sync source member lists once startup completes when a source plugin loads dynamically.
         if (kind.policy?.sync) void this.ready?.then(() => this.settings.syncable().includes(kind.kind) ? this.settings.sync(kind.kind) : undefined)

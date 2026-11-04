@@ -75,7 +75,9 @@ export class Effects {
   private stopped = false
   constructor(private readonly store: Store, private readonly board: Pick<HealthBoard, 'claim'>, private readonly now = () => Date.now(), private readonly probe: Probe = new Probe(undefined),
     /** Randomness source for retry jitter; tests inject a seeded PRNG for deterministic schedules. */
-    private readonly rng: () => number = Math.random) {
+    private readonly rng: () => number = Math.random,
+    /** Runtime closing signal (stopping or state lock lost): once true, no effect dispatches. */
+    private readonly closing: () => boolean = () => false) {
     this.seq = Number(store.db.prepare('SELECT IFNULL(MAX(seq), 0) AS seq FROM effect').get()?.seq ?? 0)
   }
   /** Upserts an effect in the caller's transaction, coalescing with any waiting row of the same kind and key while keeping its queue position. */
@@ -146,7 +148,7 @@ export class Effects {
     await Promise.allSettled([...this.tasks].map(task => task.done))
   }
   private dispatch(): void {
-    if (!this.started || this.stopped) return
+    if (!this.started || this.stopped || this.closing()) return
     for (const [kind, handler] of this.handlers) {
       try {
         const running = new Set([...this.tasks].filter(task => task.kind === kind).map(task => task.key))

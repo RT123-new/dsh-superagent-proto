@@ -475,6 +475,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/review-ordered-blocked-head.spec.ts` | Characterisation: a parked (blocked) ordered head holds back later rows across time and restart |
 | `tests/stage-d/review-w-matrix.spec.ts` | Worker capacity 1/3/6/12 light and saturated matrix (opt-in) and pause under load (no start while paused) |
 | `tests/review-lock-compromised.spec.ts` | After the state lock is reported compromised, receive refuses and stores nothing, and stop() still completes (fail-closed, no distributed fence) |
+| `tests/review-integration-lock-dispatch.spec.ts` | After the state lock is reported compromised, no queued effect dispatches (fail-closed, no distributed fence) |
 | `tests/issue-19-20-storage.spec.ts` | Windowed triggerStats/flow equal the previous full-scan queries; decision link rebuild; index-range plans |
 | `tests/issue-4-5-adversarial.spec.ts` | Independent regressions for legacy/corrupt state, cancellation during verification, config-change races and descendant quiescence |
 | `tests/review-phase2-workspace.spec.ts` | Final review: preparation record unwritable/unreadable/corrupt fail closed before any command runs |
