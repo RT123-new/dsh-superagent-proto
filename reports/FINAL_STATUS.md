@@ -2,11 +2,11 @@
 
 This is a working closeout, not a success declaration. The programme has repaired reviewed correctness defects and adopted the measured storage query optimization. Other mechanisms remain disabled, rejected, partial or under review. Main is unchanged; no automatic merge or external deployment has occurred.
 
-The most recent fully green checkpoint before current retry/coordination integration was f675f71:1442tests/typecheck/build. The five stale retry characterization assertions were repaired in dbbacaa with an explicitly frozen baseline model plus current production checks;44focused tests pass, final full1498/1498tests102files/typecheck/build passes90e6d47. StageF and the final pull request remain outstanding. This file will be updated with the exact final tested revision and review result.
+Latest verified checkpoint: **90e6d47**, with `pnpm check` passing **1498/1498 tests in102files, typecheck and build**. A separate reviewer repeated the full check and accepted the ordinary-delivery pause and recreated-worker cancellation repairs. Both runs left tracked evidence clean. Later changes through this report are documentation/evidence only. Pool and retention review, final cross-scope refresh and the final unmerged pull request remain outstanding. This is not programme completion.
 
 | Issue | Initial status | Action taken | Verified result | Remaining risk |
 | --- | --- | --- | --- | --- |
-|1 GitHub notifications|Late arrivals could fall behind a short cursor overlap|Durable replay identities and bounded reconciliation|Falling-first author/reviewer proofs repaired; coverage tested|Outages, API visibility and bounded scan cadence limit recovery|
+|1 GitHub notifications|Late arrivals could fall behind a short cursor overlap|Durable replay identities and bounded reconciliation|Failing-first author/reviewer proofs repaired; coverage tested|Outages, API visibility and bounded scan cadence limit recovery|
 |2 Pagination|First-page/cursor advancement could lose dense same-time events|Follow pages and advance only after durable processing|Identical-time,>100events and page-failure cases pass|Mutable remote pagination is not a snapshot|
 |3 Feishu history|Late indexing/first-seen gaps; baseline diagnostic race|Replay/floor repair and sticky malformed-line health|History replay and controlled diagnostic race pass|Legacy floor and endpoint visibility limits|
 |4 Workspace readiness|Directory existence falsely implied successful preparation|Identity-bound record, fail-closed migration, preserve unknown work|Partial/corrupt/legacy/config-change regressions pass|No arbitrary future edit or power-loss guarantee|

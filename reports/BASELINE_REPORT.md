@@ -43,3 +43,9 @@ Programme baseline for RT123-new/dsh-superagent-proto, recorded before any modif
 
 - No check is described as passing unless executed; all commands above were run in this environment on the baseline commit.
 - Test count method: vitest summary line of `pnpm test`.
+
+## Later comparison baselines and replication
+
+The original unmodified baseline above is preserved, including its failing diagnostic race. Later performance experiments use the reviewed correctness baseline5752c4c or the exact instrumented integration indicated in each report, not an silently changing branch name. Storage paired query comparisons retain original measured source and reviewer repair; slotwake includes matched-current-instrumentation arms that disable only the proposed wake. Polling comparisons use the same request gate/headers and conversation latency draws in both arms, not an ungated baseline. These are separate evidence classes, not upgrades of the original baseline.
+
+Latest integrated source checkpoint90e6d47: Node22.23.4/pnpm11.7.0, full1498tests in102files/typecheck/build pass. Independent full check replicated the result and verified clean tracked evidence. Paid adapter tests remain tiny synthetic workflows; no full deployed DSH/Feishu end-to-end baseline or model-cost-per-correct-task estimate was established. No additional paid calls are running.
