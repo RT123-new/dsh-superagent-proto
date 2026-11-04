@@ -156,4 +156,25 @@ describe('issue 5: cancellation stops preparation at every asynchronous boundary
     expect(fixture.prepareCommands()).toHaveLength(2)
     expect(fixture.sessions.prompt).toHaveBeenCalled()
   })
+
+  it('a failing revoke warning cannot block the rest of the stop cleanup', async () => {
+    fixture = new ExecutorFixture({ prepare: 'slow-command' })
+    const { ticket, assignment } = fixture.mkTicket('aaaa')
+    let command: ControlledSpawn | undefined
+    fixture.intercept = spec => spec.argv[0] === 'sh' ? (command = new ControlledSpawn(spec)).handle : undefined
+    const launching = fixture.launch(ticket, assignment)
+    await vi.waitFor(() => { expect(command).toBeDefined() })
+    // The privilege drop fails AND the diagnostics sink throws: neither may skip the rest of the stop.
+    fixture.sessions.revoke.mockImplementation(() => { throw new Error('backend down') })
+    fixture.logger.warn.mockImplementation(() => { throw new Error('sink down') })
+    fixture.cancelAssignment(ticket, assignment, 'stopped', true)
+    await vi.waitFor(() => { expect(command!.spec.signal?.aborted).toBe(true) })
+    command!.stop()
+    await launching
+    expect(fixture.sessions.revoke).toHaveBeenCalled()
+    expect(fixture.logger.warn).toHaveBeenCalled()
+    expect(fixture.sessions.ensure).not.toHaveBeenCalled()
+    const { readPreparation } = await import('../src/executor/workspace.ts')
+    expect((await readPreparation(fixture.stateDir, ticket.execution!.name))?.state).toBe('cancelled')
+  })
 })

@@ -78,12 +78,14 @@ export class ExecutorFixture {
       return ticket
     }),
   }
+  readonly logger: { warn: ReturnType<typeof vi.fn> } = { warn: vi.fn() }
   readonly sessions: {
     ensure: ReturnType<typeof vi.fn>
     prompt: ReturnType<typeof vi.fn>
     promptedId: (id: string) => string
     relay: ReturnType<typeof vi.fn>
     holds: ReturnType<typeof vi.fn>
+    revoke: ReturnType<typeof vi.fn>
   } = {
     ensure: vi.fn(async (id: string) => ({ id, status: 'idle', inbox: { remove: vi.fn() }, cancel: vi.fn(),
       whenIdle: async () => {}, session: { snapshotEvents: () => [] } })),
@@ -93,6 +95,7 @@ export class ExecutorFixture {
     promptedId: (id: string) => `msg-${id}`,
     relay: vi.fn(),
     holds: vi.fn(async () => false),
+    revoke: vi.fn(),
   }
   readonly executor: DshExecutor
 
@@ -111,7 +114,7 @@ export class ExecutorFixture {
       return immediate(0)
     }
     const host = {
-      context: { subprocess: { spawn }, agents: { get: () => undefined }, on: () => () => {}, get: () => undefined },
+      context: { subprocess: { spawn }, agents: { get: () => undefined }, on: () => () => {}, get: () => undefined, logger: this.logger },
       engine: this.engine,
       store: {
         tickets: { get: (id: string) => this.tickets.get(id), open: () => [...this.tickets.values()].filter(ticket => !ticket.ended),

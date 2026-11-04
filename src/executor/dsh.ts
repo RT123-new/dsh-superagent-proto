@@ -551,7 +551,10 @@ export class DshExecutor implements Executor {
         try { this.host.sessions.revoke(sessionId) }
         catch {
           this.probe.count('session_revoke_failed')
-          this.host.context.logger.warn('dsh-superagent: could not drop the privilege of the worker Session of ended ticket %s; its tools refuse and its grant state is unknown', ticket.id)
+          // Diagnostics must never block the rest of the stop: a missing or throwing logger is isolated
+          // the same way as the failed revoke itself; the probe counter above is the durable surface.
+          try { this.host.context.logger?.warn?.('dsh-superagent: could not drop the privilege of the worker Session of ended ticket %s; its tools refuse and its grant state is unknown', ticket.id) }
+          catch { /* the probe counter is the durable surface */ }
         }
       }
       // Its shell jobs and subagents stop with it, also those of a worker that ends its own turn.
