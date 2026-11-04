@@ -1,0 +1,29 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/backend-repair[39m
+
+(node:3182) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+[90mstdout[2m | tests/zz-independent-repeat.spec.ts[2m > [22m[2mpre-POST GitHub read HTTP 503 retains permanent/embargo policy
+[22m[39m{"status":503,"reads":1,"due":1003231.4736002854,"error":"","attempts":0}
+
+[90mstdout[2m | tests/zz-independent-repeat.spec.ts[2m > [22m[2mpre-POST GitHub read HTTP 503 retains permanent/embargo policy
+[22m[39m{"second":{"due":1006151.6226066599,"error":"","attempts":0}}
+
+ [31m❯[39m tests/zz-independent-repeat.spec.ts [2m([22m[2m1 test[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 16[2mms[22m[39m
+[31m   [31m×[31m pre-POST GitHub read HTTP 503 retains permanent/embargo policy[39m[32m 15[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/zz-independent-repeat.spec.ts[2m > [22mpre-POST GitHub read HTTP 503 retains permanent/embargo policy
+[31m[1mAssertionError[22m: expected 0 to be greater than or equal to 2[39m
+[36m [2m❯[22m tests/zz-independent-repeat.spec.ts:[2m28:231[22m[39m
+
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m   Start at [22m 14:12:39
+[2m   Duration [22m 620ms[2m (transform 374ms, setup 0ms, import 502ms, tests 16ms, environment 0ms)[22m
+
