@@ -70,7 +70,7 @@ export class Store implements Repositories {
       try {
         this.atomic(() => {
           const linked = this.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='decision_trigger'").get() !== undefined
-          const maintained = this.db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger' AND name IN ('decision_link_insert_v1','decision_link_update_v1','decision_link_delete_v1')").get()?.n === 3
+          const maintained = this.db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger' AND name IN ('decision_link_insert_v2','decision_link_update_v2','decision_link_delete_v2')").get()?.n === 3
           this.db.exec(`
             CREATE TABLE IF NOT EXISTS trigger (id TEXT PRIMARY KEY, value TEXT NOT NULL, at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS disposition (id TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -94,21 +94,22 @@ export class Store implements Repositories {
           // Index by decision as well: updates/deletes must not scan all historical trigger links.
           this.db.exec(`
             CREATE INDEX IF NOT EXISTS decision_trigger_decision ON decision_trigger(decision);
-            CREATE TRIGGER IF NOT EXISTS decision_link_insert_v1 AFTER INSERT ON decision BEGIN
+            DROP TRIGGER IF EXISTS decision_link_insert_v1; DROP TRIGGER IF EXISTS decision_link_update_v1; DROP TRIGGER IF EXISTS decision_link_delete_v1;
+            CREATE TRIGGER IF NOT EXISTS decision_link_insert_v2 AFTER INSERT ON decision BEGIN
               DELETE FROM decision_trigger WHERE decision = new.id;
-              INSERT INTO decision_trigger SELECT DISTINCT j.value, new.id FROM json_each(new.value, '$.triggerIds') j;
+              INSERT INTO decision_trigger SELECT DISTINCT j.value, new.id FROM json_each(CASE WHEN json_valid(new.value) AND json_type(new.value, '$.triggerIds') = 'array' THEN json_extract(new.value, '$.triggerIds') ELSE '[]' END) j WHERE j.type = 'text';
             END;
-            CREATE TRIGGER IF NOT EXISTS decision_link_update_v1 AFTER UPDATE OF id,value ON decision BEGIN
+            CREATE TRIGGER IF NOT EXISTS decision_link_update_v2 AFTER UPDATE OF id,value ON decision BEGIN
               DELETE FROM decision_trigger WHERE decision = old.id;
-              INSERT INTO decision_trigger SELECT DISTINCT j.value, new.id FROM json_each(new.value, '$.triggerIds') j;
+              INSERT INTO decision_trigger SELECT DISTINCT j.value, new.id FROM json_each(CASE WHEN json_valid(new.value) AND json_type(new.value, '$.triggerIds') = 'array' THEN json_extract(new.value, '$.triggerIds') ELSE '[]' END) j WHERE j.type = 'text';
             END;
-            CREATE TRIGGER IF NOT EXISTS decision_link_delete_v1 AFTER DELETE ON decision BEGIN
+            CREATE TRIGGER IF NOT EXISTS decision_link_delete_v2 AFTER DELETE ON decision BEGIN
               DELETE FROM decision_trigger WHERE decision = old.id;
             END;
           `)
           // One-time reconciliation also repairs any drift produced by the earlier application-only link writer.
           if (!maintained || !linked) this.db.exec(`DELETE FROM decision_trigger;
-            INSERT OR IGNORE INTO decision_trigger SELECT j.value, d.id FROM decision d, json_each(d.value, '$.triggerIds') j`)
+            INSERT OR IGNORE INTO decision_trigger SELECT j.value, d.id FROM decision d, json_each(CASE WHEN json_valid(d.value) AND json_type(d.value, '$.triggerIds') = 'array' THEN json_extract(d.value, '$.triggerIds') ELSE '[]' END) j WHERE j.type = 'text'`)
           if (migrating) migrateTo11(this)
           if (version !== SCHEMA_VERSION) this.set(KV.store.schema, SCHEMA_VERSION)
         })
