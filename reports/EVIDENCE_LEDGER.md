@@ -42,3 +42,10 @@ Classifications: CONFIRMED / SOURCE-SUPPORTED / HYPOTHESIS / REFUTED / NOT TESTE
 Issue20 selective stats/flow index optimization adopted for tested large-history workload after independent semantic/migration/crash and measured-tail review. Production source includes reviewer06ad576equivalent765f8a8, never the originalb57bbcecandidate alone. StrictSIGKILL/save-boundary proofa7b5554 retained. Author200pairs across5datasets yields0semantic mismatches; P95stats152.43→13.70ms, flow119.16→27.51ms with10kpairedbootstrap supporting>15%gain. Pairwise bootstrap is not cluster bootstrap; warm synthetic one-machine evidence only. Integration independently recomputed analysis and built a fresh100kseed3BASEstore copied/upgraded into repaired71c1b8f:40paired windows0mismatches, P95stats151.21→13.93ms, flow118.69→28.17ms.37integrated storage+migration+docs tests pass. Write overhead+0.03ms/save, blocking1Mupgrade~2.2s,~16%disk increase andbulkload tradeoffs acknowledged. No generalproduction throughput claim; retention/search/OFFSET/unboundedlists remain separate. Raw integration/storage/.
 
 10–12offline experiment delivery initially lacked ignoredsharedlibs and failed independent tests/typecheck; additiveba8a6f2equivalenteea4bab repairs delivery.8isolatedtests+explicitexperimentaltsc nowpass. No polling/webhook/transport productionoptimization adopted by that evidence.
+
+### Lifecycle integration checkpoint
+
+* e56e546original,5dc223ered (3/3 independently reproduced),9f401a2repair;22focusedgreen plus typecheck062dcc7.
+* UIlabels/processd70850d;11focusedgreen and typecheck. Supplementary lifecycle-ui pixels are server-rendered fixtures with minimal CSS, not external deployment.
+* ec99708slotwait,4b42ac4independent injectedclockred,f675f71repair,5green. Further rollback/full-success review pending.
+* f675f71full1442/1442 tests92files plus typecheck; combined build timeout, standalone build passes. Evidence integration-full-lifecycle.log and lifecycle-build.log. No paid tests, budget unchanged.

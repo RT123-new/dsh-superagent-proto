@@ -33,3 +33,7 @@ Original Issue6–8 author failing-first evidence contains17tests10red/7green, n
 ## Still pending
 
 Production metrics hooks/dashboard, performance experiments10–18, Store/index/retention19–20, and final cross-scope reviewer dispositions. No acceptance of a performance change follows merely from a passing functional suite. Required measured gains/uncertainty, migration/crash semantics and relevant resource costs must be reviewed before adoption. Main remains untouched and no auto-merge is permitted.
+
+## Latest lifecycle independent integration
+
+Reproduced all3 causal/receipt failures from557adf6 before33a9d0e. Integrated repair9f401a2 and22focusedgreen. Reviewer seven-case suite includes synchronous worker history, committed identities, blocked/unmatched timing and injected clock boundaries. Slotwait own added clock regression4b42ac4 failed beforef675f71; fivefocusedgreen afterward. Additional slotwait rollback and complete-launch review remains open. Latest full checkpoint1442green/typecheck/build, no full end-to-end provider-deployment claim. Source queue boundary and atomic slot integration remain pending parallel author/reviewer work.

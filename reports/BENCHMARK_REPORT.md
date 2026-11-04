@@ -20,3 +20,7 @@ V2normal worker prompt bytes identical between source variants. Provider samplin
 ## Not yet accepted
 
 Independent StageDmeasurements10–18 and storage19–20 are still in flight. No concurrency/webhook/HTTPtransport/queuepartition/retry/workerpool/index/retention optimization is accepted by this report. Production metrics hooks/dashboard coverage, serialization payload cost and actual panel poll work remain pending. Every unsuccessful/refuted/not-tested experiment must survive into the final report. This file will be extended from returned raw paired evidence rather than inventing missing metrics.
+
+## Accepted storage20 scope
+
+Review repair06ad576 and strict crash proof71c1b8f were integrated before adoptiona69705d. Independent copied-baseline100k-row paired rerun:40windows,zero result mismatches; P95statistics151.21→13.93ms andflow118.69→28.17ms. Author200pairs/fivedatasets recomputed: P95statistics152.43→13.70ms,flow119.16→27.51ms; pair bootstrap (not clustered CI), warm synthetic only. The15% gate is met for these query workloads. Approximate tradeoffs:0.03ms additional save cost,16%disk,2.2s blocking1M upgrade, bulkload overhead. No retention optimization adopted. See reports/evidence/integration/storage/ for own raw results and storage review reports for crash/migration evidence.
