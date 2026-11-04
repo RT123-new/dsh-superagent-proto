@@ -1896,6 +1896,29 @@ it('final review 2.2: stopping a ticket drops the worker Session privilege, whic
   expect(presets.mock.calls).toContainEqual([agent.session, 'workspace-write'])
 }, 20000)
 
+it('ADV NF5-a: a throwing preset revoke must not skip killing the stopped worker shell jobs', async () => {
+  const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+  const { ticket, sessionId } = await acceptedTicket()
+  await runtime.idle()
+  const job = jobs.run(sessionId, 'adv job')
+  presets.mockImplementation((_s: unknown, preset: string) => { if (preset === 'workspace-write') throw new Error('revoke boom') })
+  try { runtime.engine.stopTicket(ticket.id) } catch {}
+  await runtime.idle()
+  await new Promise(resolve => setTimeout(resolve, 200))
+  expect(jobs.service.kill.mock.calls.map(call => call[0])).toContain(job)
+}, 20000)
+
+it('ADV NF5-b: a retry on a live ticket must not revoke the worker preset', async () => {
+  const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+  const { ticket, sessionId } = await acceptedTicket()
+  await runtime.idle()
+  presets.mockClear()
+  try { runtime.engine.retryTicket(ticket.id) } catch {}
+  await runtime.idle()
+  expect(presets.mock.calls.filter(call => call[1] === 'workspace-write')).toHaveLength(0)
+  void sessionId
+}, 20000)
+
 it('final review 2.2: a restart reconciles persisted assignments before passes or effects start, so no intake is processed before reconciliation', async () => {
   const { ticket } = await acceptedTicket()
   await runtime.idle()

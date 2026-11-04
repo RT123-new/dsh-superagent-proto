@@ -546,7 +546,14 @@ export class DshExecutor implements Executor {
       if (!ownTurn) this.host.context.agents.get(sessionId as SessionId)?.cancel({ kind: 'user' }, { keepInbox: false })
       // The granted privilege must not outlive its ticket: an ended ticket's worker Session drops to the default preset.
       // A retried or replaced assignment keeps it: the ticket is live and the next authorized ensure grants afresh.
-      if (!liveTicket(ticket)) this.host.sessions.revoke(sessionId)
+      // A failed revoke must not skip the rest of the stop: cleanup goes on and the unknown grant state is surfaced.
+      if (!liveTicket(ticket)) {
+        try { this.host.sessions.revoke(sessionId) }
+        catch {
+          this.probe.count('session_revoke_failed')
+          this.host.context.logger.warn('dsh-superagent: could not drop the privilege of the worker Session of ended ticket %s; its tools refuse and its grant state is unknown', ticket.id)
+        }
+      }
       // Its shell jobs and subagents stop with it, also those of a worker that ends its own turn.
       this.stopWork(ticket.id, reason)
       this.left.get(ticket.id)?.collect.abort(); this.left.delete(ticket.id); this.personal.delete(ticket.id)
