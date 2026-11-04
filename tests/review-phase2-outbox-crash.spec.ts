@@ -67,6 +67,6 @@ it('while a send is in flight the effect row durably carries an attempt-start ma
   h.runtime.sources.register(kind)
   h.runtime.outbox.send({ id: 'inflight-1', channel: { source: 'inflight', thread: 'i:1', address: {} }, text: 'Done', kind: 'reply' })
   await h.runtime.sendReplies()
-  expect(inflight).toEqual({ attempts: 0, error: 'attempt-started' })
+  expect(inflight).toEqual({ attempts: 0, error: '[attempt-started]' })
   expect(h.runtime.outbox.outcome('inflight-1')).toBe('sent')
 })

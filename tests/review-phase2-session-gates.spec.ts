@@ -98,6 +98,21 @@ it('upstream error text is never logged or stored (class name only)', async () =
   expect(warn.mock.calls.length).toBeGreaterThan(0)
 })
 
+it('a hostile error class name is never logged or stored (static category only)', async () => {
+  h = await startRuntime(); stubDecorate()
+  const warn = vi.spyOn(h.ctx.logger, 'warn')
+  const secret = 'sk-live-CLASSNAME-SECRET'
+  class Hostile extends Error {}
+  Object.defineProperty(Hostile, 'name', { value: secret })
+  let after = false
+  const original = h.controller.create.getMockImplementation() as (...a: unknown[]) => Promise<unknown>
+  h.controller.create.mockImplementationOnce((async (...args: unknown[]) => { await original(...args); after = true }) as never)
+  await expect(ensure('hostile-name', () => { if (after) throw new Hostile('x') })).rejects.toThrow()
+  expect(JSON.stringify(warn.mock.calls)).not.toContain(secret)
+  expect(JSON.stringify([...h.runtime.sessions.unresolvedSessions()])).not.toContain(secret)
+  expect(warn.mock.calls.length).toBeGreaterThan(0)
+})
+
 it('a privilege already granted to a reused session is dropped when a later ensure fails and the ticket has ended', async () => {
   h = await startRuntime(); stubDecorate()
   const presets = h.ctx.permissionPresets as unknown as { set: (...a: unknown[]) => void; defaultPreset?: string }

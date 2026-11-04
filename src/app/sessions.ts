@@ -167,7 +167,7 @@ export class Sessions {
       // The framework cannot cancel or dispose a started create, so a session may now exist for an assignment that no longer
       // holds authority. Surface it (log, counter, bounded list) instead of leaving it silent; delivery to it stays refused.
       // Upstream error text is untrusted and may carry secrets: record and log only the error class, never its message.
-      const kind = error instanceof Error ? error.constructor.name : typeof error
+      const kind = error instanceof Error ? 'error' : 'non-error'   // static category: upstream class names and messages are untrusted
       if (createIssued && !this.unresolved.has(id)) {
         // Past the bound the oldest entry is evicted; the counter keeps counting every occurrence, so it is the complete signal.
         if (this.unresolved.size >= 256) { this.unresolved.delete(this.unresolved.keys().next().value!); this.host.probe?.count('session_create_unresolved_evicted') }

@@ -481,6 +481,8 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/review-phase2-session-gates.spec.ts` | Final review: cancelled assignment cannot receive work after an uncancellable create finishes |
 | `tests/review-phase2-outbox-crash.spec.ts` | Final review: retransmission with stable id after lost acknowledgement; failures never dropped |
 | `tests/review-phase2-outbox-kill.spec.ts` | Final review: real SIGKILL mid-send reconciles to attempted-unknown after restart |
+| `tests/review-phase2-effects-marker.spec.ts` | Final review: attempt marker across retries, repeated crashes, Later, coalescing and old rows |
+| `tests/review-phase2-effects-bench.spec.ts` | Final review: measured per-attempt marker overhead |
 | `tests/issue-4-workspace-preparation.spec.ts` | Workspace preparation state: retries after failed and interrupted preparations, configuration invalidation, fail-closed legacy migration, timeout |
 | `tests/issue-5-preparation-cancellation.spec.ts` | Cancellation of a launch at every asynchronous boundary, and the settle a replacement Assignment waits for |
 | `tests/http.spec.ts` | The same-origin and loopback checks, the status of each kind of failure, the body limit, path parameters and queries |
