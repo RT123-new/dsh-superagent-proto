@@ -493,6 +493,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/review-phase2-ensure-matrix.spec.ts` | Final review: ensure authorization sweep over pause, shutdown, ended ticket, replacement and external delete |
 | `tests/review-phase2-effects-rearm.spec.ts` | Final review: blocked ordered head listing, explicit rearm and discard |
 | `tests/review-phase2-effects-routes.spec.ts` | Final review: blocked-effects operator routes (safe class only, same-origin, explicit rearm, in-flight refusal) |
+| `tests/review-phase2-jsonl-kill.spec.ts` | Final review: delivery history over the real JSONL backend with a real SIGKILL of the writer |
 | `tests/issue-4-workspace-preparation.spec.ts` | Workspace preparation state: retries after failed and interrupted preparations, configuration invalidation, fail-closed legacy migration, timeout |
 | `tests/issue-5-preparation-cancellation.spec.ts` | Cancellation of a launch at every asynchronous boundary, and the settle a replacement Assignment waits for |
 | `tests/http.spec.ts` | The same-origin and loopback checks, the status of each kind of failure, the body limit, path parameters and queries |
