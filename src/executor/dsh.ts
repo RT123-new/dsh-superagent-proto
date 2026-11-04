@@ -533,7 +533,10 @@ export class DshExecutor implements Executor {
     }
     if (!current()) return
     const sessionId = workerSessionId(ticket.id)
-    const agent = await this.host.sessions.ensure(sessionId, workspace, ticket.title, 'worker')
+    const agent = await this.host.sessions.ensure(sessionId, workspace, ticket.title, 'worker', () => {
+      controller.signal.throwIfAborted()
+      if (!current()) throw new PreparationCancelled()
+    })
     if (!current()) return
     // The background work of the Assignment this one replaces stops first, so its end does not clear this one's message.
     await this.stopped(ticket.id)

@@ -135,22 +135,30 @@ export class Sessions {
     })
   }
   /** Resolves or creates session `id` in workspace `cwd`, initializes its role model, decorates it with prompts/skills/tools, sets `danger-full-access` permissions, and renames it to `title`. */
-  async ensure(id: string, cwd: string, title: string, role: 'orchestrator' | 'worker'): Promise<Agent> {
+  async ensure(id: string, cwd: string, title: string, role: 'orchestrator' | 'worker', authorize: () => void = () => {}): Promise<Agent> {
     const ctx = this.ctx
+    authorize()
     let result = await ctx.sessionController.resolveAgent(id as SessionId)
+    authorize()
     if ('error' in result && result.error.code === 'session/not-found') {
       const workspace = await ctx.workspaceRegistry.create(cwd)
+      authorize()
       // A Session keeps the preset it was created with, one of the bundle's own (cordis.patch.yml).
       await ctx.sessionController.create({ sessionId: id as SessionId, workspaceId: workspace.id,
         agentPreset: role === 'worker' ? WORKER_PRESET : ROUTER_PRESET })
+      authorize()
       result = await ctx.sessionController.resolveAgent(id as SessionId)
+      authorize()
     }
     if ('error' in result) throw result.error
     const settings = this.host.store.settings()
-    await initializeRoleModel(ctx, result.agent, role === 'orchestrator' ? settings.eval.model : settings.executor.model)
-    await this.decorate(result.agent)
+    await initializeRoleModel(ctx, result.agent, role === 'orchestrator' ? settings.eval.model : settings.executor.model, authorize)
+    authorize()
+    await this.decorate(result.agent, authorize)
+    authorize()
     ctx.permissionPresets.set(result.agent.session, 'danger-full-access')
     await ctx.sessionController.rename({ sessionId: id as SessionId, title })
+    authorize()
     return result.agent
   }
   /** Returns whether `sessionId` already holds the message delivered under `requestId`, or `false` if the session does not exist. */
@@ -229,7 +237,8 @@ export class Sessions {
     const ticketId = ticketOfSession(agent.id)
     return ticketId === undefined ? undefined : this.host.store.tickets.get(ticketId)
   }
-  private async decorate(agent: Agent): Promise<void> {
+  private async decorate(agent: Agent, authorize: () => void = () => {}): Promise<void> {
+    authorize()
     if (this.bindings.has(agent)) return
     const host = this.host
     const master = agent.id === host.masterId
@@ -255,6 +264,7 @@ export class Sessions {
     })
     binding.disposers.push(() => { skillScope.dispose().catch((error: unknown) => { this.ctx.logger.warn('dsh-superagent could not release a skill scope: %s', String(error)) }) })
     await skillScope
+    try { authorize() } catch (error) { this.release(agent); throw error }
     // Bail out if the agent was disposed while awaiting the skill scope.
     if (this.bindings.get(agent) !== binding) return
     const register = this.registerTool(agent, binding)

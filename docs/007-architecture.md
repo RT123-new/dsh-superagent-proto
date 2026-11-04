@@ -428,6 +428,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/runtime.spec.ts` | The whole application on a simulated DeepSeek Harness host, through tools and HTTP |
 | `tests/tools.spec.ts` | The Sessions' tools: what `orchestrator_read` reads for each role, and the shapes and checks of the other main Session tools |
 | `tests/runtime-concurrency.spec.ts` | Work that overlaps: Triggers during a pass, Tickets that change during deliveries and launches |
+| `tests/issue-5-session-creation-gates.spec.ts` | Cancellation checks across session resolution, workspace creation, create RPC and model initialization |
 | `tests/issue-4-5-adversarial.spec.ts` | Independent regressions for legacy/corrupt state, cancellation during verification, config-change races and descendant quiescence |
 | `tests/issue-4-workspace-preparation.spec.ts` | Workspace preparation state: retries after failed and interrupted preparations, configuration invalidation, fail-closed legacy migration, timeout |
 | `tests/issue-5-preparation-cancellation.spec.ts` | Cancellation of a launch at every asynchronous boundary, and the settle a replacement Assignment waits for |

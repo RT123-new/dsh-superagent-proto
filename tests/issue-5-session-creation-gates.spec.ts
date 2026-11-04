@@ -46,3 +46,20 @@ it('an in-flight uncancellable create RPC settles but cancellation prevents reso
   expect(h.controller.resolveAgent.mock.calls.length).toBe(resolves)
   expect(h.controller.rename.mock.calls.length).toBe(renames)
 })
+
+it('cancellation during model resolution prevents model selection append and rename', async () => {
+  h = await startRuntime()
+  const check = gate(), entered = Promise.withResolvers<void>(), wait = Promise.withResolvers<void>()
+  const settings = h.runtime.store.settings()
+  h.runtime.store.saveSettings({ ...settings, executor: { ...settings.executor, model: { provider: 'test', model: 'test' } } })
+  vi.spyOn(h.ctx.llm, 'resolveCallConfig').mockImplementationOnce(async () => {
+    entered.resolve(); await wait.promise; return { provider: 'test', model: 'test' } as never
+  })
+  const pending = (h.runtime.sessions.ensure.bind(h.runtime.sessions) as GuardedEnsure)('cancel-model', h.directory, 'test', 'worker', check.check)
+  await entered.promise
+  const agent = h.agents.get('cancel-model')!
+  check.revoke(); wait.resolve()
+  await expect(pending).rejects.toThrow('Assignment cancelled')
+  expect((agent as unknown as { session: { append: ReturnType<typeof vi.fn> } }).session.append).not.toHaveBeenCalled()
+  expect(h.controller.rename).not.toHaveBeenCalledWith(expect.objectContaining({ sessionId: 'cancel-model' }))
+})
