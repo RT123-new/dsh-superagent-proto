@@ -53,6 +53,11 @@ function ended(error: unknown): string {
 export interface Tally { skipped: number; rejected?: RejectedItem[] }
 export interface RejectedItem { id?: string | number; fields: string[] }
 const MAX_REJECTED = 20
+/** Field names the Source schemas define; any other (remote-supplied) key is reported as `?`, so diagnostics never carry remote text. */
+const KNOWN_FIELDS: ReadonlySet<string> = new Set(['id', 'number', 'title', 'body', 'user', 'login', 'type', 'state', 'html_url', 'created_at', 'updated_at', 'submitted_at',
+  'commit_id', 'path', 'line', 'original_line', 'diff_hunk', 'in_reply_to_id', 'name', 'status', 'conclusion', 'context', 'repository', 'subject', 'reason',
+  'unread', 'url', 'check_runs', 'head', 'base', 'ref', 'sha', 'labels', 'draft', 'merged', 'pull_request', 'message_id', 'chat_id', 'create_time', 'msg_type',
+  'sender', 'items', 'content', 'thread_id', 'parent_id', 'root_id'])
 /** Parses array elements against a schema, skipping invalid items, incrementing `tally.skipped` and recording a redacted diagnostic. */
 export function validItems<T>(item: z.ZodType<T>, list: readonly unknown[], tally?: Tally): T[] {
   const items = list.flatMap(value => {
@@ -64,7 +69,7 @@ export function validItems<T>(item: z.ZodType<T>, list: readonly unknown[], tall
         const id = value && typeof value === 'object' && 'id' in value ? (value as { id: unknown }).id : undefined
         // Remote text is untrusted: keep only a numeric id, or a short hash of anything else, and only plain identifier-shaped field names.
         const safeId = typeof id === 'number' && Number.isSafeInteger(id) ? id : typeof id === 'string' ? `sha256:${createHash('sha256').update(id).digest('hex').slice(0, 12)}` : undefined
-        const field = (segment: PropertyKey) => typeof segment === 'string' && /^[A-Za-z_][A-Za-z0-9_]{0,31}$/.test(segment) ? segment : typeof segment === 'number' ? '#' : '(field)'
+        const field = (segment: PropertyKey) => typeof segment === 'string' && KNOWN_FIELDS.has(segment) ? segment : typeof segment === 'number' ? '#' : '?'
         rejected.push({ ...safeId !== undefined ? { id: safeId } : {},
           fields: [...new Set(parsed.error.issues.map(issue => issue.path.map(field).join('.') || '(item)'))].slice(0, 5) })
       }

@@ -97,6 +97,24 @@ console.log(JSON.stringify(out)) }' -- "$@"`)
   })
 })
 
+describe('3.4 diagnostics never carry remote text', () => {
+  it('reports remote-supplied object keys as ? and arbitrary string ids only as a hash', async () => {
+    const { z } = await import('zod')
+    const schema = z.object({ id: z.number(), meta: z.record(z.string(), z.number()) })
+    const t = { skipped: 0 } as { skipped: number; rejected?: { id?: string | number; fields: string[] }[] }
+    validItems(schema, [{ id: 'sk-live-123456', meta: { 'api_key_sk-live-123': 'x' } }], t)
+    expect(JSON.stringify(t)).not.toMatch(/sk-live|api_key/)
+    expect(t.rejected![0]!.fields).toContain('?.?')
+  })
+  it('a user-less comment is attributed to the ghost actor and is no more authorised than a null-user comment', async () => {
+    const { CommentSchema, commentTrigger } = await import('../src/sources/github-trigger.ts')
+    const ref = { number: 1 } as never
+    const none = commentTrigger(CommentSchema.parse({ id: 1, body: 'x' }), ref, 'conversation', 'agent-bot')
+    const nul = commentTrigger(CommentSchema.parse({ id: 1, body: 'x', user: null }), ref, 'conversation', 'agent-bot')
+    expect(none.actor).toEqual(nul.actor)
+    expect(none.actor.id).toBe('ghost')
+  })
+})
 describe('3.4 malformed remote items', () => {
   it('records a bounded, redacted diagnostic (id and field names, never values) for a skipped item', async () => {
     const { z } = await import('zod'); const { CommentSchema } = await import('../src/sources/github-trigger.ts')
