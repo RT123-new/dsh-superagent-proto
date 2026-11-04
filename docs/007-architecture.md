@@ -465,6 +465,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/issue-20-adversarial.spec.ts` | Independent decision-link index, SQL-write, migration, rollback, reopen and process-kill proofs |
 | `tests/review-db-link-shapes.spec.ts` | Decision-link triggers: non-array, non-string and malformed triggerIds writes agree with the legacy query; v1 to v2 trigger replacement |
 | `tests/review-db-malformed-reads.spec.ts` | Scope of malformed-decision tolerance: metrics queries tolerate it, decision readers still reject it (baseline behaviour) |
+| `tests/review-db-flow-snapshot.spec.ts` | flow reads judged and accepted from one snapshot while another connection commits |
 | `tests/issue-19-20-storage.spec.ts` | Windowed triggerStats/flow equal the previous full-scan queries; decision link rebuild; index-range plans |
 | `tests/issue-4-5-adversarial.spec.ts` | Independent regressions for legacy/corrupt state, cancellation during verification, config-change races and descendant quiescence |
 | `tests/issue-4-workspace-preparation.spec.ts` | Workspace preparation state: retries after failed and interrupted preparations, configuration invalidation, fail-closed legacy migration, timeout |

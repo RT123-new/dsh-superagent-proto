@@ -28,11 +28,13 @@ export function storeReads(db: DatabaseSync) {
    * and how many accept/reopen decisions those same arrivals produced (driven from the arrival window through `decision_trigger`).
    */
   flow: (since: string): { judged: number; accepted: number } => {
-    const judged = db.prepare(`SELECT COUNT(DISTINCT t.id) AS n FROM trigger t INDEXED BY trigger_at CROSS JOIN decision_trigger l ON l.trigger = t.id
-      WHERE t.at >= ? AND NOT EXISTS (SELECT 1 FROM disposition s WHERE s.id = t.id AND json_extract(s.value, '$.filtered') IS NOT NULL)`).get(since)
-    const accepted = db.prepare(`SELECT COUNT(DISTINCT d.id) AS n FROM trigger t INDEXED BY trigger_at CROSS JOIN decision_trigger l ON l.trigger = t.id JOIN decision d ON d.id = l.decision
-      WHERE t.at >= ? AND json_extract(d.value, '$.kind') IN ('accept', 'reopen')`).get(since)
-    return { judged: Number(judged?.n ?? 0), accepted: Number(accepted?.n ?? 0) }
+    // One statement, so both counts come from a single read snapshot even when another connection commits meanwhile (no transaction needed, safe inside callers' own).
+    const row = db.prepare(`SELECT
+      (SELECT COUNT(DISTINCT t.id) FROM trigger t INDEXED BY trigger_at CROSS JOIN decision_trigger l ON l.trigger = t.id
+        WHERE t.at >= ?1 AND NOT EXISTS (SELECT 1 FROM disposition s WHERE s.id = t.id AND json_extract(s.value, '$.filtered') IS NOT NULL)) AS judged,
+      (SELECT COUNT(DISTINCT d.id) FROM trigger t INDEXED BY trigger_at CROSS JOIN decision_trigger l ON l.trigger = t.id JOIN decision d ON d.id = l.decision
+        WHERE t.at >= ?1 AND json_extract(d.value, '$.kind') IN ('accept', 'reopen')) AS accepted`).get(since)
+    return { judged: Number(row?.judged ?? 0), accepted: Number(row?.accepted ?? 0) }
   },
   triggers: (options: { source?: string; filtered?: boolean }, offset = 0, limit = 50): { items: Trigger[]; more: boolean } => {
     const where = [...(options.source ? ["json_extract(t.value, '$.source') = ?"] : []), ...(options.filtered ? ["json_extract(d.value, '$.filtered') IS NOT NULL"] : [])]
