@@ -7,7 +7,7 @@ import type { SourceContext } from '../../sources/host.ts'
 import { readResource, type ResourceHost } from '../resources.ts'
 import type { Store } from '../store.ts'
 import { reportRelay, threadFollowedNotice } from '../notices.ts'
-import { ResumeSnapshotInputSchema } from '../resume-snapshot.ts'
+import { ResumeSnapshotInputSchema, ResumeSnapshotSchema } from '../resume-snapshot.ts'
 import type { Sessions } from '../sessions.ts'
 import { AcknowledgementSchema, readTool, tool, type Tool } from './tool.ts'
 
@@ -99,16 +99,20 @@ export function executorTools(host: ExecutorToolsHost, ticket: Ticket): Tool[] {
           const snapshotEnabled = host.store.settings().executor.resumeSnapshotsEnabled
           const snapshot = snapshotEnabled && args.resume_snapshot !== undefined
             ? ResumeSnapshotInputSchema.safeParse(args.resume_snapshot) : undefined
+          const snapshotFits = !!snapshot?.success && ResumeSnapshotSchema.safeParse({
+            ...snapshot.data, schemaVersion: 1, ticketId, assignmentId: expectedAssignment,
+            capturedAt: new Date().toISOString(), revision: (fresh.resumeSnapshot?.revision ?? 0) + 1,
+          }).success
           const report = { state: args.state, summary: args.summary, ...(args.human_action !== undefined ? { question: args.human_action } : {}),
             ...(args.question_for_trigger_id ? { askedBy: args.question_for_trigger_id } : {}),
             ...(args.reply_to_trigger_id ? { answers: args.reply_to_trigger_id } : {}),
-            ...(snapshot?.success ? { resumeSnapshot: snapshot.data } : {}),
+            ...(snapshot?.success && snapshotFits ? { resumeSnapshot: snapshot.data } : {}),
             assignmentId: expectedAssignment }
           const updated = host.engine.report(ticketId, report)
           const relay = reportRelay(updated, report)
           if (relay) host.sessions.relay(relay.id, relay.text)
           const notification = relay ? 'orchestrator' : 'internal_only'
-          return { reported: true, notification, ...(snapshot && !snapshot.success ? { snapshot_ignored: 'invalid' } : {}),
+          return { reported: true, notification, ...(snapshot && !snapshotFits ? { snapshot_ignored: 'invalid' } : {}),
             ...(updated.attention ? { attention: updated.attention } : {}) }
         })
       },
