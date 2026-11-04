@@ -32,3 +32,25 @@ it('overview panel shows a failed-state hint only for metricsState failed, and n
   const src = readFileSync(new URL('../src/client/overview.tsx', import.meta.url), 'utf8')
   expect(src).toContain("data.metricsState === 'failed'")
 })
+it('M5 read-order: metricsSnapshot wins and metricsReading is not called when a snapshot exists; a throwing-then-ok pair returns the second (ok) result as one consistent response; both missing explains via reading', async () => {
+  const { registerHttp } = await import('../src/app/http.ts')
+  const { Metrics } = await import('../src/infra/metrics.ts')
+  const h = await startRuntime()
+  try {
+    const host = (h.runtime as unknown as { httpHost: () => Record<string, unknown> }).httpHost()
+    const snap = new Metrics().snapshot()
+    let readings = 0
+    registerHttp(h.ctx, { ...host, metricsSnapshot: () => snap, metricsReading: () => { readings++; return { state: 'failed' } } } as never)
+    const a = await h.api('GET', 'overview')
+    expect(a.body.metricsState).toBe('ok'); expect(readings).toBe(0)
+    registerHttp(h.ctx, { ...host, metricsSnapshot: () => undefined, metricsReading: () => ({ state: 'ok', snapshot: snap }) } as never)
+    const b = await h.api('GET', 'overview')
+    expect(b.body.metricsState).toBe('ok'); expect(b.body.metrics).toBeTruthy()
+    registerHttp(h.ctx, { ...host, metricsSnapshot: () => undefined, metricsReading: () => ({ state: 'failed' }) } as never)
+    const c = await h.api('GET', 'overview')
+    expect(c.body.metricsState).toBe('failed'); expect(c.body.metrics).toBeUndefined()
+    // No underlying failure: instrumentation off must never be reported as failed.
+    registerHttp(h.ctx, { ...host, metricsSnapshot: () => undefined, metricsReading: () => ({ state: 'off' }) } as never)
+    expect((await h.api('GET', 'overview')).body.metricsState).toBe('off')
+  } finally { await h.stop() }
+})

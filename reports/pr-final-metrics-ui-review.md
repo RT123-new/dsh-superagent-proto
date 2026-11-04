@@ -39,3 +39,5 @@ M5 repaired (lead-authorised, source-grounded): Runtime.metricsReading() returns
 
 Arrow-key scroll now proven in headless Chrome: after Tab to the Successful-attempts region and 20 ArrowRight key events, scrollLeft 0 -> 192 (max = 505-313). M9 adversarial test added (copy-not-reference counts, unknown state rejected, backwards clock keeps integrals non-negative, new collector resets to empty).
 Still unverified: real DSH host shell/theme variables and live-host restart (no host available in this environment).
+
+M5 read-order contract: metricsSnapshot() is the single authoritative result when it returns a snapshot (metricsReading is then never called). Only when it returns nothing is metricsReading consulted, solely to explain the absence (off / failed) or, if the second read succeeds, to return that one consistent ok response (snapshot and state come from the same call). Off is never reported as failed. Tested in tests/pr-final-metrics-state.spec.tsx. Evidence of the keyboard run: reports/evidence/pr-final/cdp-keyboard-check.{mjs,log}.
