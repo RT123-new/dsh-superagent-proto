@@ -71,15 +71,33 @@ and burst desynchronization (50 correlated failures spread over [0.5·a, a]; wor
 0.75·a, no systematic added delay). Idempotency is unchanged: at-least-once handler runs remain protected by the
 existing idempotency keys (requestId / receipts); classification only stops retries that can never succeed.
 
-Production seam: **implemented** on branch review/issue-15-retry-seam @ 6ae148f (base e50b32b): src/app/retry-policy.ts
+Production seam: **implemented** on branch review/issue-15-retry-seam @ 4ad3413 (base e50b32b): src/app/retry-policy.ts
 + the attempt() failure path, exactly this formula with per-kind configured base/max preserved, injectable seeded RNG,
 structured error records on the row (class/message/status/retryAfter), and transport-only retryAfter authority.
+
+Transport contract (source-backed, supersedes the seam's duck-typed status/retryAfter reading): the independent
+reviewer's neutral infra boundary src/infra/transport-failure.ts @ 0e4359b (branch review/issue-15-adversarial) is the
+only channel through which a server scheduling instruction may reach Effects. `serverNotBefore(header, now)` accepts a
+Retry-After value only as (a) delta-seconds: a number, or a string matching /^\d+$/ after trim, kept only when the delta
+is a non-negative safe integer and now + delta*1000 stays a safe integer; or (b) an exact valid IMF-fixdate string
+(full weekday/month regex match, Date.parse finite, and a strict round-trip: new Date(at).toUTCString() === header).
+Anything else yields undefined — no arbitrary Date.parse of free-form dates, no epoch-ms-vs-seconds magnitude
+heuristic, no parsing of response-body instructions. `TransportFailure` carries `readonly status` (kept only when an
+integer in 100-599) and `readonly serverNotBeforeMs` computed once at construction; only this typed boundary error may
+supply a server scheduling instruction to Effects. The poll worker consumes this boundary plus explicit
+CliError.transportFailure metadata, preserving its old error codes. The seam's earlier classification contract
+(reading name/status/statusCode and a duck-typed retryAfter) is superseded and must not be treated as authority.
+Provenance: my fresh-clone checks (tsc, 88 files / 1417 tests, build, pnpm bench) ran against seam 4ad3413 and
+coordination 71cdcfb — pre-review semantics; the reviewed boundary above is the correct semantic reference.
 Blocked-park semantics (integrator clarification): a parked permanent/unauthorised row must NOT re-run its operation on
 a timer — no hourly re-execution without changed authority. The merged seam's hourly recheck is superseded by:
 park until explicit rearm (re-enqueue of the key resets attempts/due through the existing upsert; a config/policy
 rearm path to be documented with the dashboard surface). Parked rows stay in the table, carry `blocked:<class>`,
 surface an immediate error health entry, and are never silently discarded; policy-transition effects are named
-explicitly in this rule. (Patch held while the independent reviewer tests the seam hunks.)
+explicitly in this rule. (Patch held while the independent reviewer tests the seam hunks; reviewer progress:
+adversarial tests 2e2908b challenging parked-retry authorization, transport semantics and error visibility, plus the
+transport boundary 0e4359b, on review/issue-15-adversarial. The reviewer owns the safety repair, including the
+class-JSDoc placement, and has fixed it locally; this worker makes no further effects.ts production edits.)
 
 ## Issue 13 — coordinator load: baseline profiled
 
