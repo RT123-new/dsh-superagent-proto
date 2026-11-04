@@ -52,36 +52,63 @@ class Series {
   }
 }
 
-/** Exact time-in-state integrals for a fixed worker-slot pool: each slot is in exactly one state at any instant. */
+/**
+ * Exact worker-slot occupancy integrals over the observation interval, which starts when the integrator is created.
+ * Slots are counted, not identified (WorkerSlots tracks ticket ids against a configured maximum that can change at runtime).
+ * utilization = integral(active slots) / integral(configured capacity); never-used capacity counts as idle from the start.
+ * Active reservations above a lowered capacity are NOT hidden: they stay in the numerator (utilization may exceed 1) and
+ * the excess is integrated separately as `overLimitSlotMs`.
+ */
 export class SlotIntegrator {
   private readonly states: string[]
-  private readonly totals = new Map<string, number>()
-  private readonly slots = new Map<string, { state: string; since: number }>()
-  constructor(private readonly mono: MonoClock, readonly capacity: number, states: readonly string[] = ['idle', 'preparing', 'busy']) {
-    this.states = [...states]
-    for (const s of this.states) this.totals.set(s, 0)
+  private readonly counts = new Map<string, number>()
+  private readonly activeSlotMs = new Map<string, number>()
+  private capacitySlotMs = 0
+  private idleSlotMs = 0
+  private overLimitSlotMs = 0
+  private capacityChanges = 0
+  private last: number
+  private readonly begin: number
+  private cap: number
+  constructor(private readonly mono: MonoClock, capacity: number, states: readonly string[] = ['preparing', 'busy']) {
+    if (!Number.isInteger(capacity) || capacity < 0) throw new RangeError(`capacity ${capacity} must be a non-negative integer`)
+    this.states = [...states]; this.cap = capacity
+    for (const s of this.states) { this.counts.set(s, 0); this.activeSlotMs.set(s, 0) }
+    this.begin = this.last = mono()
   }
-  private slotKey(slot: number): string { return String(slot) }
-  /** Move a slot (0..capacity-1) to a state. First call starts accounting for that slot; time before it is not counted. */
-  transition(slot: number, state: string): void {
-    if (!Number.isInteger(slot) || slot < 0 || slot >= this.capacity) throw new RangeError(`slot ${slot} outside 0..${this.capacity - 1}`)
-    if (!this.totals.has(state)) throw new RangeError(`unknown slot state ${state}`)
-    const now = this.mono(), key = this.slotKey(slot), cur = this.slots.get(key)
-    if (cur) this.totals.set(cur.state, this.totals.get(cur.state)! + Math.max(0, now - cur.since))
-    this.slots.set(key, { state, since: now })
+  get capacity(): number { return this.cap }
+  private active(): number { let n = 0; for (const c of this.counts.values()) n += c; return n }
+  private advance(): void {
+    const now = this.mono(), dt = Math.max(0, now - this.last); this.last = Math.max(this.last, now)
+    if (dt === 0) return
+    const active = this.active()
+    this.capacitySlotMs += this.cap * dt
+    this.idleSlotMs += Math.max(0, this.cap - active) * dt
+    this.overLimitSlotMs += Math.max(0, active - this.cap) * dt
+    for (const [s, c] of this.counts) this.activeSlotMs.set(s, this.activeSlotMs.get(s)! + c * dt)
   }
-  /** Per-state milliseconds including the open interval up to now. */
-  integrals(): Record<string, number> {
-    const now = this.mono(), out: Record<string, number> = {}
-    for (const s of this.states) out[s] = this.totals.get(s)!
-    for (const cur of this.slots.values()) out[cur.state] = (out[cur.state] ?? 0) + Math.max(0, now - cur.since)
-    return out
+  /** Set the configured capacity from now on (the new value applies to time after this call). */
+  setCapacity(capacity: number): void {
+    if (!Number.isInteger(capacity) || capacity < 0) throw new RangeError(`capacity ${capacity} must be a non-negative integer`)
+    this.advance(); if (capacity !== this.cap) this.capacityChanges++; this.cap = capacity
   }
-  /** busy+preparing share of all accounted slot time; null before any time is accounted. */
-  utilization(busyStates: readonly string[] = ['preparing', 'busy']): number | null {
-    const i = this.integrals(), total = Object.values(i).reduce((a, b) => a + b, 0)
-    if (total <= 0) return null
-    return busyStates.reduce((a, s) => a + (i[s] ?? 0), 0) / total
+  /** Set how many slots are in a state from now on. */
+  setCount(state: string, count: number): void {
+    if (!this.counts.has(state)) throw new RangeError(`unknown slot state ${state}`)
+    if (!Number.isInteger(count) || count < 0) throw new RangeError(`count ${count} must be a non-negative integer`)
+    this.advance(); this.counts.set(state, count)
+  }
+  /** Per-state and capacity integrals in slot-milliseconds, including the open interval up to now. */
+  integrals(): { observedMs: number; capacitySlotMs: number; idleSlotMs: number; overLimitSlotMs: number; activeSlotMs: Record<string, number>; capacityChanges: number } {
+    this.advance()
+    return { observedMs: this.last - this.begin, capacitySlotMs: this.capacitySlotMs, idleSlotMs: this.idleSlotMs, overLimitSlotMs: this.overLimitSlotMs, activeSlotMs: Object.fromEntries(this.activeSlotMs), capacityChanges: this.capacityChanges }
+  }
+  /** Active slot-time over configured-capacity slot-time; null when capacity time is zero. May exceed 1 while over the limit. */
+  utilization(): number | null {
+    this.advance()
+    if (this.capacitySlotMs <= 0) return null
+    let a = 0; for (const v of this.activeSlotMs.values()) a += v
+    return a / this.capacitySlotMs
   }
 }
 
@@ -111,9 +138,17 @@ export class QueueGauge {
 }
 
 /** Token usage categories. Any field the provider did not report is null (unknown), not 0. */
-export interface TokenUsage { inputCacheHit?: number | null; inputCacheMiss?: number | null; output?: number | null }
-export interface Pricing { inputCacheHitPerM: number; inputCacheMissPerM: number; outputPerM: number }
+/**
+ * Maps from DSH TokenUsage: inputTokens -> inputCacheMiss, cacheReadTokens -> inputCacheHit, outputTokens -> output,
+ * cacheWriteTokens -> cacheWrite, reasoningTokens -> reasoning. Reasoning is reported separately and is NEVER added to
+ * output or cost (whether it is already inside outputTokens is unverified).
+ */
+export interface TokenUsage { inputCacheHit?: number | null; inputCacheMiss?: number | null; output?: number | null; cacheWrite?: number | null; reasoning?: number | null }
+/** Per-million prices. `cacheWritePerM` undefined means the cache-write rate is unresolved. */
+export interface Pricing { inputCacheHitPerM: number; inputCacheMissPerM: number; outputPerM: number; cacheWritePerM?: number }
 const CATS = ['inputCacheHit', 'inputCacheMiss', 'output'] as const
+const EXTRA = ['cacheWrite', 'reasoning'] as const
+const valid = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v >= 0
 
 export interface MetricsOptions { mono?: MonoClock; wall?: WallClock; window?: number }
 
@@ -125,7 +160,7 @@ export class Metrics {
   private readonly series = new Map<string, Series>()
   private readonly started: number
   private readonly counters = new Map<string, number>()
-  private readonly tokens = { sums: { inputCacheHit: 0, inputCacheMiss: 0, output: 0 }, known: { inputCacheHit: 0, inputCacheMiss: 0, output: 0 }, unknown: { inputCacheHit: 0, inputCacheMiss: 0, output: 0 }, reports: 0, costUsd: 0, costKnown: 0, costUnknown: 0 }
+  private readonly tokens = { sums: { inputCacheHit: 0, inputCacheMiss: 0, output: 0 }, known: { inputCacheHit: 0, inputCacheMiss: 0, output: 0 }, unknown: { inputCacheHit: 0, inputCacheMiss: 0, output: 0 }, reports: 0, costUsd: 0, costKnown: 0, costUnknown: 0, extra: { cacheWrite: 0, reasoning: 0 }, extraKnown: { cacheWrite: 0, reasoning: 0 } }
   readonly queues = new Map<string, QueueGauge>()
   readonly slots = new Map<string, SlotIntegrator>()
 
@@ -172,16 +207,25 @@ export class Metrics {
     return p
   }
 
-  /** Record one model usage report. cost is only computed when pricing is given AND all three categories are known. */
+  /**
+   * Record one model usage report. Cost is computed only when pricing is given, input hit/miss/output are all known, and
+   * any cache-write tokens reported (> 0) have a resolved rate; otherwise the report's cost is unknown and the running
+   * total excludes it (counted in costUnknownReports) so a partial sum is never presented as complete.
+   */
   recordUsage(usage: TokenUsage, pricing?: Pricing): { costUsd: number | null } {
     const t = this.tokens; t.reports++
     let allKnown = true
     for (const c of CATS) {
       const v = usage[c]
-      if (typeof v === 'number' && Number.isFinite(v) && v >= 0) { t.sums[c] += v; t.known[c]++ } else { t.unknown[c]++; allKnown = false }
+      if (valid(v)) { t.sums[c] += v; t.known[c]++ } else { t.unknown[c]++; allKnown = false }
     }
-    if (!pricing || !allKnown) { t.costUnknown++; return { costUsd: null } }
-    const cost = (usage.inputCacheHit! * pricing.inputCacheHitPerM + usage.inputCacheMiss! * pricing.inputCacheMissPerM + usage.output! * pricing.outputPerM) / 1e6
+    for (const c of EXTRA) { const v = usage[c]; if (valid(v)) { t.extra[c] += v; t.extraKnown[c]++ } }
+    const writes = usage.cacheWrite
+    const writeOk = valid(writes) ? (writes === 0 || pricing?.cacheWritePerM !== undefined) : writes === undefined || writes === null ? true : false
+    // A report that says nothing about cache writes is treated as billed-unknown only when the caller set cacheWrite to null explicitly.
+    const writeUnknown = writes === null
+    if (!pricing || !allKnown || !writeOk || writeUnknown) { t.costUnknown++; return { costUsd: null } }
+    const cost = (usage.inputCacheHit! * pricing.inputCacheHitPerM + usage.inputCacheMiss! * pricing.inputCacheMissPerM + usage.output! * pricing.outputPerM + (valid(writes) ? writes * (pricing.cacheWritePerM ?? 0) : 0)) / 1e6
     t.costUsd += cost; t.costKnown++
     return { costUsd: cost }
   }
@@ -192,7 +236,7 @@ export class Metrics {
     const queues: MetricsSnapshot['queues'] = {}
     for (const [k, q] of this.queues) queues[k] = { depth: q.depth, oldestAgeMs: q.oldestAgeMs(), untrackedOverflow: q.overflow }
     const slots: MetricsSnapshot['slots'] = {}
-    for (const [k, p] of this.slots) slots[k] = { capacity: p.capacity, integralsMs: p.integrals(), utilization: p.utilization() }
+    for (const [k, p] of this.slots) slots[k] = { capacity: p.capacity, integrals: p.integrals(), utilization: p.utilization() }
     const t = this.tokens, anyKnown = CATS.map((c) => t.known[c])
     return {
       version: 1, sinceWallMs: this.started, atWallMs: this.wall(), window: this.window, durations, queues, slots,
@@ -200,7 +244,7 @@ export class Metrics {
       tokens: {
         reports: t.reports,
         inputCacheHit: anyKnown[0] ? t.sums.inputCacheHit : null, inputCacheMiss: anyKnown[1] ? t.sums.inputCacheMiss : null, output: anyKnown[2] ? t.sums.output : null,
-        unknownReports: { ...t.unknown }, costUsd: t.costKnown ? t.costUsd : null, costKnownReports: t.costKnown, costUnknownReports: t.costUnknown,
+        cacheWrite: t.extraKnown.cacheWrite ? t.extra.cacheWrite : null, reasoning: t.extraKnown.reasoning ? t.extra.reasoning : null, unknownReports: { ...t.unknown }, costUsd: t.costKnown ? t.costUsd : null, costKnownReports: t.costKnown, costUnknownReports: t.costUnknown,
       },
     }
   }
@@ -216,7 +260,7 @@ export interface MetricsSnapshot {
   version: 1; sinceWallMs: number; atWallMs: number; window: number
   durations: Record<string, DurationSummary>
   queues: Record<string, { depth: number; oldestAgeMs: number | null; untrackedOverflow: number }>
-  slots: Record<string, { capacity: number; integralsMs: Record<string, number>; utilization: number | null }>
+  slots: Record<string, { capacity: number; integrals: ReturnType<SlotIntegrator['integrals']>; utilization: number | null }>
   counters: Record<string, number>
-  tokens: { reports: number; inputCacheHit: number | null; inputCacheMiss: number | null; output: number | null; unknownReports: Record<string, number>; costUsd: number | null; costKnownReports: number; costUnknownReports: number }
+  tokens: { reports: number; inputCacheHit: number | null; inputCacheMiss: number | null; output: number | null; cacheWrite: number | null; reasoning: number | null; unknownReports: Record<string, number>; costUsd: number | null; costKnownReports: number; costUnknownReports: number }
 }
