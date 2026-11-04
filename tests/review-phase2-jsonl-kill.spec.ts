@@ -10,7 +10,7 @@ import { freezeMessage } from '@deepseek-ai/dsh-llm'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import persistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, truncateSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -69,4 +69,15 @@ it('a message that was only in an agent inbox (never appended) is not in the log
   await delivery.send(agent, 'req-1', '{}', 'steer', signal)
   await delivery.send(agent, 'req-1', '{}', 'steer', signal)       // a retry while it sits in the inbox does not duplicate
   expect(calls).toEqual({ steer: 1, followup: 0 })
+}, 40000)
+
+it('characterization (confirmed residual): after a SIGKILL a damaged log tail makes holds() false, so an already appended message is delivered AGAIN (at-least-once, a duplicate); no loss and no crash', async () => {
+  const logs = await killedWriter('append-flush')
+  const files = (readdirSync(logs, { recursive: true }) as string[]).map(name => join(logs, name)).filter(file => /\.jsonl/.test(file) && statSync(file).isFile())
+  expect(files).toHaveLength(1)
+  truncateSync(files[0]!, statSync(files[0]!).size - 5)          // the final frame is torn, as after a kill mid-write
+  const { delivery, agent, calls, signal } = await restart(logs)
+  expect(await delivery.holds(agent, 'req-1')).toBe(false)       // the torn frame is discarded by recovery
+  await delivery.send(agent, 'req-1', '{}', 'steer', signal)
+  expect(calls).toEqual({ steer: 1, followup: 0 })               // the producer sees it as not delivered: a duplicate of a message the log once held
 }, 40000)
