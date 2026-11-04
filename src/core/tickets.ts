@@ -184,6 +184,9 @@ export class Tickets extends EnginePart {
    */
   markUnrelated(ticketId: string, thread: string, reason: string): void {
     const ticket = this.require(ticketId)
+    // A stale worker (stopped, replaced or ended) keeps its registered tools for a while; its authority ended with the
+    // ticket, so the mutation path is refused like ack/follow/report already refuse.
+    if (!liveTicket(ticket)) throw new UserError('ticketEnded')
     if (this.source(ticket)?.threads.some(ref => threadKey(ref) === thread)) throw new UserError('sourceThread')
     if (ticket.follows?.some(item => item.thread === thread)) throw new UserError('followedThread')
     if (!this.repo.threads.get(thread)?.subscriptions.includes(ticketId)) throw new UserError('notFollowing')
