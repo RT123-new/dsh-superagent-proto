@@ -494,6 +494,8 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/issue-14-hol-blocking.spec.ts` | Ordered head-of-line characterization and isolated partition fixture. |
 | `tests/issue-15-retry-backoff.spec.ts` | Retry baseline characterization and proposed jitter formula (under integration update). |
 
+| `tests/issue-17-disposal.spec.ts` | Disposed idle continuations and settlement abort, independently of slotwake. |
+
 ## Persistence
 
 One SQLite file, `<stateDir>/orchestrator.sqlite`, which only the Store opens.

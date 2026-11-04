@@ -117,3 +117,5 @@ Capacity matrix, 24 tickets, seeded mix 60/30/10 of 30/100/400ms turns, 3 seeds,
 
 All scenarios assert invariants: no oversubscription beyond the person +1, no orphaned jobs, no lost or duplicated
 assignments, correct wake-ups. Reproduce: `npx vitest run tests/stage-d/`.
+
+Evidence regeneration is now explicit: normal `pnpm test`/`pnpm check` preserves the recorded benchmark JSON. To capture fresh StageD scenario output, run `STAGE_D_EVIDENCE_DIR=/tmp/stage-d-new pnpm exec vitest run tests/stage-d/`, then inspect and deliberately publish selected evidence. Original measurements remain immutable unless explicitly replaced with provenance.

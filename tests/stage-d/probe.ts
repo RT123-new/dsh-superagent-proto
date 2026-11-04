@@ -113,10 +113,12 @@ export class SlotProbe {
   dispose(): void { this.disposeStatus() }
 }
 
-/** Writes one scenario's evidence JSON under reports/evidence/stage-d/. */
+/** Explicit evidence regeneration only; normal pnpm test never overwrites recorded benchmark evidence. */
 export function evidence(name: string, data: unknown): void {
-  mkdirSync('reports/evidence/stage-d', { recursive: true })
-  writeFileSync(`reports/evidence/stage-d/${name}.json`, JSON.stringify(data, null, 2))
+  const directory = process.env.STAGE_D_EVIDENCE_DIR
+  if (!directory) return
+  mkdirSync(directory, { recursive: true })
+  writeFileSync(`${directory}/${name}.json`, JSON.stringify(data, null, 2))
 }
 
 export const mean = (values: number[]): number => values.reduce((sum, value) => sum + value, 0) / (values.length || 1)

@@ -1,0 +1,61 @@
+{
+  "method": "10,000 matched seed-cluster resamples, nearest rank P95; exploratory five seeds, not 200 tasks/profile",
+  "result": [
+    {
+      "capacity": 1,
+      "metric": "refill_p95_ms",
+      "independent_seed_pairs": 5,
+      "refill_event_pairs": 25,
+      "baseline": 1971,
+      "variant": 14,
+      "relative_improvement": 0.9928970065956367,
+      "paired_cluster_bootstrap_ci95": [
+        0.9928934010152284,
+        0.9934177215189873
+      ],
+      "all_successful": true
+    },
+    {
+      "capacity": 3,
+      "metric": "run_makespan_p95_ms",
+      "independent_seed_pairs": 5,
+      "refill_event_pairs": null,
+      "baseline": 749,
+      "variant": 663,
+      "relative_improvement": 0.11481975967957277,
+      "paired_cluster_bootstrap_ci95": [
+        0.11481975967957277,
+        0.23017408123791103
+      ],
+      "all_successful": true
+    },
+    {
+      "capacity": 6,
+      "metric": "run_makespan_p95_ms",
+      "independent_seed_pairs": 5,
+      "refill_event_pairs": null,
+      "baseline": 765,
+      "variant": 873,
+      "relative_improvement": -0.1411764705882353,
+      "paired_cluster_bootstrap_ci95": [
+        -0.1411764705882353,
+        0.13525179856115108
+      ],
+      "all_successful": true
+    },
+    {
+      "capacity": 12,
+      "metric": "run_makespan_p95_ms",
+      "independent_seed_pairs": 5,
+      "refill_event_pairs": null,
+      "baseline": 892,
+      "variant": 940,
+      "relative_improvement": -0.053811659192825115,
+      "paired_cluster_bootstrap_ci95": [
+        -0.08,
+        0.04950495049504951
+      ],
+      "all_successful": true
+    }
+  ]
+}
