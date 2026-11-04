@@ -28,6 +28,8 @@ import { Store } from './store.ts'
 import { evalsHealth } from './views/overview.ts'
 import { TextCache } from './cache.ts'
 import { Effects } from './effects.ts'
+import { Metrics, type MetricsSnapshot } from '../infra/metrics.ts'
+import { Probe, type MetricsLike } from '../infra/metrics-probe.ts'
 import { Prompts } from './prompts.ts'
 import { registerHttp, type HttpHost } from './http.ts'
 import type { LinkTarget } from './views/records.ts'
@@ -61,6 +63,8 @@ export class Runtime extends Service implements SourceHost {
   readonly setup: Setup
   readonly prompts: Prompts
   readonly effects: Effects
+  private readonly metrics: MetricsLike | undefined
+  private probe!: Probe
   readonly sources: SourceRegistry
   readonly commands: Commands
   readonly sessions: Sessions
@@ -84,8 +88,10 @@ export class Runtime extends Service implements SourceHost {
   private readonly toolHost: MainToolsHost & ExecutorToolsHost
   /** Non-zero while a main-Session tool is executing an Engine command, suppressing self-triggered domain event notices. */
   private quiet = 0
-  constructor(ctx: Context, readonly machine: Machine, restart: () => void) {
+  /** @param metrics - The instrumentation collector; defaults to a new bounded in-memory `Metrics`, and `null` turns instrumentation off. */
+  constructor(ctx: Context, readonly machine: Machine, restart: () => void, metrics: MetricsLike | null = new Metrics()) {
     super(ctx, 'orchestrator')
+    this.metrics = metrics ?? undefined
     const runtime = this
     // Lock the state directory before opening the database so another process cannot migrate or write concurrently.
     mkdirSync(machine.stateDir, { recursive: true, mode: 0o700 })
@@ -105,7 +111,8 @@ export class Runtime extends Service implements SourceHost {
       store.set(KV.runtime.masterId, masterId)
       const commands = this.commands = new Commands(() => setup.deployment, setup.commandEnvironment, this.lifetime)
       const board = this.board
-      const effects = this.effects = new Effects(store, board)
+      const probe = this.probe = new Probe(this.metrics)
+      const effects = this.effects = new Effects(store, board, undefined, probe)
       const sources = this.sources = new SourceRegistry(() => store.settings(), board, kind => {
         // Sync source member lists once startup completes when a source plugin loads dynamically.
         if (kind.policy?.sync) void this.ready?.then(() => this.settings.syncable().includes(kind.kind) ? this.settings.sync(kind.kind) : undefined)
@@ -119,14 +126,14 @@ export class Runtime extends Service implements SourceHost {
         promptVersion: id => this.sessions.promptVersion(id), mayRead: (id, revision) => this.sessions.mayRead(id, revision),
         feishuPageSize: () => feishuSettings(sources).readPageSize, sourceLink: link }
       const sessions = this.sessions = new Sessions({ context: ctx, store, prompts, effects, health: board.claim('models'), masterId,
-        lifetime: this.lifetime,
+        lifetime: this.lifetime, probe,
         closing: () => this.closing(), environment,
         tools: (agent, ticket) => ticket ? executorTools(this.toolHost, ticket) : mainTools(this.toolHost, agent) })
       const policyChanged: EngineForSettings['policyChanged'] = (from, to, effects) => { this.engine.policyChanged(from, to, effects) }
       this.settings = new Settings({ store, sources, engine: { policyChanged }, health: board, context: ctx, lifetime: this.lifetime, sessions,
         sourceHost: this, setup, requestPass: () => { this.passes.request() } })
       this.executor = new DshExecutor({ context: ctx, get engine() { return runtime.engine }, store, effects, health: board.claim('worker'), machine,
-        lifetime: this.lifetime, sessions, closing: () => this.closing(), paused: () => this.paused(),
+        lifetime: this.lifetime, probe, sessions, closing: () => this.closing(), paused: () => this.paused(),
         authorized: ticket => settingsPolicy(store.settings(), sources).revalidate(ticket.mandate), environment, sourceLink: link,
         repository: () => setup.deployment.repository, repliedTo: trigger => repliedTo({ store, sources }, trigger) })
       this.assessor = new MasterAssessor({ get engine() { return runtime.engine }, commands, get deployment() { return setup.deployment }, effects,
@@ -156,7 +163,7 @@ export class Runtime extends Service implements SourceHost {
       const evals = board.claim('evals', { state: 'ready', detail: 'No unavailable Eval in the last hour' })
       const evaluateDue = () => { engine.evaluateDue(); evals.set(evalsHealth(store)) }
       const passes = this.passes = new Passes({ engine: { receive: trigger => engine.receive(trigger), evaluateDue }, effects,
-        health: this.runtimeHealth, lifetime: this.lifetime, configured: () => setup.configured(), closing: () => this.closing() })
+        health: this.runtimeHealth, lifetime: this.lifetime, probe, configured: () => setup.configured(), closing: () => this.closing() })
       this.sourceDeps = { store, engine, outbox, commands, sources, get ready() { return runtime.ready },
         get deployment() { return setup.deployment }, configured: () => setup.configured(),
         get setupProblem() { return setup.problem }, get feishuProblem() { return setup.feishuProblem }, receive: trigger => passes.receive(trigger) }
@@ -170,6 +177,12 @@ export class Runtime extends Service implements SourceHost {
       try { opened?.close() } finally { release() }
       throw error
     }
+  }
+  /** A point-in-time metrics snapshot, or undefined when instrumentation is off. Reconciles authoritative queue lengths just before reading. */
+  metricsSnapshot(): MetricsSnapshot | undefined {
+    if (!this.metrics) return undefined
+    this.effects.measure()
+    return this.metrics.snapshot()
   }
   get health(): Readonly<Record<string, Health>> { return this.board.all }
   /** Aborted when dsh-superagent stops or loses its state directory lock, cancelling running reads and subprocesses. */
