@@ -92,3 +92,55 @@ Not changed / still open: search LIKE (linear), OFFSET paging, unbounded list lo
 | 10k | 0.152 / 0.007 | 0.394 / 0.411 |
 | 40k | 0.095 / 0.009 | 1.102 / 1.171 |
 Candidate cost grows linearly with history: `DELETE FROM decision_trigger WHERE decision=?` cannot use the (trigger, decision) primary key and full-scans the link table. This is a real regression introduced by Candidate 1 as committed in b57bbce (about 12x autocommit, >100x batched at 40k; extrapolates to ~tens of ms per save at 1M). The 100k/6-run version timed out the harness, so only single runs are claimed. A repair needs a (decision) index or PK order change; independent reviewer owns that repair. Candidate 1 read gains stand, but it must not be adopted as committed.
+
+## Paired measurements of the reviewer-repaired Candidate 1 (ref review/issue-20-independent @06ad576) vs base (programme/reliability 6846973 source)
+Method: alternating base/repaired process runs, same harness and machine, synthetic data, raw JSON in reports/evidence/storage/paired2/. Mean ± sd across process runs (each run itself a median of 3-5 inner reps). Small n: no P95/CI claim.
+
+### Reads, 100k triggers (n=6 pairs)
+| query | baseline ms (mean ± sd, n=6) | repaired ms (mean ± sd, n=6) | ratio |
+|---|---|---|---|
+| recentTriggers(offset=N/2,50) | 5.01 ± 0.89 | 4.88 ± 0.24 | 1.03x |
+| triggerStats(since 90%) | 183.20 ± 1.31 | 8.50 ± 0.17 | 21.56x |
+| triggerStats(since all) | 184.00 ± 13.32 | 85.90 ± 2.02 | 2.14x |
+| flow(since 90%) | 95.72 ± 0.77 | 14.59 ± 0.14 | 6.56x |
+| triggers(filtered, offset N/8) | 34.45 ± 0.24 | 34.66 ± 0.33 | 0.99x |
+| search(text LIKE miss) | 112.32 ± 0.77 | 112.98 ± 1.44 | 0.99x |
+| search(text LIKE hit rare) | 24.53 ± 0.20 | 24.60 ± 0.21 | 1.00x |
+| decisionsOfKinds | 14.34 ± 0.29 | 14.46 ± 0.32 | 0.99x |
+| threads.list() | 20.75 ± 4.43 | 23.51 ± 4.48 | 0.88x |
+| tickets.list() | 9.73 ± 1.23 | 7.17 ± 0.93 | 1.36x |
+| triggers.save(1) | 3.50 ± 0.06 | 3.71 ± 0.20 | 0.94x |
+
+### Reads, 1M triggers (n=3 pairs)
+| query | baseline ms (mean ± sd, n=3) | repaired ms (mean ± sd, n=3) | ratio |
+|---|---|---|---|
+| recentTriggers(offset=N/2,50) | 57.6 ± 1.3 | 56.1 ± 1.9 | 1.03x |
+| triggerStats(since 90%) | 2131.1 ± 23.7 | 88.7 ± 3.2 | 24.02x |
+| triggerStats(since all) | 2090.5 ± 6.8 | 938.1 ± 11.2 | 2.23x |
+| flow(since 90%) | 1067.5 ± 15.1 | 157.4 ± 1.6 | 6.78x |
+| triggers(filtered, offset N/8) | 374.2 ± 2.4 | 370.8 ± 1.7 | 1.01x |
+| search(text LIKE miss) | 1183.1 ± 6.1 | 1183.5 ± 10.9 | 1.00x |
+| search(text LIKE hit rare) | 25.4 ± 0.5 | 25.0 ± 0.2 | 1.02x |
+| decisionsOfKinds | 150.9 ± 5.2 | 148.0 ± 1.7 | 1.02x |
+| threads.list() | 218.4 ± 3.7 | 213.7 ± 5.2 | 1.02x |
+| tickets.list() | 127.0 ± 4.7 | 100.7 ± 6.3 | 1.26x |
+| triggers.save(1) | 32.2 ± 0.5 | 32.0 ± 0.2 | 1.01x |
+
+### decisions.save (scripts/storage/decision-save-bench.ts, n=6 pairs, ms per save)
+| N decisions | metric (ms/save) | baseline mean±sd | repaired mean±sd | n |
+|---|---|---|---|---|
+| 10000 | autocommitMs | 0.1300 ± 0.0018 | 0.1459 ± 0.0068 | 6 |
+| 10000 | resaveMs | 0.0911 ± 0.0050 | 0.1249 ± 0.0036 | 6 |
+| 10000 | batchedMs | 0.0078 ± 0.0013 | 0.0261 ± 0.0047 | 6 |
+| 100000 | autocommitMs | 0.1023 ± 0.0038 | 0.1340 ± 0.0036 | 6 |
+| 100000 | resaveMs | 0.0943 ± 0.0069 | 0.1311 ± 0.0044 | 6 |
+| 100000 | batchedMs | 0.0087 ± 0.0014 | 0.0298 ± 0.0036 | 6 |
+The regression of b57bbce (linear growth, 1.1 ms at 40k) is gone: repaired cost is flat in history size (0.134 vs 0.102 ms autocommit at 100k; batched 0.030 vs 0.009 ms). That is ~+0.03 ms per decision save, +30% autocommit, ~3x batched (still tiny in absolute terms).
+
+### Upgrade and disk
+- Upgrade-open of an existing 1M trigger / 500k decision DB: 2.2 s once (one run), steady reopen 0.33 s; file 483 MB -> 560 MB (+16%) on that fixture.
+- Profile fixture (1M triggers, 500k decisions, other tables): 978 MB -> 1060 MB (+8%); bulk load of the fixture 13.2 s -> 20.0 s (~+50%: the SQL triggers/links add write work per decision insert; this fixture also inserts links redundantly via INSERT OR IGNORE).
+- triggers.save unchanged (32.2 vs 32.0 ms at 1M; the 32 ms itself is a baseline cost of this fixture, not caused by the candidate).
+### Still not done
+- triggerStats "since all" and flow remain O(window); at 1M a 24h window depends on arrival rate. No claim for production windows.
+- No claim on P95/CI, power-loss, concurrent writers, or production-shaped data. Upgrade time/disk are single runs on synthetic data.
