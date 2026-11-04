@@ -26,7 +26,7 @@ describe('resume benchmark calculation', () => {
       latency: { medianRelativeImprovement: .4, snapshotMedianMs: 600, snapshotP95Ms: 5900,
         confidence95: { lower: .4, upper: .4 } },
       token: { medianRelativeImprovement: .3 }, safety: { failureRate: 0, staleErrorRate: 0 },
-      cost: { baseline: 30, snapshot: 24, saving: 6, savingFraction: .2 } })
+      cost: { baseline: 30, snapshot: 22.5, saving: 7.5, savingFraction: .25 } })
     expect(run(Array.from({ length: 30 }, (_, i) => pair(i))).stdout).toBe(a.stdout)
   })
   it('does not claim success from a small sample or unknown costs', () => {
