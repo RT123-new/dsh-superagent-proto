@@ -6,7 +6,7 @@
 
 Three independent gates are still open, by design:
 
-1. **Independent code verdict on the current head.** The two section-11 T_i commits (`56bb709`, `c0794ca`) and the section-10 allowlist commit (`fd3b7a6`, which itself repaired a defect the independent wire probe proved in `e62ad1a`) have not yet received the independent reviewer's verdict. Earlier scoped accepts cover the client work at `3139960`/`26ab444`, the transport verdicts at `3eb84b5`/`26ab444`, the historical banners at `910cfa9`/`627d356`, and the adversary timing patch `a5a8a41`.
+1. **Independent code verdict on the current head.** PARTIALLY LANDED: the complementary independent review (`INDEPENDENT_REVIEW_COMPLEMENTARY.md`, verbatim) accepts all client findings and the settings allowlist at `fd3b7a6` with actual probes replayed unmodified (32/32 client probes at `26ab444`; the original wire RED restored and replayed GREEN as 1 selected test at `fd3b7a6` - filtered, not the full suite). That acceptance is explicitly scoped: it is NOT whole-backend acceptance. Still pending: the deep backend review (source ingestion, executor, persistence, runtime safety) and the backend verdict on the section-11 T_i commits (`56bb709`, `c0794ca`). Earlier scoped accepts cover the transport verdicts at `3eb84b5`/`26ab444`, the historical banners at `910cfa9`/`627d356`, and the adversary timing patch `a5a8a41`.
 2. **Stable full canonical run.** Canonical validation is adversary-run only (`pnpm test`). The reference count of record at the last freeze is 140 files / 1728 pass / 2 skip at `6027b6e`; the branch is now 141+ files with new tests. No author-side run substitutes.
 3. **CI proof.** The CI failure-masking repair (`8643e27`, `d6e0f60`, `e0d7fc3`) is structurally proven (artifact run 41835601528 demonstrated the mask; the workflow contract is pinned by `tests/ci-workflow.spec.ts`) but the fixed workflow has not executed on GitHub; that requires an authorized push of the frozen head.
 
@@ -26,7 +26,7 @@ Three independent gates are still open, by design:
 
 ## Conditions to certify
 
-1. Independent reviewer verdict on `56bb709`, `c0794ca`, `fd3b7a6` (and the whole-round diff) with actual code inspection and reruns.
+1. Independent reviewer verdict on `56bb709`, `c0794ca` (backend T_i) and the remaining backend surface; the client + allowlist portion landed at `fd3b7a6` (scoped).
 2. Adversary-run canonical `pnpm test` green at the frozen final head.
 3. Authorized push of the accepted freeze; fixed CI workflow executes green on GitHub.
 4. Only then: merge readiness can be asserted, and merge itself remains the user's explicit decision.
