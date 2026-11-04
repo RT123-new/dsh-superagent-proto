@@ -496,6 +496,8 @@ Some generic modules still refer directly to GitHub or Feishu:
 
 | `tests/issue-17-disposal.spec.ts` | Disposed idle continuations and settlement abort, independently of slotwake. |
 
+| `tests/final-cross-scope-review.spec.ts` | Paused ordinary delivery and pre-create assignment cancellation guards. |
+
 ## Persistence
 
 One SQLite file, `<stateDir>/orchestrator.sqlite`, which only the Store opens.

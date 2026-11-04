@@ -432,7 +432,7 @@ export class DshExecutor implements Executor {
         try {
           // Recreate the worker session if it was externally deleted.
           if (!this.host.context.agents.get(sessionId as SessionId)) {
-            await this.host.sessions.ensure(sessionId, ticket.execution?.directory ?? '', ticket.title, 'worker')
+            await this.host.sessions.ensure(sessionId, ticket.execution?.directory ?? '', ticket.title, 'worker', () => this.deliveryCurrent(ticket.id, assignment.id))
           }
           if (input) await this.deliverInput(ticket, assignment, input)
         } catch (error) {
@@ -458,14 +458,17 @@ export class DshExecutor implements Executor {
   private clearHistory(assignmentId: string): void {
     for (const [id, value] of this.historyQueued) if (value.assignmentId === assignmentId) this.historyQueued.delete(id)
   }
+  /** Revalidate ordinary follow-up delivery and recreated-session boundaries, including after asynchronous resolution. */
+  private deliveryCurrent(ticketId: string, assignmentId: string): void {
+    if (this.disposed || this.host.closing()) throw new Later('dsh-superagent is stopping')
+    if (this.host.paused()) throw new Later('Processing is paused')
+    const current = this.host.store.tickets.get(ticketId)
+    if (!current || !liveTicket(current) || runningAssignment(current)?.id !== assignmentId) throw new Error('The ticket ended or another Assignment took it over')
+    if (this.stopping.has(ticketId)) throw new Later('The worker background work is stopping')
+  }
   private async deliverInput(ticket: Ticket, assignment: Assignment, input: TicketInput): Promise<void> {
     // Re-check right before session delivery because the ticket may have ended while awaiting `sourceLink`.
-    const live = () => {
-      const current = this.host.store.tickets.get(ticket.id)
-      if (!current || !liveTicket(current) || runningAssignment(current)?.id !== assignment.id) throw new Error('The ticket ended or another Assignment took it over')
-      // A stop of the worker's background work that started meanwhile ends with a cancel, which would drop the Input.
-      if (this.stopping.has(ticket.id)) throw new Later('The worker\'s background work is stopping')
-    }
+    const live = () => this.deliveryCurrent(ticket.id, assignment.id)
     live()
     const trigger = input.kind === 'trigger' ? await this.triggerCard(ticket, input.triggerId, input.note) : undefined
     const message = inputMessage(input, trigger)
