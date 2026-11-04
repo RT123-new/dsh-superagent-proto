@@ -1,0 +1,7 @@
+2026-11-04T11:12:13.669Z stop boot launched
+2026-11-04T11:12:17.680Z release (scripted report, slow lookup)
+2026-11-04T11:12:21.684Z tool executing: 1 lookup(s) begun
+2026-11-04T11:12:21.724Z stop route http=200
+2026-11-04T11:12:37.727Z after 16 s
+2026-11-04T11:12:37.758Z SIGKILL host pids: 68550 
+2026-11-04T11:12:38.767Z after kill, remaining pids: []

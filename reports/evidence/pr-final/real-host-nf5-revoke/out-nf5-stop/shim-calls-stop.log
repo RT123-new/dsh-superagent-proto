@@ -1,0 +1,5 @@
+11:12:15.075 pid=68566 api user
+11:12:15.096 pid=68569 api repos/acme/widgets --jq {name: .full_name, push: .permissions.push}
+11:12:15.223 pid=68582 api repos/acme/widgets/notifications?all=true&per_page=50&since=2026-11-04T11%3A12%3A15.219Z --include
+11:12:17.709 pid=68607 api repos/acme/widgets/pulls/42
+11:12:17.710 pid=68607 slow pull lookup begins
