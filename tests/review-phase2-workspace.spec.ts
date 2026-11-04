@@ -102,14 +102,43 @@ describe('review phase 2.1: preparing-record process ownership across restart', 
     expect(f.prepareCommands()).toHaveLength(0)
   })
 
-  it('compatibility: a preparing record whose owner process is dead (or a legacy record without owner) still retries', async () => {
+  it('MIGRATION: a preparing record whose owner process is dead still blocks, because dead parents do not prove descendants stopped', async () => {
     const child = spawn('true'); await new Promise(resolve => child.on('exit', resolve))
     await withRecord({ pid: child.pid, host: hostname() })
-    expect(f.prepareCommands()).toHaveLength(1)
+    expect(f.prepareCommands()).toHaveLength(0)
+    expect(f.sessions.prompt).not.toHaveBeenCalled()
   })
   it('a legacy preparing record without an owner cannot prove its range stopped and blocks (migration: delete the record after inspection)', async () => {
     await withRecord(undefined)
     expect(f.prepareCommands()).toHaveLength(0)
     expect(f.sessions.prompt).not.toHaveBeenCalled()
+  })
+})
+
+describe('review phase 2.1: descendants and same-process concurrency', () => {
+  let f: ExecutorFixture
+  afterEach(() => f?.dispose())
+  it('PROOF: a spawned descendant survives SIGKILL of its parent, so a dead owner pid cannot prove the range stopped', async () => {
+    const parent = spawn('sh', ['-c', 'sleep 30 & echo $!; wait'], { stdio: ['ignore', 'pipe', 'ignore'] })
+    const childPid = await new Promise<number>(resolve => parent.stdout.once('data', data => resolve(Number(String(data).trim()))))
+    parent.kill('SIGKILL'); await new Promise(resolve => parent.on('exit', resolve))
+    let alive = false
+    try { process.kill(childPid, 0); alive = true } catch { /* gone */ }
+    try { process.kill(childPid, 'SIGKILL') } catch { /* gone */ }
+    expect(alive).toBe(true)
+  })
+  it('two concurrent launches of one ticket run the prepare command once while the first is running', async () => {
+    f = new ExecutorFixture({ prepare: 'setup' })
+    const { ticket, assignment } = f.mkTicket('concurrent')
+    const { ControlledSpawn } = await import('./fixtures/executor.ts')
+    let controlled: InstanceType<typeof ControlledSpawn> | undefined
+    f.intercept = spec => { if (spec.argv[0] !== 'sh') return undefined; controlled = new ControlledSpawn(spec); return controlled.handle }
+    const first = f.launch(ticket, assignment)
+    await new Promise(resolve => setTimeout(resolve, 50))
+    const second = f.launch(ticket, f.newAssignment(ticket))
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(f.prepareCommands()).toHaveLength(1)
+    controlled!.finish(0)
+    await Promise.all([first, second])
   })
 })

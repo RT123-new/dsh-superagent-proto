@@ -118,8 +118,10 @@ describe('issue 4: workspace preparation is durable state, not directory presenc
     const { writePreparation } = await import('../src/executor/workspace.ts')
     await writePreparation(fixture.stateDir, ticket.execution!.name,
       { state: 'preparing', identity: 'whatever', directory: ticket.execution!.directory, at: new Date().toISOString(),
-        // Compatibility: a crash record naming a provably dead owner process is retried (final review: ownerless records now block).
-        owner: { pid: 2 ** 22 + 12345, host: (await import('node:os')).hostname() } })
+        // Written by this process: an in-process leftover is still retried.
+        // MIGRATION (final review): a record from ANOTHER process, dead or alive, now blocks (descendants may survive);
+        // see tests/review-phase2-workspace.spec.ts. The prior contract retried any crash leftover.
+        owner: (await import('../src/executor/workspace.ts')).currentOwner() })
     await fixture.launch(ticket, assignment)
     expect(fixture.prepareCommands()).toHaveLength(1)
     const { readPreparation } = await import('../src/executor/workspace.ts')

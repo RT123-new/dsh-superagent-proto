@@ -26,6 +26,14 @@ describe('review phase 2.1: record durability', () => {
       expect(seen.kind === 'record' && seen.record.state).toBe('failed')
     } finally { failing.code = ''; rmSync(dir, { recursive: true, force: true }) }
   })
+  it.skipIf(process.platform === 'win32')('POSIX: EPERM and EBADF on directory sync are real failures, not "unsupported"', async () => {
+    for (const code of ['EPERM', 'EBADF']) {
+      const dir = mkdtempSync(join(tmpdir(), 'prep-'))
+      failing.code = code
+      try { await expect(writePreparation(dir, 'w', record)).rejects.toThrow(`injected ${code}`) }
+      finally { failing.code = ''; rmSync(dir, { recursive: true, force: true }) }
+    }
+  })
   it('an unsupported directory sync (EINVAL) is tolerated and the record stands', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'prep-'))
     failing.code = 'EINVAL'

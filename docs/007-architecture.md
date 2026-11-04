@@ -471,6 +471,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/review-phase2-workspace.spec.ts` | Final review: preparation record unwritable/unreadable/corrupt fail closed before any command runs |
 | `tests/review-phase2-delivery.spec.ts` | Final review: flush failure after acceptance retries without duplicates; revoked authorization never reaches the inbox |
 | `tests/review-adv-exec.spec.ts` | Independent falsifiers: ownerless stale preparing record and corrupt record with absent directory block preparation |
+| `tests/review-adv-owner.spec.ts` | Independent falsifiers: same pid/host previous incarnation and dead parent with live descendant block reuse |
 | `tests/review-phase2-record-durability.spec.ts` | Final review: directory-sync failure handling and SIGKILL of a record writer |
 | `tests/review-phase2-session-gates.spec.ts` | Final review: cancelled assignment cannot receive work after an uncancellable create finishes |
 | `tests/review-phase2-outbox-crash.spec.ts` | Final review: retransmission with stable id after lost acknowledgement; failures never dropped |

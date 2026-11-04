@@ -5,7 +5,7 @@
  * Records live outside the workspace (under the state directory) so they never pollute the worker's git tree,
  * and each write is a temporary file atomically renamed over the record, so a crash cannot leave half a record.
  */
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { mkdir, open, readFile, rename } from 'node:fs/promises'
 import { hostname } from 'node:os'
 import { join } from 'node:path'
@@ -28,31 +28,28 @@ export interface PreparationRecord {
   /** A provider could not prove all owned processes stopped. Automatic workspace reuse is forbidden. */
   quiescence?: 'unknown'
   /** Host process that wrote a `preparing` record. A live or unverifiable foreign owner blocks reuse (see `foreignOwnerMayBeLive`). */
-  owner?: { pid: number; host: string }
+  owner?: { pid: number; host: string; nonce?: string }
 }
 
 /** Identity of this host process, stamped into `preparing` records. */
-export const currentOwner = (): { pid: number; host: string } => ({ pid: process.pid, host: hostname() })
+const PROCESS_NONCE = randomUUID()
+export const currentOwner = (): { pid: number; host: string; nonce: string } => ({ pid: process.pid, host: hostname(), nonce: PROCESS_NONCE })
 
 /**
- * True when a `preparing` record names another host process that may still own the preparation process range:
- * a different machine (unverifiable), or a pid that still exists (EPERM counts as existing), or a legacy record with no owner at all. A provably dead owner or this
- * process is not blocked, which keeps the retry-after-crash contract for records that name their owner.
- * A dead host does not prove its descendants stopped; that residual stays explicit. Pid reuse can only cause a false block.
+ * True when a `preparing` record was not written by this very process. A dead owner pid does NOT prove the spawned
+ * descendants stopped (children survive parent death; see tests/review-phase2-descendants.spec.ts), so any other
+ * owner, dead, alive, remote or unrecorded, blocks automatic reuse until an operator confirms the range stopped and
+ * clears the record. Same-process records are handled by the executor's in-memory active-preparation set.
  */
 export function foreignOwnerMayBeLive(record: PreparationRecord): boolean {
-  const owner = record.owner
   if (record.state !== 'preparing') return false
-  // A `preparing` record without an owner (written before owners were recorded) cannot prove its range stopped: block, with remediation.
-  if (!owner || typeof owner.pid !== 'number') return true
-  if (owner.pid === process.pid && owner.host === hostname()) return false
-  if (owner.host !== hostname()) return true
-  try { process.kill(owner.pid, 0); return true }
-  catch (error) { return (error as NodeJS.ErrnoException).code !== 'ESRCH' }
+  const owner = record.owner
+  // A per-process random nonce distinguishes a previous incarnation that reused the same pid and hostname (container restart).
+  return !(owner && owner.pid === process.pid && owner.host === hostname() && owner.nonce === PROCESS_NONCE)
 }
 
-/** Directory fsync is unsupported on some platforms; only these codes are tolerated, any other failure is a durability failure. */
-const DIR_SYNC_UNSUPPORTED = new Set(['EINVAL', 'ENOTSUP', 'EPERM', 'EISDIR', 'EBADF', 'ENOSYS'])
+/** Directory fsync is unsupported on some platforms; only these platform-specific codes are tolerated (on POSIX EPERM/EBADF/EISDIR are real failures), any other failure is a durability failure. */
+const DIR_SYNC_UNSUPPORTED = new Set(process.platform === 'win32' ? ['EPERM', 'EISDIR', 'EBADF', 'EINVAL', 'ENOTSUP'] : ['EINVAL', 'ENOTSUP', 'ENOSYS'])
 
 /** Bumped when what "prepared" means changes, so records written under other semantics never count. */
 export const PREPARATION_CONFIG_VERSION = 1
