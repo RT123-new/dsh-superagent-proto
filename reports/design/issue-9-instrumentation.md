@@ -36,11 +36,13 @@ Draft for review before Stage C. Grounded in the baseline code at 8c32a9d; reval
 1. **Lifecycle event record** appended to a bounded in-memory ring + persisted table `metric_events`:
    `{ at_wall: string, at_mono: number, kind: LifecycleKind, ticket?: id-hash, source?: string }`.
    Bounded cardinality: `kind` and `source` are the only labels; NO raw ticket ids or message text as labels (mandate). Per-ticket correlation stays in the ticket record itself.
-2. **Hooks** (one-line each, placed in existing seams):
-   - Engine.receive (trigger in), Eval enqueue/deliver (core/evals.ts + app/assessment.ts),
-   - effects.enqueue / launchQueued slot reserve/free (executor/dsh.ts),
-   - prepareDirectory start/end, sessions.prompt send/resolve,
-   - outbox send success/fail (app/outbox.ts), delivery effect completion (app/delivery.ts).
+2. **Hooks** (one-line each, placed in existing seams, verified 2026-11-04):
+   - Engine.receive (trigger in), Eval enqueue/deliver (core/evals.ts + app/assessment.ts).
+   - Effects queue wait: `Row.since` is already stamped at enqueue (effects.ts:85); stamp dispatch at handler start -> queue waiting time W_i exactly per mandate. Per-kind, no new schema.
+   - Worker slot acquire/release: launchQueued slot reserve/free (executor/dsh.ts) + WorkerSlots transitions (W45 diff surface — coordinate, do not collide with their workspace.ts changes).
+   - Workspace prepare: prepareDirectory start/end (executor/dsh.ts:247; W45 is reworking this seam — hook AFTER their durable-state machine lands).
+   - Model turn / delivery: AgentDelivery.send (app/delivery.ts) — the authorize/accepted callbacks already mark commit boundaries; resumeAfter (executor/dsh.ts:555) currently omits authorize (W68 Issue 6 patch lands there first).
+   - External response: Outbox send success/fail (app/outbox.ts) + reply effect completion (effects 'reply' kind).
 3. **Slot occupancy**: WorkerSlots emits a transition record on every reserve/free with the reservation reason; occupancy_fraction_s computed by interval summation between transitions (exact, per mandate formula).
 4. **Tokens/cost**: capture usage from DSH session model responses where the framework exposes it (verify dsh-agent API at Stage C); store raw_input/cached_input/output per assignment. Cost computed at report time with provider rates from reports/COST_LEDGER.md — never hardcode rates into metrics records.
 5. **Clock discipline**: monotonic (performance.now) for durations; wall-clock ISO for persisted events — per mandate.
