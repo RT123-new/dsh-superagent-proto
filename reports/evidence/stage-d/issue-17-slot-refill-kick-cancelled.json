@@ -1,0 +1,5 @@
+{
+  "scenario": "capacity 1; t2 queued then cancelled before its launch; t3 queued behind it; t1 ends quietly",
+  "refillMs": 13,
+  "note": "the wake dispatches the launch queue, whose per-launch revalidation skips the ended ticket; t3 refills promptly"
+}

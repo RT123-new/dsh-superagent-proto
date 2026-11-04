@@ -2,32 +2,32 @@
   "scenario": "4 tickets (2 running turns, 2 queued) through 5 sequential host restarts on one SQLite store",
   "restarts": [
     {
-      "readyMs": 22.767457999999976,
-      "relaunchMs": 23.26493899999997,
+      "readyMs": 18.75586500000003,
+      "relaunchMs": 24.112139000000013,
       "running": 2,
       "pending": 2
     },
     {
-      "readyMs": 17.382081000000085,
-      "relaunchMs": 29.817628000000013,
+      "readyMs": 19.57185000000004,
+      "relaunchMs": 27.354949999999917,
       "running": 2,
       "pending": 2
     },
     {
-      "readyMs": 19.299402999999984,
-      "relaunchMs": 26.42517799999996,
+      "readyMs": 16.12624299999993,
+      "relaunchMs": 24.569987999999967,
       "running": 2,
       "pending": 2
     },
     {
-      "readyMs": 16.586433000000056,
-      "relaunchMs": 25.753509000000008,
+      "readyMs": 18.269160000000056,
+      "relaunchMs": 25.251293000000032,
       "running": 2,
       "pending": 2
     },
     {
-      "readyMs": 19.053972999999928,
-      "relaunchMs": 27.308846000000017,
+      "readyMs": 17.016366999999946,
+      "relaunchMs": 27.847816999999964,
       "running": 2,
       "pending": 2
     }

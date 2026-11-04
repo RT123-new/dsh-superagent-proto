@@ -1,0 +1,316 @@
+{
+  "scenario": "every worker reports progress then ends quietly; launch queue refills after quiet turn ends; capacity-1 refills are per-event latencies, wider profiles report makespan/queue waits; no harness pumps",
+  "arm": "variant",
+  "grid": {
+    "profiles": [
+      {
+        "capacity": 1,
+        "n": 4
+      },
+      {
+        "capacity": 3,
+        "n": 9
+      },
+      {
+        "capacity": 12,
+        "n": 12
+      }
+    ],
+    "seeds": [
+      11,
+      29,
+      47
+    ]
+  },
+  "tokenCost": "NOT TESTED - paid model calls frozen; scheduling machinery only",
+  "runs": [
+    {
+      "capacity": 1,
+      "seed": 11,
+      "n": 4,
+      "failed": 0,
+      "makespanMs": 268,
+      "refillsMs": [
+        12,
+        11,
+        11
+      ],
+      "queueWaitsMs": [
+        0,
+        36,
+        68,
+        171
+      ],
+      "completionsMs": [
+        34,
+        67,
+        169,
+        202
+      ],
+      "peakUsed": 1
+    },
+    {
+      "capacity": 1,
+      "seed": 29,
+      "n": 4,
+      "failed": 0,
+      "makespanMs": 198,
+      "refillsMs": [
+        15,
+        9,
+        11
+      ],
+      "queueWaitsMs": [
+        0,
+        46,
+        77,
+        108
+      ],
+      "completionsMs": [
+        39,
+        77,
+        109,
+        138
+      ],
+      "peakUsed": 1
+    },
+    {
+      "capacity": 1,
+      "seed": 47,
+      "n": 4,
+      "failed": 0,
+      "makespanMs": 255,
+      "refillsMs": [
+        9,
+        9,
+        11
+      ],
+      "queueWaitsMs": [
+        0,
+        101,
+        134,
+        167
+      ],
+      "completionsMs": [
+        100,
+        133,
+        164,
+        197
+      ],
+      "peakUsed": 1
+    },
+    {
+      "capacity": 3,
+      "seed": 11,
+      "n": 9,
+      "failed": 0,
+      "makespanMs": 340,
+      "refillsMs": [],
+      "queueWaitsMs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        49,
+        48,
+        66,
+        71
+      ],
+      "completionsMs": [
+        44,
+        47,
+        109,
+        66,
+        105,
+        77,
+        92,
+        97,
+        172
+      ],
+      "peakUsed": 3
+    },
+    {
+      "capacity": 3,
+      "seed": 29,
+      "n": 9,
+      "failed": 0,
+      "makespanMs": 254,
+      "refillsMs": [],
+      "queueWaitsMs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "completionsMs": [
+        43,
+        44,
+        48,
+        69,
+        74,
+        53,
+        44,
+        27,
+        28
+      ],
+      "peakUsed": 3
+    },
+    {
+      "capacity": 3,
+      "seed": 47,
+      "n": 9,
+      "failed": 0,
+      "makespanMs": 289,
+      "refillsMs": [],
+      "queueWaitsMs": [
+        0,
+        0,
+        0,
+        75,
+        86,
+        87,
+        90,
+        99,
+        135
+      ],
+      "completionsMs": [
+        130,
+        77,
+        88,
+        110,
+        117,
+        187,
+        191,
+        131,
+        165
+      ],
+      "peakUsed": 3
+    },
+    {
+      "capacity": 12,
+      "seed": 11,
+      "n": 12,
+      "failed": 0,
+      "makespanMs": 338,
+      "refillsMs": [],
+      "queueWaitsMs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "completionsMs": [
+        62,
+        67,
+        130,
+        55,
+        123,
+        39,
+        45,
+        45,
+        97,
+        42,
+        29,
+        97
+      ],
+      "peakUsed": 5
+    },
+    {
+      "capacity": 12,
+      "seed": 29,
+      "n": 12,
+      "failed": 0,
+      "makespanMs": 327,
+      "refillsMs": [],
+      "queueWaitsMs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "completionsMs": [
+        57,
+        43,
+        41,
+        45,
+        42,
+        43,
+        45,
+        42,
+        69,
+        80,
+        98,
+        25
+      ],
+      "peakUsed": 4
+    },
+    {
+      "capacity": 12,
+      "seed": 47,
+      "n": 12,
+      "failed": 0,
+      "makespanMs": 266,
+      "refillsMs": [],
+      "queueWaitsMs": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "completionsMs": [
+        116,
+        55,
+        59,
+        45,
+        47,
+        116,
+        102,
+        58,
+        44,
+        44,
+        30,
+        28
+      ],
+      "peakUsed": 6
+    }
+  ],
+  "refillsSummary": {
+    "n": 9,
+    "mean": 10.88888888888889,
+    "median": 11,
+    "p95": 15,
+    "ci95": 1.2415243517746168,
+    "min": 9,
+    "max": 15
+  }
+}

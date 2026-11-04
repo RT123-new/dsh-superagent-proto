@@ -1,21 +1,21 @@
 {
   "scenario": "capacity 1; t1 cancelled during background-wait; t2 queued behind it",
-  "slotReleaseToNextStartMs": 13,
-  "windowMs": 39,
-  "capacitySlotMs": 39,
+  "slotReleaseToNextStartMs": 12,
+  "windowMs": 38,
+  "capacitySlotMs": 38,
   "stateSlotMs": {
-    "starting": 25,
+    "starting": 24,
     "turn": 2,
-    "background-wait": 12,
+    "background-wait": 11,
     "handed-off": 0,
     "idle": 15
   },
   "occupancyFraction": {
-    "starting": 0.6410256410256411,
-    "turn": 0.05128205128205128,
-    "background-wait": 0.3076923076923077,
+    "starting": 0.631578947368421,
+    "turn": 0.05263157894736842,
+    "background-wait": 0.2894736842105263,
     "handed-off": 0,
-    "idle": 0.38461538461538464
+    "idle": 0.39473684210526316
   },
   "peakUsed": 1,
   "peakPerson": 0,

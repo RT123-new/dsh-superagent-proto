@@ -122,7 +122,8 @@ export class ExecutorFixture {
         atomic: (run: () => void) => run(),
         afterCommit: (run: () => void) => run(),
       },
-      effects: { enqueue: vi.fn(), handle: vi.fn((kind: string, run: (payload: { ticketId: string; assignmentId: string }) => Promise<void>) => {
+      effects: { enqueue: vi.fn(), pending: vi.fn(() => false), kick: vi.fn(),
+        handle: vi.fn((kind: string, run: (payload: { ticketId: string; assignmentId: string }) => Promise<void>) => {
         if (kind === 'launch') this.launchRun = run
       }) },
       health: { get: () => undefined, set: vi.fn() },

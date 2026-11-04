@@ -1,0 +1,558 @@
+{
+  "analysis": "paired baseline - variant deltas of the slot-free wake bench; positive delta = variant lower",
+  "inputs": {
+    "baseline": "reports/evidence/stage-d/issue-17-slot-refill-kick-bench-baseline-full.json",
+    "variant": "reports/evidence/stage-d/issue-17-slot-refill-kick-bench-variant-full.json"
+  },
+  "grid": {
+    "baseline": {
+      "profiles": [
+        {
+          "capacity": 1,
+          "n": 6
+        },
+        {
+          "capacity": 3,
+          "n": 12
+        },
+        {
+          "capacity": 6,
+          "n": 18
+        },
+        {
+          "capacity": 12,
+          "n": 24
+        }
+      ],
+      "seeds": [
+        11,
+        29,
+        47,
+        83,
+        129
+      ]
+    },
+    "variant": {
+      "profiles": [
+        {
+          "capacity": 1,
+          "n": 6
+        },
+        {
+          "capacity": 3,
+          "n": 12
+        },
+        {
+          "capacity": 6,
+          "n": 18
+        },
+        {
+          "capacity": 12,
+          "n": 24
+        }
+      ],
+      "seeds": [
+        11,
+        29,
+        47,
+        83,
+        129
+      ]
+    }
+  },
+  "makespanByCapacity": [
+    {
+      "capacity": 1,
+      "pairs": 5,
+      "makespanDeltaMs": {
+        "n": 5,
+        "meanDelta": 9696.6,
+        "medianDelta": 9718,
+        "meanDeltaCi95": [
+          9638.2,
+          9750
+        ]
+      },
+      "makespanMs": {
+        "baseline": {
+          "n": 5,
+          "mean": 10076,
+          "median": 10052,
+          "p95": 10118,
+          "min": 10049,
+          "max": 10118
+        },
+        "variant": {
+          "n": 5,
+          "mean": 379.4,
+          "median": 393,
+          "p95": 453,
+          "min": 286,
+          "max": 453
+        }
+      }
+    },
+    {
+      "capacity": 3,
+      "pairs": 5,
+      "makespanDeltaMs": {
+        "n": 5,
+        "meanDelta": 63.2,
+        "medianDelta": 64,
+        "meanDeltaCi95": [
+          41.6,
+          87.2
+        ]
+      },
+      "makespanMs": {
+        "baseline": {
+          "n": 5,
+          "mean": 499.2,
+          "median": 451,
+          "p95": 698,
+          "min": 395,
+          "max": 698
+        },
+        "variant": {
+          "n": 5,
+          "mean": 436,
+          "median": 387,
+          "p95": 666,
+          "min": 352,
+          "max": 666
+        }
+      }
+    },
+    {
+      "capacity": 6,
+      "pairs": 5,
+      "makespanDeltaMs": {
+        "n": 5,
+        "meanDelta": -14.4,
+        "medianDelta": -3,
+        "meanDeltaCi95": [
+          -60.6,
+          29.4
+        ]
+      },
+      "makespanMs": {
+        "baseline": {
+          "n": 5,
+          "mean": 578,
+          "median": 579,
+          "p95": 736,
+          "min": 395,
+          "max": 736
+        },
+        "variant": {
+          "n": 5,
+          "mean": 592.4,
+          "median": 582,
+          "p95": 826,
+          "min": 436,
+          "max": 826
+        }
+      }
+    },
+    {
+      "capacity": 12,
+      "pairs": 5,
+      "makespanDeltaMs": {
+        "n": 5,
+        "meanDelta": -12.2,
+        "medianDelta": -4,
+        "meanDeltaCi95": [
+          -56.4,
+          24.6
+        ]
+      },
+      "makespanMs": {
+        "baseline": {
+          "n": 5,
+          "mean": 649.2,
+          "median": 585,
+          "p95": 832,
+          "min": 494,
+          "max": 832
+        },
+        "variant": {
+          "n": 5,
+          "mean": 661.4,
+          "median": 589,
+          "p95": 922,
+          "min": 495,
+          "max": 922
+        }
+      }
+    }
+  ],
+  "refillLatencyCapacity1": {
+    "baseline": {
+      "n": 25,
+      "mean": 1949.64,
+      "median": 1966,
+      "p95": 1972,
+      "min": 1891,
+      "max": 1974
+    },
+    "variant": {
+      "n": 25,
+      "mean": 10.28,
+      "median": 10,
+      "p95": 13,
+      "min": 8,
+      "max": 15
+    },
+    "paired": {
+      "n": 25,
+      "meanDelta": 1939.36,
+      "medianDelta": 1957,
+      "meanDeltaCi95": [
+        1927.2,
+        1950.56
+      ]
+    }
+  },
+  "pairs": [
+    {
+      "capacity": 1,
+      "seed": 11,
+      "makespanMs": {
+        "baseline": 10049,
+        "variant": 453,
+        "delta": 9596
+      },
+      "queueWaitMedianMs": {
+        "baseline": 3949,
+        "variant": 88
+      },
+      "completionMedianMs": {
+        "baseline": 4049,
+        "variant": 189
+      }
+    },
+    {
+      "capacity": 1,
+      "seed": 29,
+      "makespanMs": {
+        "baseline": 10052,
+        "variant": 286,
+        "delta": 9766
+      },
+      "queueWaitMedianMs": {
+        "baseline": 3969,
+        "variant": 81
+      },
+      "completionMedianMs": {
+        "baseline": 4001,
+        "variant": 112
+      }
+    },
+    {
+      "capacity": 1,
+      "seed": 47,
+      "makespanMs": {
+        "baseline": 10111,
+        "variant": 393,
+        "delta": 9718
+      },
+      "queueWaitMedianMs": {
+        "baseline": 3970,
+        "variant": 133
+      },
+      "completionMedianMs": {
+        "baseline": 4001,
+        "variant": 164
+      }
+    },
+    {
+      "capacity": 1,
+      "seed": 83,
+      "makespanMs": {
+        "baseline": 10050,
+        "variant": 397,
+        "delta": 9653
+      },
+      "queueWaitMedianMs": {
+        "baseline": 3970,
+        "variant": 133
+      },
+      "completionMedianMs": {
+        "baseline": 4002,
+        "variant": 164
+      }
+    },
+    {
+      "capacity": 1,
+      "seed": 129,
+      "makespanMs": {
+        "baseline": 10118,
+        "variant": 368,
+        "delta": 9750
+      },
+      "queueWaitMedianMs": {
+        "baseline": 3965,
+        "variant": 100
+      },
+      "completionMedianMs": {
+        "baseline": 3996,
+        "variant": 130
+      }
+    },
+    {
+      "capacity": 3,
+      "seed": 11,
+      "makespanMs": {
+        "baseline": 502,
+        "variant": 394,
+        "delta": 108
+      },
+      "queueWaitMedianMs": {
+        "baseline": 99,
+        "variant": 87
+      },
+      "completionMedianMs": {
+        "baseline": 151,
+        "variant": 127
+      }
+    },
+    {
+      "capacity": 3,
+      "seed": 29,
+      "makespanMs": {
+        "baseline": 395,
+        "variant": 352,
+        "delta": 43
+      },
+      "queueWaitMedianMs": {
+        "baseline": 108,
+        "variant": 100
+      },
+      "completionMedianMs": {
+        "baseline": 156,
+        "variant": 133
+      }
+    },
+    {
+      "capacity": 3,
+      "seed": 47,
+      "makespanMs": {
+        "baseline": 450,
+        "variant": 381,
+        "delta": 69
+      },
+      "queueWaitMedianMs": {
+        "baseline": 114,
+        "variant": 123
+      },
+      "completionMedianMs": {
+        "baseline": 226,
+        "variant": 168
+      }
+    },
+    {
+      "capacity": 3,
+      "seed": 83,
+      "makespanMs": {
+        "baseline": 698,
+        "variant": 666,
+        "delta": 32
+      },
+      "queueWaitMedianMs": {
+        "baseline": 109,
+        "variant": 99
+      },
+      "completionMedianMs": {
+        "baseline": 181,
+        "variant": 132
+      }
+    },
+    {
+      "capacity": 3,
+      "seed": 129,
+      "makespanMs": {
+        "baseline": 451,
+        "variant": 387,
+        "delta": 64
+      },
+      "queueWaitMedianMs": {
+        "baseline": 0,
+        "variant": 90
+      },
+      "completionMedianMs": {
+        "baseline": 87,
+        "variant": 126
+      }
+    },
+    {
+      "capacity": 6,
+      "seed": 11,
+      "makespanMs": {
+        "baseline": 395,
+        "variant": 436,
+        "delta": -41
+      },
+      "queueWaitMedianMs": {
+        "baseline": 0,
+        "variant": 0
+      },
+      "completionMedianMs": {
+        "baseline": 47,
+        "variant": 48
+      }
+    },
+    {
+      "capacity": 6,
+      "seed": 29,
+      "makespanMs": {
+        "baseline": 677,
+        "variant": 678,
+        "delta": -1
+      },
+      "queueWaitMedianMs": {
+        "baseline": 0,
+        "variant": 0
+      },
+      "completionMedianMs": {
+        "baseline": 43,
+        "variant": 44
+      }
+    },
+    {
+      "capacity": 6,
+      "seed": 47,
+      "makespanMs": {
+        "baseline": 503,
+        "variant": 440,
+        "delta": 63
+      },
+      "queueWaitMedianMs": {
+        "baseline": 0,
+        "variant": 0
+      },
+      "completionMedianMs": {
+        "baseline": 48,
+        "variant": 47
+      }
+    },
+    {
+      "capacity": 6,
+      "seed": 83,
+      "makespanMs": {
+        "baseline": 579,
+        "variant": 582,
+        "delta": -3
+      },
+      "queueWaitMedianMs": {
+        "baseline": 0,
+        "variant": 0
+      },
+      "completionMedianMs": {
+        "baseline": 44,
+        "variant": 44
+      }
+    },
+    {
+      "capacity": 6,
+      "seed": 129,
+      "makespanMs": {
+        "baseline": 736,
+        "variant": 826,
+        "delta": -90
+      },
+      "queueWaitMedianMs": {
+        "baseline": 0,
+        "variant": 0
+      },
+      "completionMedianMs": {
+        "baseline": 46,
+        "variant": 56
+      }
+    },
+    {
+      "capacity": 12,
+      "seed": 11,
+      "makespanMs": {
+        "baseline": 494,
+        "variant": 495,
+        "delta": -1
+      },
+      "queueWaitMedianMs": {
+        "baseline": 0,
+        "variant": 0
+      },
+      "completionMedianMs": {
+        "baseline": 46,
+        "variant": 46
+      }
+    },
+    {
+      "capacity": 12,
+      "seed": 29,
+      "makespanMs": {
+        "baseline": 791,
+        "variant": 746,
+        "delta": 45
+      },
+      "queueWaitMedianMs": {
+        "baseline": 0,
+        "variant": 0
+      },
+      "completionMedianMs": {
+        "baseline": 46,
+        "variant": 43
+      }
+    },
+    {
+      "capacity": 12,
+      "seed": 47,
+      "makespanMs": {
+        "baseline": 544,
+        "variant": 555,
+        "delta": -11
+      },
+      "queueWaitMedianMs": {
+        "baseline": 0,
+        "variant": 0
+      },
+      "completionMedianMs": {
+        "baseline": 46,
+        "variant": 46
+      }
+    },
+    {
+      "capacity": 12,
+      "seed": 83,
+      "makespanMs": {
+        "baseline": 585,
+        "variant": 589,
+        "delta": -4
+      },
+      "queueWaitMedianMs": {
+        "baseline": 0,
+        "variant": 0
+      },
+      "completionMedianMs": {
+        "baseline": 45,
+        "variant": 46
+      }
+    },
+    {
+      "capacity": 12,
+      "seed": 129,
+      "makespanMs": {
+        "baseline": 832,
+        "variant": 922,
+        "delta": -90
+      },
+      "queueWaitMedianMs": {
+        "baseline": 0,
+        "variant": 0
+      },
+      "completionMedianMs": {
+        "baseline": 46,
+        "variant": 46
+      }
+    }
+  ]
+}

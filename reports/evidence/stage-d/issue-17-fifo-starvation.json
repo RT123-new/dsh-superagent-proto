@@ -5,29 +5,29 @@
     "seed": 5,
     "n": 12,
     "failed": 0,
-    "makespanMs": 1023,
+    "makespanMs": 1029,
     "idealMs": 930,
-    "overheadRatio": 1.1,
+    "overheadRatio": 1.1064516129032258,
     "queueWait": {
       "n": 12,
-      "mean": 417.8333333333333,
-      "median": 281,
-      "p95": 852,
-      "ci95": 185.35403306029562,
+      "mean": 421.8333333333333,
+      "median": 285,
+      "p95": 862,
+      "ci95": 187.2212498838762,
       "min": 0,
-      "max": 852
+      "max": 862
     },
     "completion": {
       "n": 12,
-      "mean": 652.0833333333334,
-      "median": 581,
-      "p95": 881,
-      "ci95": 140.09803549837898,
+      "mean": 653.5833333333334,
+      "median": 584,
+      "p95": 891,
+      "ci95": 140.5443666353415,
       "min": 298,
-      "max": 881
+      "max": 891
     },
     "peakUsed": 3,
-    "memRssDeltaMB": 9.895936
+    "memRssDeltaMB": 10.522624
   },
   "note": "short tasks 9-11 wait behind the longs under FIFO; measured to decide whether an alternative scheduler is justified"
 }

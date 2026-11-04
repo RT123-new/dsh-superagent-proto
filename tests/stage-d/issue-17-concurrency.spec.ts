@@ -133,9 +133,10 @@ it('starvation: FIFO queues short tasks behind long ones; older queued tasks go 
   expect(last.assignments.at(-1)?.state).not.toBe('pending')
 }, 120_000)
 
-it('slot refill after a turn end: prompt when the end relays, up to one 2s pass when it does not', async () => {
+it('slot refill after a turn end: prompt both when the end relays and, via the slot-free wake, when it does not', async () => {
   // A quiet first turn end relays 'Worker ended without a status report' (kicking the queue); a quiet end after a
-  // non-empty report relays nothing, so a queued launch waits for the 2-second Passes interval. Measured directly.
+  // non-empty report relays nothing, but the slot-free wake kicks the queue for it (before the wake this waited for
+  // the 2-second Passes interval: ~1.9s, see issue-17-slot-refill-kick). Measured directly.
   const h = await startRuntime()
   hosts.push(h)
   capacity(h, 1)
@@ -158,11 +159,11 @@ it('slot refill after a turn end: prompt when the end relays, up to one 2s pass 
   evidence('issue-17-slot-refill-latency', {
     scenario: 'capacity 1; refill latency after a quiet turn end with vs without a relay kick',
     refillWithoutKickMs, refillWithKickMs,
-    note: 'a turn ending does not kick the effects queue itself; a relayed end enqueues a relay effect which kicks it',
+    note: 'a relayed end enqueues a relay effect which kicks the queue; a quiet end is covered by the slot-free wake '
+      + '(pre-wake baseline: refillWithoutKick ~1.9-2.0s, one Passes interval)',
   })
   expect(refillWithKickMs).toBeLessThan(500)
-  expect(refillWithoutKickMs).toBeGreaterThan(1000)
-  expect(refillWithoutKickMs).toBeLessThan(3500)
+  expect(refillWithoutKickMs).toBeLessThan(500)
 }, 60_000)
 
 it('failures: a hard worker failure fails its ticket without stalling the others', async () => {

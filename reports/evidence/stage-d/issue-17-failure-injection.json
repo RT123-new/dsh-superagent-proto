@@ -5,9 +5,9 @@
     "seed": 29,
     "n": 12,
     "failed": 2,
-    "makespanMs": 320,
+    "makespanMs": 378,
     "idealMs": 71.66666666666667,
-    "overheadRatio": 4.465116279069767,
+    "overheadRatio": 5.274418604651163,
     "queueWait": {
       "n": 12,
       "mean": 0,
@@ -19,14 +19,14 @@
     },
     "completion": {
       "n": 12,
-      "mean": 31.5,
+      "mean": 34.25,
       "median": 29,
-      "p95": 98,
-      "ci95": 13.835123067867169,
+      "p95": 89,
+      "ci95": 14.156650113082629,
       "min": 0,
-      "max": 98
+      "max": 89
     },
     "peakUsed": 4,
-    "memRssDeltaMB": 10.264576
+    "memRssDeltaMB": 10.272768
   }
 }

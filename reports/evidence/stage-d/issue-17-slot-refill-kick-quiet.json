@@ -1,0 +1,5 @@
+{
+  "scenario": "capacity 1; t2 queued behind t1; t1 ends quietly (non-empty prior summary, nothing relayed)",
+  "refillMs": 11,
+  "note": "failing-first: on the base this is ~one 2s pass interval; with the slot-free wake it is tens of ms"
+}

@@ -1,0 +1,6 @@
+{
+  "scenario": "capacity 1, processing paused; t2 queued behind t1; t1 ends quietly",
+  "kicks": 1,
+  "t2Started": false,
+  "note": "the wake may fire but dispatch holds launches at limit 0 while paused; kicks must stay bounded (no busy loop)"
+}

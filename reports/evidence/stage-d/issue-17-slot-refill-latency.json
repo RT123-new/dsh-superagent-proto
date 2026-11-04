@@ -1,6 +1,6 @@
 {
   "scenario": "capacity 1; refill latency after a quiet turn end with vs without a relay kick",
-  "refillWithoutKickMs": 1982,
-  "refillWithKickMs": 9,
-  "note": "a turn ending does not kick the effects queue itself; a relayed end enqueues a relay effect which kicks it"
+  "refillWithoutKickMs": 8,
+  "refillWithKickMs": 8,
+  "note": "a relayed end enqueues a relay effect which kicks the queue; a quiet end is covered by the slot-free wake (pre-wake baseline: refillWithoutKick ~1.9-2.0s, one Passes interval)"
 }

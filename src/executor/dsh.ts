@@ -76,7 +76,7 @@ export interface ExecutorHost {
     | 'assignmentInterrupted'>
   readonly store: Pick<Store, 'tickets' | 'triggers' | 'set' | 'settings' | 'atomic' | 'afterCommit'>
   /** Durable effect queue through which launches and input deliveries run. */
-  readonly effects: Pick<Effects, 'enqueue' | 'handle'>
+  readonly effects: Pick<Effects, 'enqueue' | 'handle' | 'pending' | 'kick'>
   /** The `worker` health entry, which reports whether background worker event handling failed. */
   readonly health: HealthEntry
   readonly machine: Pick<Machine, 'stateDir'>
@@ -806,6 +806,7 @@ export class DshExecutor implements Executor {
     if (handedOff(before) && !(report && person && person > report.at)) {
       this.host.engine.turnEnded(ticket.id, idle.id)
       this.handOff(ticket.id, agent)
+      this.slotFreed()
       return
     }
     // Its turn ends once nothing runs for it in the background, which holds its slot meanwhile: at most for the limit from
@@ -837,7 +838,7 @@ export class DshExecutor implements Executor {
         : `Subagents still ran ${minutes} minutes after the worker's turn ended.`
     }
     // The worker may have reported while its turn ended; a blocked or failed report a person's message has lifted is stale.
-    if (handedOff(current)) return
+    if (handedOff(current)) { this.slotFreed(); return }
     const last = agent.session.snapshotEvents().filter(event => event.type === 'assistant/message').at(-1)
     const text = last?.type === 'assistant/message'
       ? last.data.message.content.filter(block => block.type === 'text').map(block => block.text).join('\n').trim() : ''
@@ -851,5 +852,12 @@ export class DshExecutor implements Executor {
         this.relay(resultRelay(updated, 'waiting', 'Worker ended without a status report. Use orchestrator_ticket_request_status to request one.'))
       }
     })
+    this.slotFreed()
   }
+  /**
+   * A worker that just stopped holding its slot lets a queued launch start now instead of at the next pass. The launch
+   * handler re-validates its ticket, so a stale or cancelled queued launch is skipped; while paused its limit is 0, so
+   * the wake dispatches nothing, and `kick` coalesces, so repeated wakes cannot spin.
+   */
+  private slotFreed(): void { if (this.host.effects.pending('launch')) this.host.effects.kick() }
 }

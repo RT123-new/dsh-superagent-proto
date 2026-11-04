@@ -1,18 +1,18 @@
 {
   "scenario": "capacity 3 full; a person message wakes t1 in the +1 slot while t5's launch waits",
   "t5LaunchedWhilePersonWoken": false,
-  "windowMs": 90,
-  "capacitySlotMs": 270,
+  "windowMs": 94,
+  "capacitySlotMs": 282,
   "stateSlotMs": {
-    "starting": 47,
-    "turn": 161,
+    "starting": 50,
+    "turn": 172,
     "background-wait": 0,
     "handed-off": 0,
-    "idle": 45
+    "idle": 47
   },
   "occupancyFraction": {
-    "starting": 0.17407407407407408,
-    "turn": 0.5962962962962963,
+    "starting": 0.1773049645390071,
+    "turn": 0.6099290780141844,
     "background-wait": 0,
     "handed-off": 0,
     "idle": 0.16666666666666666

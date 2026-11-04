@@ -1,0 +1,5 @@
+{
+  "scenario": "capacity 1; t2 queued behind t1; t1 hands off to a person with a blocked report, freeing its slot",
+  "refillMs": 11,
+  "note": "failing-first: on the base the handoff frees the slot without a kick, so t2 waits for the next pass"
+}

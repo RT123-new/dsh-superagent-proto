@@ -98,7 +98,7 @@ it(`slot-free wake paired bench (${ARM}, ${FULL ? 'full' : 'default'} grid): qui
       + 'capacity-1 refills are per-event latencies, wider profiles report makespan/queue waits; no harness pumps',
     arm: ARM, grid: { profiles, seeds }, tokenCost: 'NOT TESTED - paid model calls frozen; scheduling machinery only',
     runs,
-    refillsSummary: refills.length ? { n: refills.length, ...summarize(refills) } : undefined,
+    refillsSummary: refills.length ? summarize(refills) : undefined,
   })
   for (const run of runs) {
     expect(run.failed).toBe(0)

@@ -4,44 +4,44 @@
     {
       "name": "triggerMessage",
       "iterations": 20000,
-      "totalMs": 6.65,
-      "nsPerOp": 332
+      "totalMs": 6.66,
+      "nsPerOp": 333
     },
     {
       "name": "triggerMessage-long-capped",
       "iterations": 20000,
-      "totalMs": 3.25,
-      "nsPerOp": 163
+      "totalMs": 3.13,
+      "nsPerOp": 156
     },
     {
       "name": "triggerMessage-with-reply",
       "iterations": 20000,
-      "totalMs": 3521.05,
-      "nsPerOp": 176053
+      "totalMs": 3468.61,
+      "nsPerOp": 173430
     },
     {
       "name": "batchLine-x50",
       "iterations": 10000,
-      "totalMs": 524.83,
-      "nsPerOp": 52483
+      "totalMs": 521.83,
+      "nsPerOp": 52183
     },
     {
       "name": "inputMessage-note",
       "iterations": 20000,
-      "totalMs": 2.21,
-      "nsPerOp": 110
+      "totalMs": 1.14,
+      "nsPerOp": 57
     },
     {
       "name": "inputMessage-trigger",
       "iterations": 20000,
-      "totalMs": 44.29,
-      "nsPerOp": 2214
+      "totalMs": 43.07,
+      "nsPerOp": 2153
     },
     {
       "name": "ticketExecution",
       "iterations": 20000,
-      "totalMs": 66.15,
-      "nsPerOp": 3308
+      "totalMs": 64.06,
+      "nsPerOp": 3203
     }
   ]
 }
