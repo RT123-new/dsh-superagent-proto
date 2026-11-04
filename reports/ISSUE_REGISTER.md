@@ -36,7 +36,9 @@ Legend for workstream ownership: W13 = ingestion (1-3), W45 = workspace/cancella
 
 ## ISSUE 3 — Feishu history recovery can skip messages
 
-- Source: src/sources/feishu-loops.ts, src/sources/feishu-read.ts, src/sources/poll.ts. Owner: W13. Classification: NOT TESTED (see also PRE-1).
+- Source: src/sources/feishu-loops.ts (backfillLoop:127-160, backfillChat:162+), src/sources/feishu-read.ts, src/sources/poll.ts. Owner: W13.
+- Source evidence (INT, 2026-11-04): per-chat history cursor advances to cursorAt(started) = started-5s ONLY after backfillChat completes (good checkpoint-after-completion), BUT the same 5s-only overlap as GitHub applies: a message delivered to the history API later than 5s after its create_time, once the cursor passed, is skipped. A never-before-seen chat initialises its cursor to `started` with NO backfill (messages before first observation skipped by design). Mid-backfill page failure leaves earlier pages' triggers created and cursor unmoved, so at-most-once depends entirely on deterministic trigger-ID dedupe. See also PRE-1.
+- Classification: SOURCE-SUPPORTED (executable page-failure/restart tests owed by W13).
 - Plan: checkpoint-after-completion; stable identity; idempotent replay; first/middle/final page failure injection; disconnect/restart tests.
 - Status: OPEN.
 
@@ -66,7 +68,9 @@ Legend for workstream ownership: W13 = ingestion (1-3), W45 = workspace/cancella
 
 ## ISSUE 7 — Configuration changes lost or delivered stale
 
-- Source: src/app/settings.ts, notices.ts, sessions.ts, delivery.ts. Owner: W68. Classification: NOT TESTED.
+- Source: src/app/settings.ts (save:148-195), src/app/notices.ts (settingsNotice:21-23, Notice type:12-14), src/app/sessions.ts, src/app/delivery.ts. Owner: W68.
+- Source evidence (INT, 2026-11-04): settings notices carry NO revision identity — settingsNotice(block, changedPaths) contains only block name + changed paths + a read pointer. Effects coalesces by name key `settings:<block>`: a newer notice OVERWRITES an unsent waiting one. A->B->A->B under an unsent queue collapses to one notice; no notification_id = block:revision exists, so duplicate/stale detection per the mandate is impossible today. Coalescing is only safe if the coordinator always re-reads committed state, which is convention, not enforced.
+- Classification: SOURCE-SUPPORTED (A->B->A->B, rapid-update, restart and duplicate tests owed by W68).
 - Plan: versioned notifications (block:revision identity); idempotent redelivery; A→B→A→B, rapid/failure/restart/duplicate/simultaneous-save tests.
 - Status: OPEN.
 
