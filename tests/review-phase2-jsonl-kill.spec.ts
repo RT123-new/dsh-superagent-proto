@@ -45,7 +45,7 @@ async function restart(logs: string) {
   const agent = { id, session: {}, inbox, steer: (m: unknown) => { calls.steer++; inbox.nextStep.push(m) }, followup: (m: unknown) => { calls.followup++; inbox.nextTurn.push(m) }, inject: () => {} } as unknown as Agent
   const agents = new Map([[id, agent]]); ctx.reflect.provide('agents', agents)
   const delivery = new AgentDelivery(ctx as never)
-  return { delivery, agent, calls, signal: new AbortController().signal }
+  return { ctx, delivery, agent, calls, signal: new AbortController().signal }
 }
 
 it('a message appended and flushed by a SIGKILLed process is held after restart and is not delivered again', async () => {
@@ -71,13 +71,15 @@ it('a message that was only in an agent inbox (never appended) is not in the log
   expect(calls).toEqual({ steer: 1, followup: 0 })
 }, 40000)
 
-it('characterization (confirmed residual): after a SIGKILL a damaged log tail makes holds() false, so an already appended message is delivered AGAIN (at-least-once, a duplicate); no loss and no crash', async () => {
+it('characterization (one simulated case): after SIGKILL and a 5-byte truncation of the log file, the stored message is no longer readable and delivery repeats it (at-least-once)', async () => {
   const logs = await killedWriter('append-flush')
   const files = (readdirSync(logs, { recursive: true }) as string[]).map(name => join(logs, name)).filter(file => /\.jsonl/.test(file) && statSync(file).isFile())
   expect(files).toHaveLength(1)
-  truncateSync(files[0]!, statSync(files[0]!).size - 5)          // the final frame is torn, as after a kill mid-write
-  const { delivery, agent, calls, signal } = await restart(logs)
-  expect(await delivery.holds(agent, 'req-1')).toBe(false)       // the torn frame is discarded by recovery
+  truncateSync(files[0]!, statSync(files[0]!).size - 5)          // SIMULATED damage after the kill, not a kill that landed mid-write
+  const { ctx, delivery, agent, calls, signal } = await restart(logs)
+  const snap = await (ctx as unknown as { sessionPersistence: { stat: (id: unknown) => Promise<unknown> } }).sessionPersistence.stat(id).catch((error: unknown) => ({ error: String(error) }))
+  expect(snap).toMatchObject({ header: { id }, formatStatus: 'current' })   // observed: the session header is still readable; whether the event frame or more was dropped is not established
+  expect(await delivery.holds(agent, 'req-1')).toBe(false)       // the log no longer yields the message; which part of the file recovery dropped is NOT established here
   await delivery.send(agent, 'req-1', '{}', 'steer', signal)
-  expect(calls).toEqual({ steer: 1, followup: 0 })               // the producer sees it as not delivered: a duplicate of a message the log once held
+  expect(calls).toEqual({ steer: 1, followup: 0 })               // the producer redelivers a message the log had held; this one size, file and run only
 }, 40000)
