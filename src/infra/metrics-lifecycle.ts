@@ -25,13 +25,14 @@ const label = (text: string): string => /^[a-z][a-z0-9_]{0,31}$/.test(text) ? te
 /** Durations between Engine domain events: trigger to evaluation, evaluation to decision, decision to ticket, launch, ticket lifetime. */
 export class DomainTimeline {
   private readonly received: Pending<string, number>
+  private readonly arrivals: Pending<string, number>
   private readonly evaluating: Pending<string, number>
   private readonly decided: Pending<string, number>
   private readonly launching: Pending<string, number>
   private readonly alive: Pending<string, number>
   constructor(private readonly probe: Probe, private readonly mono: () => number, cap = 5000, private readonly evalOfDecision?: (id: string) => string | undefined) {
     const drop = () => { probe.count('lifecycle_dropped') }
-    this.received = new Pending(cap, drop); this.evaluating = new Pending(cap, drop); this.decided = new Pending(cap, drop)
+    this.received = new Pending(cap, drop); this.arrivals = new Pending(cap, drop); this.evaluating = new Pending(cap, drop); this.decided = new Pending(cap, drop)
     this.launching = new Pending(cap, drop); this.alive = new Pending(cap, drop)
   }
   private since(map: Pending<string, number>, key: string, stage: string): void {
@@ -39,12 +40,25 @@ export class DomainTimeline {
     if (start === undefined) { this.probe.count('lifecycle_unmatched'); return }
     this.probe.observe(stage, 'internal', Math.max(0, this.mono() - start))
   }
+  /** The application received a Trigger (entry of `Passes.receive`); never throws. Pair with `abandoned` when no `trigger.received` event follows. */
+  arrived(triggerId: string): void { try { this.arrivals.set(triggerId, this.mono()) } catch { this.probe.count('metrics_error') } }
+  /** The intake ended without a `trigger.received` event (duplicate, filtered, or failed): forget the arrival. Never throws. */
+  abandoned(triggerId: string): void { try { this.arrivals.take(triggerId) } catch { this.probe.count('metrics_error') } }
   /** Feed one Engine domain event; never throws. */
   observe(event: DomainEvent): void {
     try {
       const now = this.mono()
       switch (event.type) {
-        case 'trigger.received': this.probe.count('lifecycle_trigger_received'); this.received.set(event.data.triggerId, now); break
+        case 'trigger.received': {
+          this.probe.count('lifecycle_trigger_received')
+          const arrival = this.arrivals.take(event.data.triggerId)
+          // Only a trigger the intake actually queued for an Eval has a queue entry; a ticket owner's or an already waiting trigger has none.
+          if (!event.data.queued) { this.probe.count('trigger_not_queued'); break }
+          this.received.set(event.data.triggerId, now)
+          if (arrival === undefined) this.probe.count('lifecycle_unmatched')
+          else this.probe.observe('source_to_eval_queue', 'internal', Math.max(0, now - arrival))
+          break
+        }
         case 'eval.started':
           for (const id of event.data.triggerIds) { const at = this.received.take(id); if (at !== undefined) this.probe.observe('trigger_to_eval_start', 'internal', Math.max(0, now - at)) }
           this.evaluating.set(event.data.evalId, now); break

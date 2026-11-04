@@ -13,6 +13,8 @@ export interface PassesHost {
   closing(): boolean
   /** Optional instrumentation; absent means none. */
   readonly probe?: Probe
+  /** Optional receipt hooks for the lifecycle timeline: `note` at entry of `receive`, `drop` when no domain event follows. Must not throw. */
+  readonly arrival?: { note(triggerId: string): void; drop(triggerId: string): void }
 }
 
 const now = (): string => new Date().toISOString()
@@ -37,8 +39,10 @@ export class Passes {
   receive(trigger: Trigger): ReceiveResult {
     if (this.host.closing()) throw new Error('Orchestrator is stopping')
     const stop = this.host.probe?.timer('trigger_intake', 'internal')
+    this.host.arrival?.note(trigger.id)
     let result: ReceiveResult
-    try { result = this.host.engine.receive(trigger) } catch (error) { stop?.('failed'); throw error }
+    try { result = this.host.engine.receive(trigger) } catch (error) { stop?.('failed'); this.host.arrival?.drop(trigger.id); throw error }
+    if (result !== 'stored') this.host.arrival?.drop(trigger.id)
     stop?.()
     this.host.probe?.count(`trigger_${result}`)
     if (result === 'stored') this.request()

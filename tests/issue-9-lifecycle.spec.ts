@@ -17,7 +17,7 @@ const failed = (key: string) => metrics.snapshot().failedDurations[key]
 
 it('DomainTimeline measures trigger to evaluation, evaluation, decision to ticket, launch and ticket lifetime from observed events', () => {
   const t = new DomainTimeline(probe, () => mono, 5000, id => id === 'd1' ? 'e1' : undefined)
-  t.observe(ev('trigger.received', { triggerId: 't1', threads: [] })); mono += 5
+  t.observe(ev('trigger.received', { triggerId: 't1', threads: [], queued: true })); mono += 5
   t.observe(ev('eval.started', { evalId: 'e1', threadKey: 'th', triggerIds: ['t1'], strength: 'weak' })); mono += 20
   t.observe(ev('decision.recorded', { decisionId: 'd1', kind: 'accept', threadKey: 'th' })); mono += 3
   t.observe(ev('ticket.created', { ticketId: 'k1', decisionId: 'd1', strength: 'weak' })); mono += 40
@@ -42,7 +42,7 @@ it('a start that was never observed records nothing and is counted, not guessed 
 
 it('pending state is bounded: the oldest unmatched entry drops and is counted', () => {
   const t = new DomainTimeline(probe, () => mono, 3)
-  for (let i = 0; i < 10; i++) t.observe(ev('trigger.received', { triggerId: `t${i}`, threads: [] }))
+  for (let i = 0; i < 10; i++) t.observe(ev('trigger.received', { triggerId: `t${i}`, threads: [], queued: true }))
   expect(metrics.snapshot().counters.lifecycle_dropped).toBe(7)
 })
 
@@ -84,4 +84,29 @@ it('SessionTimeline keeps sessions apart and ignores a result with no observed c
 it('processUsage reports process-scoped CPU and memory', () => {
   const p = processUsage()
   expect(p.scope).toBe('process'); expect(p.cpuUserMicros).toBeGreaterThan(0); expect(p.rssBytes).toBeGreaterThan(0); expect(p.heapUsedBytes).toBeGreaterThan(0)
+})
+
+it('source_to_eval_queue runs from application receipt to a queued Eval entry, and only for triggers actually queued', () => {
+  const t = new DomainTimeline(probe, () => mono, 5000)
+  t.arrived('q1'); mono += 7
+  t.observe(ev('trigger.received', { triggerId: 'q1', threads: [], queued: true }))
+  expect(dur('source_to_eval_queue|internal')).toMatchObject({ count: 1, maxMs: 7 })
+  t.arrived('o1'); mono += 50
+  t.observe(ev('trigger.received', { triggerId: 'o1', threads: [], queued: false }))
+  expect(dur('source_to_eval_queue|internal')?.count).toBe(1)
+  expect(metrics.snapshot().counters.trigger_not_queued).toBe(1)
+  // A not-queued trigger has no queue entry, so it never reaches evaluation start.
+  mono += 1
+  t.observe(ev('eval.started', { evalId: 'e1', threadKey: 'th', triggerIds: ['o1'], strength: 'weak' }))
+  expect(dur('trigger_to_eval_start|internal')).toBeUndefined()
+})
+
+it('a queued trigger whose receipt was not observed records no queue sample and an abandoned receipt is forgotten', () => {
+  const t = new DomainTimeline(probe, () => mono, 5000)
+  t.observe(ev('trigger.received', { triggerId: 'r1', threads: [], queued: true }))
+  expect(dur('source_to_eval_queue|internal')).toBeUndefined()
+  expect(metrics.snapshot().counters.lifecycle_unmatched).toBe(1)
+  t.arrived('d1'); t.abandoned('d1'); mono += 3
+  t.observe(ev('trigger.received', { triggerId: 'd1', threads: [], queued: true }))
+  expect(dur('source_to_eval_queue|internal')).toBeUndefined()
 })
