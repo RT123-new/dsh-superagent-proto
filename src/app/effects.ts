@@ -47,7 +47,10 @@ type Options<K extends EffectKind> = Partial<Pick<Handler<K>, 'limit' | 'retry' 
  */
 export const ATTEMPT_STARTED = '[attempt-started]'
 export const ATTEMPT_UNKNOWN = '[attempt-unknown]'
-const withMarker = (error: string, marker: string): string => error.includes(marker) ? error : error ? `${error} ${marker}` : marker
+// Markers are trusted only as the exact suffix we append. Remote failure text is neutralised first so it cannot spoof one.
+const neutralise = (text: string): string => text.replaceAll('[attempt-', '(attempt-')
+const hasMarker = (error: string, marker: string): boolean => error === marker || error.endsWith(` ${marker}`)
+const withMarker = (error: string, marker: string): string => hasMarker(error, marker) ? error : error ? `${error} ${marker}` : marker
 /** `seq` preserves the row's queue position; `generation` increments on payload updates so a running attempt does not delete a newer payload. */
 interface Row { error: string; key: string; value: string; seq: number; generation: number; attempts: number; due: number; since?: string }
 type Task = { kind: EffectKind; key: string; generation: number; done: Promise<void> }
@@ -121,7 +124,7 @@ export class Effects {
   /** Whether the row's last attempt was interrupted before its outcome was recorded (duplicate remote effect possible on retry). */
   attemptUnknown(kind: EffectKind, key: string): boolean {
     const row = this.store.db.prepare('SELECT error FROM effect WHERE kind = ? AND key = ?').get(kind, key)
-    return typeof row?.error === 'string' && row.error.includes(ATTEMPT_UNKNOWN)
+    return typeof row?.error === 'string' && hasMarker(row.error, ATTEMPT_UNKNOWN)
   }
   kick(): void {
     if (this.scheduled) return
@@ -177,13 +180,13 @@ export class Effects {
     this.probe.observe('effect_schedule_lateness', 'internal', Math.max(0, startedAt - row.due))
     if (Number.isFinite(since)) this.probe.observe('effect_total_age', 'internal', Math.max(0, startedAt - since))
     const stop = this.probe.timer('effect_run', 'internal')
-    if (handler.markAttempt && !row.error.includes(ATTEMPT_UNKNOWN)) {
+    if (handler.markAttempt && !hasMarker(row.error, ATTEMPT_UNKNOWN)) {
       // Written before the remote effect so a crash after provider acceptance is not durably identical to "never attempted".
       // Applies to every attempt, including retries after failures; an existing unknown marker is kept, not replaced.
       this.store.db.prepare(`UPDATE effect SET error = ? WHERE kind = ? AND key = ? AND seq = ? AND generation = ?`)
         .run(withMarker(row.error, ATTEMPT_STARTED), kind, row.key, row.seq, row.generation)
     }
-    const unknownBefore = row.error.includes(ATTEMPT_UNKNOWN)
+    const unknownBefore = hasMarker(row.error, ATTEMPT_UNKNOWN)
     try { await handler.run(JSON.parse(row.value) as never, row.key) } catch (error) { failure = { error } }
     stop(failure ? 'failed' : 'ok')
     if (failure) this.probe.count(failure.error instanceof Later ? 'effect_later' : 'effect_retry')
@@ -201,13 +204,13 @@ export class Effects {
       if (decision.retry) {
         // Bounded-jitter exponential backoff (Issue 15): keeps the kind's configured base/max as d_base/d_max.
         this.store.db.prepare(`UPDATE effect SET attempts = attempts + 1, error = ?, due = ? WHERE ${own}`)
-          .run(keep(errorRecord(failure.error, decision.class)), this.now() + decision.delay, ...ownRow)
+          .run(keep(neutralise(errorRecord(failure.error, decision.class))), this.now() + decision.delay, ...ownRow)
       } else {
         // Permanent/unauthorised/cancelled/programming failures are never silently dropped: park the row visibly
         // (`blocked:<class>` surfaces in health at once), never dispatch them again until explicit re-enqueue,
         // whose upsert resets attempts and due. Policy-transition effects reach here only via real handler failures.
         this.store.db.prepare(`UPDATE effect SET attempts = attempts + 1, error = ?, due = ? WHERE ${own}`)
-          .run(keep(`blocked:${decision.class}: ${errorRecord(failure.error, decision.class)}`), this.now() + BLOCKED_RECHECK_MS, ...ownRow)
+          .run(keep(neutralise(`blocked:${decision.class}: ${errorRecord(failure.error, decision.class)}`)), this.now() + BLOCKED_RECHECK_MS, ...ownRow)
       }
     }
     if (!this.stopped) this.report(kind)

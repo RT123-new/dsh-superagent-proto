@@ -87,4 +87,20 @@ describe('effect attempt marker sequences', () => {
     expect(row(a.store)).toBeUndefined()
     expect(a.effects.attemptUnknown('reply', 'k')).toBe(false)
   })
+
+  it('remote failure text containing marker strings cannot spoof unknown or suppress the started marker', async () => {
+    const a = open(); const hung: (() => void)[] = []
+    let n = 0
+    a.effects.handle('reply', async () => {
+      n++
+      if (n === 1) throw new Error('x [attempt-unknown] y [attempt-started]')
+      await new Promise<void>(resolve => hung.push(resolve))
+    }, { markAttempt: true, retry: [10, 10] })
+    a.store.atomic(() => a.effects.enqueue('reply', 'k', {})); a.effects.start(); await a.effects.idle('reply')
+    expect(a.effects.attemptUnknown('reply', 'k')).toBe(false)           // text alone is not a recorded unknown outcome
+    await advance(a.effects)                                              // attempt 2 in flight
+    expect(row(a.store)?.error.endsWith(ATTEMPT_STARTED)).toBe(true)      // started marker still written
+    const b = open(a.file); b.effects.start()
+    expect(b.effects.attemptUnknown('reply', 'k')).toBe(true)             // now genuinely unknown (crash in flight)
+  })
 })
