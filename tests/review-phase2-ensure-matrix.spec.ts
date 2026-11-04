@@ -17,7 +17,6 @@ const reasons: [string, () => Error][] = [
 for (const [name, make] of reasons) {
   it(`${name}: revoking at every authorization boundary never leaves danger-full-access applied`, async () => {
     h = await startRuntime()
-    vi.spyOn(h.runtime.sessions as unknown as { decorate: () => Promise<void> }, 'decorate').mockResolvedValue(undefined)
     const presets = vi.spyOn(h.ctx.permissionPresets, 'set')
     // First learn how many boundaries a full ensure crosses.
     let total = 0
@@ -41,7 +40,6 @@ for (const [name, make] of reasons) {
 
 it('an externally deleted worker session is recreated only when authorized, and a revoked recreation is surfaced', async () => {
   h = await startRuntime()
-  vi.spyOn(h.runtime.sessions as unknown as { decorate: () => Promise<void> }, 'decorate').mockResolvedValue(undefined)
   const created = new Set<string>()
   h.controller.resolveAgent.mockImplementation((async (id: string) => created.has(id) ? { agent: { id } } : { error: { code: 'session/not-found' } }) as never)
   const original = h.controller.create.getMockImplementation() as (...a: unknown[]) => Promise<unknown>

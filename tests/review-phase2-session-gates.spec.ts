@@ -28,7 +28,6 @@ it('a revoke during the final rename does not leave a danger-full-access preset 
   let revoked = false
   const check = () => { if (revoked) throw new Error('Assignment cancelled') }
   const presets = vi.spyOn(h.ctx.permissionPresets, 'set')
-  vi.spyOn(h.runtime.sessions as unknown as { decorate: () => Promise<void> }, 'decorate').mockResolvedValue(undefined)
   const entered = Promise.withResolvers<void>(), wait = Promise.withResolvers<void>()
   h.controller.rename.mockImplementationOnce((async () => { entered.resolve(); await wait.promise }) as never)
   const pending = (h.runtime.sessions.ensure.bind(h.runtime.sessions) as Ensure)('preset-window', h.directory, 'test', 'worker', check)
@@ -55,7 +54,7 @@ it('the session an uncancelled-create left behind is reused by the next authoriz
   expect(h.controller.create.mock.calls.length).toBe(creates)   // deterministic id: reused, not re-created
 })
 
-const stubDecorate = () => vi.spyOn(h!.runtime.sessions as unknown as { decorate: () => Promise<void> }, 'decorate').mockResolvedValue(undefined)
+const stubDecorate = () => undefined   // real decorate runs now (fixture session has a header)
 const ensure = (id: string, check: () => void) => (h!.runtime.sessions.ensure.bind(h!.runtime.sessions) as Ensure)(id, h!.directory, 't', 'worker', check)
 
 it('an authorized ensure that adopts the leftover session clears its unresolved entry', async () => {

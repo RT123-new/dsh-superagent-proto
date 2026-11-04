@@ -203,7 +203,7 @@ beforeEach(async () => {
     inspect: vi.fn(async () => ({ events: [] })),
   }
   jobs = jobRegistry()
-  services = { agents, llm: { resolveCallConfig: vi.fn(async value => value) }, sessionController: controller, sessionPersistence: { flush: vi.fn(async () => {}), open: vi.fn(async () => ({ read: async () => ({ events: [] }), [Symbol.asyncDispose]: async () => {} })) }, workspaceRegistry: { create: async (cwd: string) => ({ id: cwd }) }, permissionPresets: { set: () => {} }, subprocess, webServer: { host: '127.0.0.1', port: 3082, register: (route: { handler: HttpHandler }) => { http = route.handler; return () => {} } }, jobs: jobs.service }
+  services = { agents, llm: { resolveCallConfig: vi.fn(async value => value) }, sessionController: controller, sessionPersistence: { flush: vi.fn(async () => {}), open: vi.fn(async () => ({ read: async () => ({ events: [] }), [Symbol.asyncDispose]: async () => {} })) }, workspaceRegistry: { create: async (cwd: string) => ({ id: cwd }) }, permissionPresets: { set: vi.fn() }, subprocess, webServer: { host: '127.0.0.1', port: 3082, register: (route: { handler: HttpHandler }) => { http = route.handler; return () => {} } }, jobs: jobs.service }
   for (const [name, service] of Object.entries(services)) ctx.reflect.provide(name, service)
   for (const cli of [AGENT(), OTHER(), BOT()]) writeFileSync(cli, '#!/bin/sh\n', { mode: 0o755 })
   const store = new Store(join(directory, 'orchestrator.sqlite')); seed(store); store.close()
@@ -1817,3 +1817,25 @@ it('serves the live metrics snapshot through the HTTP host: the real Runtime, no
   expect(Object.keys(after.durations)).toContain('trigger_intake|internal')
   await runtime.idle()
 })
+
+it('final review 2.2: a pause that lands while the worker Session is being created leaves no danger-full-access (real launch path)', async () => {
+  const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+  const entered = Promise.withResolvers<void>(), release = Promise.withResolvers<void>()
+  const original = controller.create.getMockImplementation() as (...a: unknown[]) => Promise<unknown>
+  controller.create.mockImplementation((async (...args: unknown[]) => {
+    const id = (args[0] as { sessionId: string }).sessionId
+    if (id.startsWith('worker-')) { entered.resolve(); await release.promise }
+    return original(...args)
+  }) as never)
+  presets.mockClear()
+  const trigger = feishu('1', '@bot 修一下回归')
+  await receive(trigger)
+  const accepted = route({ kind: 'accept', trigger_id: trigger.id, title: '修复回归', worktree_name: worktreeName, acknowledgement: '收到，修复回归。' })
+  await Promise.race([entered.promise, new Promise((_r, reject) => setTimeout(() => reject(new Error('worker create never started')), 5000))])
+  await runtime.settings.pause(true, 'panel')
+  release.resolve()
+  await accepted.catch(() => {})
+  await new Promise(resolve => setTimeout(resolve, 300))
+  expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(0)
+  await runtime.settings.pause(false, 'panel')
+}, 20000)
