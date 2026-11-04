@@ -1,0 +1,4842 @@
+[
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 1,
+    "requests": 24,
+    "sequentialMs": 2606.8152986586792,
+    "wallMs": 86.35795200000001,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2606.81529865868,
+      "C2": 1410.1516213995337,
+      "C4": 911.5203829244094,
+      "C8": 651.928252294204
+    },
+    "gatedMs": 11838.859660974531
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 2,
+    "requests": 24,
+    "sequentialMs": 2426.6128985300493,
+    "wallMs": 74.68269599999996,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2426.6128985300484,
+      "C2": 1412.4787863990503,
+      "C4": 863.1868083469834,
+      "C8": 646.6969556819365
+    },
+    "gatedMs": 25113.99601349901
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 3,
+    "requests": 24,
+    "sequentialMs": 2521.0252382585977,
+    "wallMs": 63.060036999999966,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2521.0252382585973,
+      "C2": 1471.0632764917764,
+      "C4": 883.3462114141375,
+      "C8": 655.02484187294
+    },
+    "gatedMs": 9545.154936122965
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 4,
+    "requests": 24,
+    "sequentialMs": 2136.2421360344924,
+    "wallMs": 70.04107499999998,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2136.2421360344924,
+      "C2": 1158.8494527541584,
+      "C4": 685.659699669715,
+      "C8": 466.2175075877959
+    },
+    "gatedMs": 16578.445525864317
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 5,
+    "requests": 24,
+    "sequentialMs": 2423.600352281738,
+    "wallMs": 67.30911700000001,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2423.600352281738,
+      "C2": 1336.8814556871512,
+      "C4": 824.1052706662431,
+      "C8": 635.273339846805
+    },
+    "gatedMs": 16626.69177538159
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 6,
+    "requests": 24,
+    "sequentialMs": 2760.391261646569,
+    "wallMs": 65.14754999999991,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2760.391261646569,
+      "C2": 1501.9887025976104,
+      "C4": 902.1311673132168,
+      "C8": 639.9686249772245
+    },
+    "gatedMs": 9518.817979572377
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 7,
+    "requests": 24,
+    "sequentialMs": 2529.5876303090913,
+    "wallMs": 68.96830999999997,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2529.5876303090918,
+      "C2": 1464.5868812424799,
+      "C4": 943.98182745613,
+      "C8": 738.8898206139303
+    },
+    "gatedMs": 19747.612180967128
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 8,
+    "requests": 24,
+    "sequentialMs": 2542.843855688616,
+    "wallMs": 66.88683300000002,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2542.843855688616,
+      "C2": 1377.35128411679,
+      "C4": 906.576768507867,
+      "C8": 661.3730642433495
+    },
+    "gatedMs": 23635.704092556065
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 9,
+    "requests": 24,
+    "sequentialMs": 2128.844105160353,
+    "wallMs": 58.25758200000007,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2128.844105160353,
+      "C2": 1197.9192147141912,
+      "C4": 736.2096260758702,
+      "C8": 576.9678448157824
+    },
+    "gatedMs": 11022.058415739386
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 10,
+    "requests": 24,
+    "sequentialMs": 2294.2708945613344,
+    "wallMs": 63.15199400000006,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2294.270894561334,
+      "C2": 1330.8968898933429,
+      "C4": 807.7117343587959,
+      "C8": 546.6183235712492
+    },
+    "gatedMs": 16136.931463606546
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 11,
+    "requests": 24,
+    "sequentialMs": 2261.1230169622286,
+    "wallMs": 65.49293200000011,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2261.123016962228,
+      "C2": 1247.008705949356,
+      "C4": 754.3795980096094,
+      "C8": 585.3004588109574
+    },
+    "gatedMs": 13970.962597048141
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 12,
+    "requests": 24,
+    "sequentialMs": 2389.936707174515,
+    "wallMs": 69.20446900000002,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2389.936707174515,
+      "C2": 1333.3899544362207,
+      "C4": 835.1822957591532,
+      "C8": 593.5128839191437
+    },
+    "gatedMs": 17454.00952000668
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 13,
+    "requests": 24,
+    "sequentialMs": 2768.486617329541,
+    "wallMs": 68.71033399999988,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2768.486617329541,
+      "C2": 1526.2990358934655,
+      "C4": 872.469325935654,
+      "C8": 649.1265916011437
+    },
+    "gatedMs": 10441.9674484888
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 14,
+    "requests": 24,
+    "sequentialMs": 2606.529822532945,
+    "wallMs": 64.6864129999999,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2606.5298225329457,
+      "C2": 1373.3187835652318,
+      "C4": 804.6496977285183,
+      "C8": 585.9549686938494
+    },
+    "gatedMs": 11225.2133624522
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 15,
+    "requests": 24,
+    "sequentialMs": 2689.4803109948684,
+    "wallMs": 59.92000599999983,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2689.480310994869,
+      "C2": 1523.4309260691632,
+      "C4": 904.9844088999095,
+      "C8": 692.6338925529116
+    },
+    "gatedMs": 14373.233100123689
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 16,
+    "requests": 24,
+    "sequentialMs": 2481.9635953469788,
+    "wallMs": 77.28132300000016,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2481.9635953469788,
+      "C2": 1356.8284034049616,
+      "C4": 781.6320137075995,
+      "C8": 561.1409071945784
+    },
+    "gatedMs": 13072.057152433204
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 17,
+    "requests": 24,
+    "sequentialMs": 2292.041358967611,
+    "wallMs": 61.77492499999994,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2292.0413589676114,
+      "C2": 1305.2396038408062,
+      "C4": 745.427052449261,
+      "C8": 512.2818523991386
+    },
+    "gatedMs": 22608.76519938486
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 18,
+    "requests": 24,
+    "sequentialMs": 2284.5931301036526,
+    "wallMs": 65.68324000000007,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2284.5931301036526,
+      "C2": 1283.8749952810954,
+      "C4": 811.5254547226384,
+      "C8": 615.3131076374625
+    },
+    "gatedMs": 18352.323053073993
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 19,
+    "requests": 24,
+    "sequentialMs": 2477.836852110594,
+    "wallMs": 64.559346,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2477.836852110594,
+      "C2": 1445.8333054257932,
+      "C4": 846.0907689068348,
+      "C8": 665.3629577193535
+    },
+    "gatedMs": 11774.481676231073
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 20,
+    "requests": 24,
+    "sequentialMs": 2392.5685281604487,
+    "wallMs": 64.8769440000001,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2392.568528160449,
+      "C2": 1294.746404921616,
+      "C4": 822.2233081944278,
+      "C8": 612.0902210643319
+    },
+    "gatedMs": 9113.887484249331
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 21,
+    "requests": 24,
+    "sequentialMs": 2343.860231370022,
+    "wallMs": 67.40621699999997,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2343.860231370021,
+      "C2": 1306.8434356935213,
+      "C4": 850.2175094792626,
+      "C8": 662.1305761188355
+    },
+    "gatedMs": 21354.742622925296
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 22,
+    "requests": 24,
+    "sequentialMs": 2533.70337640087,
+    "wallMs": 75.8883420000002,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2533.7033764008697,
+      "C2": 1353.7074309187274,
+      "C4": 817.5956382619321,
+      "C8": 603.6936154616549
+    },
+    "gatedMs": 25227.171887084554
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 23,
+    "requests": 24,
+    "sequentialMs": 2556.3400167417017,
+    "wallMs": 61.10005100000012,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2556.340016741701,
+      "C2": 1433.3990013500286,
+      "C4": 884.6060888560565,
+      "C8": 672.0859518846229
+    },
+    "gatedMs": 18577.70491970075
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 24,
+    "requests": 24,
+    "sequentialMs": 2236.349228637076,
+    "wallMs": 64.84939699999973,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2236.349228637076,
+      "C2": 1271.8703251581476,
+      "C4": 789.787061016888,
+      "C8": 534.0733980914276
+    },
+    "gatedMs": 11129.953956749618
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 25,
+    "requests": 24,
+    "sequentialMs": 2293.037731303337,
+    "wallMs": 55.58956900000021,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2293.037731303337,
+      "C2": 1223.974143989027,
+      "C4": 718.1837086988598,
+      "C8": 487.1424449566007
+    },
+    "gatedMs": 23007.45252927264
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 26,
+    "requests": 24,
+    "sequentialMs": 2382.5610247729865,
+    "wallMs": 61.773457999999664,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2382.5610247729865,
+      "C2": 1320.0768233335798,
+      "C4": 823.5470421687762,
+      "C8": 583.1965617663242
+    },
+    "gatedMs": 12118.974657989273
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 27,
+    "requests": 24,
+    "sequentialMs": 2726.5092268940266,
+    "wallMs": 60.46584900000016,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2726.509226894026,
+      "C2": 1489.9144609913412,
+      "C4": 945.2471155254533,
+      "C8": 630.7848982302323
+    },
+    "gatedMs": 9591.79105614251
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 28,
+    "requests": 24,
+    "sequentialMs": 2346.8621419601873,
+    "wallMs": 61.538384000000406,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2346.8621419601873,
+      "C2": 1265.8972927763061,
+      "C4": 812.3630105210891,
+      "C8": 638.346398423235
+    },
+    "gatedMs": 9820.512920624644
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 29,
+    "requests": 24,
+    "sequentialMs": 2645.2072819713903,
+    "wallMs": 58.65792899999997,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2645.2072819713903,
+      "C2": 1473.6909225728439,
+      "C4": 868.3125878490937,
+      "C8": 647.1229234144666
+    },
+    "gatedMs": 16403.79891936437
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 30,
+    "requests": 24,
+    "sequentialMs": 2213.9436149599737,
+    "wallMs": 66.87989400000015,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2213.9436149599733,
+      "C2": 1289.5214317991483,
+      "C4": 883.852227748136,
+      "C8": 712.6555816771213
+    },
+    "gatedMs": 14775.91250513799
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 31,
+    "requests": 24,
+    "sequentialMs": 2166.873229288868,
+    "wallMs": 65.98962200000005,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2166.873229288868,
+      "C2": 1229.3828010905029,
+      "C4": 677.2688165803565,
+      "C8": 460.4464976151539
+    },
+    "gatedMs": 8859.631714731506
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 32,
+    "requests": 24,
+    "sequentialMs": 2399.3597525473842,
+    "wallMs": 57.983340000000226,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2399.3597525473842,
+      "C2": 1323.8490504581143,
+      "C4": 773.0011911562918,
+      "C8": 564.6376378200524
+    },
+    "gatedMs": 9473.939760349565
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 33,
+    "requests": 24,
+    "sequentialMs": 2289.181996141466,
+    "wallMs": 55.62705099999994,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2289.181996141466,
+      "C2": 1212.3680984414855,
+      "C4": 822.4435995289655,
+      "C8": 639.9760856415911
+    },
+    "gatedMs": 12165.705103141243
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 34,
+    "requests": 24,
+    "sequentialMs": 2795.728101019166,
+    "wallMs": 57.95715900000005,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2795.7281010191664,
+      "C2": 1532.36886398342,
+      "C4": 944.4829606148761,
+      "C8": 718.1034144359804
+    },
+    "gatedMs": 13033.681166340812
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 35,
+    "requests": 24,
+    "sequentialMs": 2494.973781026903,
+    "wallMs": 58.701368999999886,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2494.9737810269035,
+      "C2": 1488.928942495462,
+      "C4": 1014.4213274913733,
+      "C8": 823.172399656647
+    },
+    "gatedMs": 9645.139598098067
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 36,
+    "requests": 24,
+    "sequentialMs": 2219.984457645969,
+    "wallMs": 54.957418999999845,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2219.984457645969,
+      "C2": 1199.6173308665057,
+      "C4": 705.7440500887283,
+      "C8": 505.0008433370995
+    },
+    "gatedMs": 17086.62840200339
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 37,
+    "requests": 24,
+    "sequentialMs": 2238.8835933248383,
+    "wallMs": 58.952921999999944,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2238.883593324838,
+      "C2": 1196.300843033997,
+      "C4": 786.3464293091913,
+      "C8": 575.7551830769659
+    },
+    "gatedMs": 15963.95247446096
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 38,
+    "requests": 24,
+    "sequentialMs": 2203.5909429101125,
+    "wallMs": 52.16838200000029,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2203.590942910112,
+      "C2": 1229.1393555043933,
+      "C4": 705.990194404122,
+      "C8": 510.44492886194973
+    },
+    "gatedMs": 12802.144392155642
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 39,
+    "requests": 24,
+    "sequentialMs": 2441.4601485942703,
+    "wallMs": 57.74908499999992,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2441.46014859427,
+      "C2": 1382.4094530513462,
+      "C4": 837.4943310202933,
+      "C8": 624.7812901724153
+    },
+    "gatedMs": 10154.166505919786
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 40,
+    "requests": 24,
+    "sequentialMs": 2394.9955170853505,
+    "wallMs": 52.59601900000007,
+    "triggers": 33,
+    "failedRound": false,
+    "projections": {
+      "C1": 2394.9955170853505,
+      "C2": 1334.2358179225228,
+      "C4": 721.0273292881482,
+      "C8": 486.6748144475566
+    },
+    "gatedMs": 11567.627383923942
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 1,
+    "requests": 54,
+    "sequentialMs": 5500.483134884106,
+    "wallMs": 124.24959899999976,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5500.483134884107,
+      "C2": 2912.759826181199,
+      "C4": 1549.2138236260935,
+      "C8": 962.3697075140711
+    },
+    "gatedMs": 38431.18848492825
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 2,
+    "requests": 54,
+    "sequentialMs": 5773.2411044349365,
+    "wallMs": 122.2887380000002,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5773.241104434936,
+      "C2": 2984.9865343077495,
+      "C4": 1642.4030545264534,
+      "C8": 1030.2610177645731
+    },
+    "gatedMs": 23053.829479981694
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 3,
+    "requests": 54,
+    "sequentialMs": 5505.261980384503,
+    "wallMs": 120.85402500000009,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5505.261980384503,
+      "C2": 2888.2858300616026,
+      "C4": 1503.7065220209238,
+      "C8": 1075.8342633512873
+    },
+    "gatedMs": 25985.92044200111
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 4,
+    "requests": 54,
+    "sequentialMs": 5339.926279129734,
+    "wallMs": 125.32366699999966,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5339.926279129734,
+      "C2": 2900.3516864335165,
+      "C4": 1649.0020919728863,
+      "C8": 1099.8647988304863
+    },
+    "gatedMs": 31692.67582457413
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 5,
+    "requests": 54,
+    "sequentialMs": 5343.784901738486,
+    "wallMs": 120.98389899999984,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5343.784901738485,
+      "C2": 2846.3985996377473,
+      "C4": 1563.9005453866293,
+      "C8": 999.2034944257192
+    },
+    "gatedMs": 41057.504118727586
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 6,
+    "requests": 54,
+    "sequentialMs": 5471.511006375969,
+    "wallMs": 120.1398720000002,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5471.511006375969,
+      "C2": 2783.6960214895994,
+      "C4": 1604.0789320777212,
+      "C8": 1040.6713939144825
+    },
+    "gatedMs": 40730.050550665364
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 7,
+    "requests": 54,
+    "sequentialMs": 5603.653481685125,
+    "wallMs": 116.36581999999999,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5603.653481685125,
+      "C2": 3003.430583205538,
+      "C4": 1679.44263557578,
+      "C8": 1138.4414632463142
+    },
+    "gatedMs": 22138.83755640813
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 8,
+    "requests": 54,
+    "sequentialMs": 5514.145510831728,
+    "wallMs": 120.52892500000053,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5514.145510831728,
+      "C2": 2884.5864127578134,
+      "C4": 1611.2032873237567,
+      "C8": 1022.8236470894544
+    },
+    "gatedMs": 29880.026053457826
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 9,
+    "requests": 54,
+    "sequentialMs": 5077.742371591791,
+    "wallMs": 126.99308900000051,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5077.742371591792,
+      "C2": 2675.8712774156866,
+      "C4": 1435.2768366455389,
+      "C8": 897.422971111209
+    },
+    "gatedMs": 21741.999851943823
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 10,
+    "requests": 54,
+    "sequentialMs": 5563.894955593279,
+    "wallMs": 119.08697100000063,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5563.8949555932795,
+      "C2": 2867.717307783067,
+      "C4": 1668.0996657429407,
+      "C8": 1053.009173949092
+    },
+    "gatedMs": 27636.247587254667
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 11,
+    "requests": 54,
+    "sequentialMs": 5231.4673817625,
+    "wallMs": 122.11280799999986,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5231.4673817625,
+      "C2": 2767.6176416573794,
+      "C4": 1545.1434452179938,
+      "C8": 1053.1326012213026
+    },
+    "gatedMs": 27104.180358051075
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 12,
+    "requests": 54,
+    "sequentialMs": 5741.8041359190975,
+    "wallMs": 117.66749700000037,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5741.804135919098,
+      "C2": 2992.616049978388,
+      "C4": 1700.026923668799,
+      "C8": 1018.8141549428865
+    },
+    "gatedMs": 34749.62696048273
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 13,
+    "requests": 54,
+    "sequentialMs": 6256.9828192203895,
+    "wallMs": 122.17148900000029,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 6256.982819220389,
+      "C2": 3202.9111925788297,
+      "C4": 1758.2432624852315,
+      "C8": 1071.1561266150793
+    },
+    "gatedMs": 20739.353089646924
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 14,
+    "requests": 54,
+    "sequentialMs": 5997.713800645716,
+    "wallMs": 123.46019499999966,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5997.713800645716,
+      "C2": 3167.7267665786685,
+      "C4": 1864.4335575689042,
+      "C8": 1308.9030789651767
+    },
+    "gatedMs": 53080.20107258471
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 15,
+    "requests": 54,
+    "sequentialMs": 5796.060784534897,
+    "wallMs": 120.10710699999981,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5796.060784534897,
+      "C2": 3026.257314596002,
+      "C4": 1630.4926358661633,
+      "C8": 1007.762138684583
+    },
+    "gatedMs": 28347.89048239517
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 16,
+    "requests": 54,
+    "sequentialMs": 5325.72145322388,
+    "wallMs": 130.2268100000001,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5325.72145322388,
+      "C2": 2764.209304230403,
+      "C4": 1481.6680294216542,
+      "C8": 943.2987088612343
+    },
+    "gatedMs": 29274.680200970528
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 17,
+    "requests": 54,
+    "sequentialMs": 5453.121570385846,
+    "wallMs": 127.94388499999968,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5453.121570385846,
+      "C2": 2844.6000542202682,
+      "C4": 1581.6317182967014,
+      "C8": 954.9148034010016
+    },
+    "gatedMs": 31639.844652870517
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 18,
+    "requests": 54,
+    "sequentialMs": 5061.666565571697,
+    "wallMs": 116.6819800000003,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5061.666565571697,
+      "C2": 2713.469717898813,
+      "C4": 1481.792898403964,
+      "C8": 906.3285431129278
+    },
+    "gatedMs": 43824.6266631622
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 19,
+    "requests": 54,
+    "sequentialMs": 5545.203034854201,
+    "wallMs": 118.14615700000013,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5545.203034854201,
+      "C2": 2929.502637378582,
+      "C4": 1641.3503146297053,
+      "C8": 1052.3821174187149
+    },
+    "gatedMs": 27994.754189432802
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 20,
+    "requests": 54,
+    "sequentialMs": 5512.5313289166015,
+    "wallMs": 122.35437699999966,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5512.531328916603,
+      "C2": 2924.004756908163,
+      "C4": 1606.5429770242174,
+      "C8": 1039.1178937737259
+    },
+    "gatedMs": 22250.67715681559
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 21,
+    "requests": 54,
+    "sequentialMs": 5199.134114235733,
+    "wallMs": 115.52192600000035,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5199.134114235733,
+      "C2": 2705.9469235782085,
+      "C4": 1548.3662760812147,
+      "C8": 998.4405200001939
+    },
+    "gatedMs": 26722.24615381857
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 22,
+    "requests": 54,
+    "sequentialMs": 6325.8725055297355,
+    "wallMs": 124.78103800000008,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 6325.8725055297355,
+      "C2": 3272.5315069488806,
+      "C4": 1731.4361483077012,
+      "C8": 1068.2805098169863
+    },
+    "gatedMs": 22193.731848273193
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 23,
+    "requests": 54,
+    "sequentialMs": 5287.984624557114,
+    "wallMs": 124.63439800000015,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5287.9846245571125,
+      "C2": 2929.523260227363,
+      "C4": 1656.0743121263404,
+      "C8": 1099.179246028721
+    },
+    "gatedMs": 28783.51533388034
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 24,
+    "requests": 54,
+    "sequentialMs": 4945.869308787766,
+    "wallMs": 115.38127600000007,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 4945.869308787767,
+      "C2": 2547.758725958376,
+      "C4": 1399.055707225235,
+      "C8": 875.6068276581072
+    },
+    "gatedMs": 25156.382798297705
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 25,
+    "requests": 54,
+    "sequentialMs": 5259.090475397583,
+    "wallMs": 123.02184900000066,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5259.090475397583,
+      "C2": 2750.81479321766,
+      "C4": 1544.4861487252876,
+      "C8": 895.638065797046
+    },
+    "gatedMs": 25651.755394470576
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 26,
+    "requests": 54,
+    "sequentialMs": 5248.523832837059,
+    "wallMs": 119.44210800000019,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5248.52383283706,
+      "C2": 2764.50883911863,
+      "C4": 1521.0424613122113,
+      "C8": 958.676940856663
+    },
+    "gatedMs": 47005.73639294481
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 27,
+    "requests": 54,
+    "sequentialMs": 5842.605604289932,
+    "wallMs": 119.32707100000061,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5842.605604289932,
+      "C2": 3101.5350425528113,
+      "C4": 1710.5818971629578,
+      "C8": 1075.9912674686886
+    },
+    "gatedMs": 22902.215235363703
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 28,
+    "requests": 54,
+    "sequentialMs": 5125.10287803001,
+    "wallMs": 116.76085500000045,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5125.102878030009,
+      "C2": 2678.654972323837,
+      "C4": 1461.1750249427457,
+      "C8": 883.7427651357931
+    },
+    "gatedMs": 24761.361209687704
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 29,
+    "requests": 54,
+    "sequentialMs": 5847.510391041852,
+    "wallMs": 113.64929100000063,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5847.510391041851,
+      "C2": 3086.1876447613786,
+      "C4": 1673.2363015466008,
+      "C8": 1036.922940377372
+    },
+    "gatedMs": 28388.003588759
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 30,
+    "requests": 54,
+    "sequentialMs": 5324.327820233357,
+    "wallMs": 143.12315200000012,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5324.327820233355,
+      "C2": 2800.0336830434094,
+      "C4": 1573.3989571280144,
+      "C8": 937.9710916431598
+    },
+    "gatedMs": 30249.382806434365
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 31,
+    "requests": 54,
+    "sequentialMs": 5162.169827786334,
+    "wallMs": 121.9359429999995,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5162.169827786335,
+      "C2": 2671.434529130962,
+      "C4": 1434.0672325626974,
+      "C8": 915.4065598506631
+    },
+    "gatedMs": 47351.96379452854
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 32,
+    "requests": 54,
+    "sequentialMs": 5181.89916540206,
+    "wallMs": 136.86192599999958,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5181.899165402062,
+      "C2": 2695.815029561188,
+      "C4": 1514.7595608260663,
+      "C8": 900.4174857359067
+    },
+    "gatedMs": 20882.062374800604
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 33,
+    "requests": 54,
+    "sequentialMs": 4993.037208836459,
+    "wallMs": 125.31042900000011,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 4993.0372088364575,
+      "C2": 2668.3024947237523,
+      "C4": 1516.013092854152,
+      "C8": 997.7774699992799
+    },
+    "gatedMs": 31022.5651157418
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 34,
+    "requests": 54,
+    "sequentialMs": 5406.81329713946,
+    "wallMs": 120.77349099999992,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5406.81329713946,
+      "C2": 2791.4791682107034,
+      "C4": 1577.8540987263214,
+      "C8": 969.3274945861507
+    },
+    "gatedMs": 49258.76372163297
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 35,
+    "requests": 54,
+    "sequentialMs": 5715.550334829713,
+    "wallMs": 122.37707599999976,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5715.550334829714,
+      "C2": 3119.5313390992133,
+      "C4": 1835.1779254249302,
+      "C8": 1207.8912657284873
+    },
+    "gatedMs": 43838.2885039358
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 36,
+    "requests": 54,
+    "sequentialMs": 5352.752192001198,
+    "wallMs": 122.60913600000003,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5352.752192001195,
+      "C2": 2744.2894710884107,
+      "C4": 1499.7561008733462,
+      "C8": 872.3588932038693
+    },
+    "gatedMs": 23817.787788378864
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 37,
+    "requests": 54,
+    "sequentialMs": 5186.998906363954,
+    "wallMs": 121.90842399999929,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5186.998906363954,
+      "C2": 2788.161054034849,
+      "C4": 1457.5711215578701,
+      "C8": 918.5202042123847
+    },
+    "gatedMs": 30637.5456537438
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 38,
+    "requests": 54,
+    "sequentialMs": 4848.437904759314,
+    "wallMs": 125.4987600000004,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 4848.437904759314,
+      "C2": 2532.3635864827547,
+      "C4": 1340.3266888356454,
+      "C8": 849.9479289830812
+    },
+    "gatedMs": 37472.11075283409
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 39,
+    "requests": 54,
+    "sequentialMs": 5516.297325347624,
+    "wallMs": 122.3849540000001,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5516.297325347623,
+      "C2": 2896.777597673923,
+      "C4": 1592.936316075423,
+      "C8": 986.7436138490941
+    },
+    "gatedMs": 25993.81319089002
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 40,
+    "requests": 54,
+    "sequentialMs": 5460.129197677828,
+    "wallMs": 131.79323700000077,
+    "triggers": 78,
+    "failedRound": false,
+    "projections": {
+      "C1": 5460.129197677828,
+      "C2": 2957.275206276902,
+      "C4": 1625.9851140508797,
+      "C8": 1041.6566944830806
+    },
+    "gatedMs": 54902.73356715033
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 1,
+    "requests": 104,
+    "sequentialMs": 10432.161135973192,
+    "wallMs": 230.77180200000112,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10432.161135973192,
+      "C2": 5342.910417334725,
+      "C4": 2782.3620071491564,
+      "C8": 1619.0631077815485
+    },
+    "gatedMs": 85393.94389541779
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 2,
+    "requests": 104,
+    "sequentialMs": 10617.20686918455,
+    "wallMs": 216.01553200000126,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10617.206869184549,
+      "C2": 5389.9129609412485,
+      "C4": 2831.9223423336225,
+      "C8": 1629.507574533603
+    },
+    "gatedMs": 100007.34363627309
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 3,
+    "requests": 104,
+    "sequentialMs": 9950.854950384113,
+    "wallMs": 219.77801199999885,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 9950.854950384113,
+      "C2": 5097.17437965314,
+      "C4": 2704.3543597717457,
+      "C8": 1565.0606867833255
+    },
+    "gatedMs": 45293.274094179644
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 4,
+    "requests": 104,
+    "sequentialMs": 10112.804655785965,
+    "wallMs": 210.391431,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10112.804655785963,
+      "C2": 5199.989339473861,
+      "C4": 2703.5337584315535,
+      "C8": 1505.9808305362467
+    },
+    "gatedMs": 42398.23634715358
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 5,
+    "requests": 104,
+    "sequentialMs": 10415.66917802127,
+    "wallMs": 212.66182299999855,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10415.66917802127,
+      "C2": 5360.601732479955,
+      "C4": 2801.358080528279,
+      "C8": 1602.498277224736
+    },
+    "gatedMs": 70621.22291576638
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 6,
+    "requests": 104,
+    "sequentialMs": 10724.495046528386,
+    "wallMs": 213.21534699999938,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10724.495046528386,
+      "C2": 5464.284346529642,
+      "C4": 2893.3184786239676,
+      "C8": 1660.3019192586085
+    },
+    "gatedMs": 49592.20163753397
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 7,
+    "requests": 104,
+    "sequentialMs": 10362.363527204821,
+    "wallMs": 209.08317999999963,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10362.363527204821,
+      "C2": 5311.006392762782,
+      "C4": 2894.8170449452487,
+      "C8": 1724.8339723294487
+    },
+    "gatedMs": 53082.709466886074
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 8,
+    "requests": 104,
+    "sequentialMs": 10629.126719505093,
+    "wallMs": 216.42659000000094,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10629.126719505095,
+      "C2": 5426.526599011019,
+      "C4": 2917.268789890521,
+      "C8": 1677.0337355691513
+    },
+    "gatedMs": 74444.14691763179
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 9,
+    "requests": 104,
+    "sequentialMs": 9820.772707926897,
+    "wallMs": 213.40910099999928,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 9820.772707926897,
+      "C2": 5210.360635110985,
+      "C4": 2825.2281147350386,
+      "C8": 1727.0026646905628
+    },
+    "gatedMs": 63616.57632560506
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 10,
+    "requests": 104,
+    "sequentialMs": 10519.787639181934,
+    "wallMs": 210.02394300000014,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10519.787639181934,
+      "C2": 5411.6216604369265,
+      "C4": 2891.000242405409,
+      "C8": 1627.197755709838
+    },
+    "gatedMs": 65962.23094314284
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 11,
+    "requests": 104,
+    "sequentialMs": 10140.908154576353,
+    "wallMs": 220.64553399999932,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10140.908154576353,
+      "C2": 5190.788656477657,
+      "C4": 2661.9985952617685,
+      "C8": 1458.922216945394
+    },
+    "gatedMs": 102219.1242294592
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 12,
+    "requests": 104,
+    "sequentialMs": 10982.061737423215,
+    "wallMs": 206.55163800000082,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10982.061737423219,
+      "C2": 5658.787788612585,
+      "C4": 3009.132937102873,
+      "C8": 1714.8240545594517
+    },
+    "gatedMs": 60314.560703929834
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 13,
+    "requests": 104,
+    "sequentialMs": 11011.671072163736,
+    "wallMs": 216.6765660000001,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 11011.671072163737,
+      "C2": 5615.605085949346,
+      "C4": 2901.474679752951,
+      "C8": 1621.6127181199843
+    },
+    "gatedMs": 41754.11010550003
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 14,
+    "requests": 104,
+    "sequentialMs": 10990.30741669287,
+    "wallMs": 214.1795289999991,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10990.30741669287,
+      "C2": 5666.91189752984,
+      "C4": 3055.9196392383283,
+      "C8": 1826.5432242716583
+    },
+    "gatedMs": 47521.00958045624
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 15,
+    "requests": 104,
+    "sequentialMs": 10880.459905764688,
+    "wallMs": 202.89204900000004,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10880.459905764688,
+      "C2": 5541.827200011994,
+      "C4": 2950.8199091121346,
+      "C8": 1747.6663608511885
+    },
+    "gatedMs": 41871.30369552001
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 16,
+    "requests": 104,
+    "sequentialMs": 10171.92297685875,
+    "wallMs": 214.4815069999986,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10171.92297685875,
+      "C2": 5190.805985435888,
+      "C4": 2732.1207763269035,
+      "C8": 1549.8630872420133
+    },
+    "gatedMs": 104362.17824085052
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 17,
+    "requests": 104,
+    "sequentialMs": 10380.036237448187,
+    "wallMs": 214.145665,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10380.036237448185,
+      "C2": 5266.910719306358,
+      "C4": 2727.327842517563,
+      "C8": 1523.6260020589066
+    },
+    "gatedMs": 81054.01149841853
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 18,
+    "requests": 104,
+    "sequentialMs": 10032.785322365986,
+    "wallMs": 219.19367899999997,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10032.785322365988,
+      "C2": 5190.0759018320405,
+      "C4": 2719.1509991004923,
+      "C8": 1628.375464660609
+    },
+    "gatedMs": 82586.16821862012
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 19,
+    "requests": 104,
+    "sequentialMs": 10967.01260106815,
+    "wallMs": 212.13223800000014,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10967.012601068147,
+      "C2": 5710.597890609763,
+      "C4": 2999.1566723544165,
+      "C8": 1745.0615206123598
+    },
+    "gatedMs": 45509.05184916997
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 20,
+    "requests": 104,
+    "sequentialMs": 10105.111213247648,
+    "wallMs": 213.08284400000048,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10105.111213247648,
+      "C2": 5191.172691624758,
+      "C4": 2724.232288221486,
+      "C8": 1488.102356222973
+    },
+    "gatedMs": 107136.19173949174
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 21,
+    "requests": 104,
+    "sequentialMs": 10611.609769228056,
+    "wallMs": 218.2951690000009,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10611.609769228056,
+      "C2": 5483.559716029575,
+      "C4": 3038.451478301198,
+      "C8": 1817.8326624032015
+    },
+    "gatedMs": 79324.20836089646
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 22,
+    "requests": 104,
+    "sequentialMs": 11392.313890250936,
+    "wallMs": 226.0022200000003,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 11392.313890250936,
+      "C2": 5821.725592039496,
+      "C4": 3158.575600602073,
+      "C8": 1764.4666025663755
+    },
+    "gatedMs": 81261.36064420777
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 23,
+    "requests": 104,
+    "sequentialMs": 10407.193591476522,
+    "wallMs": 218.7126989999997,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10407.193591476518,
+      "C2": 5322.658074470044,
+      "C4": 2861.479060494781,
+      "C8": 1650.5442779736213
+    },
+    "gatedMs": 55516.127316690996
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 24,
+    "requests": 104,
+    "sequentialMs": 9863.813384432238,
+    "wallMs": 221.27616399999897,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 9863.813384432236,
+      "C2": 5076.673287927202,
+      "C4": 2698.1799395787525,
+      "C8": 1523.39323160773
+    },
+    "gatedMs": 88438.40127457675
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 25,
+    "requests": 104,
+    "sequentialMs": 10586.436887503518,
+    "wallMs": 211.17981099999997,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10586.43688750352,
+      "C2": 5433.288761953225,
+      "C4": 2824.9346873622726,
+      "C8": 1541.9686395029578
+    },
+    "gatedMs": 79786.08549459997
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 26,
+    "requests": 104,
+    "sequentialMs": 10014.966030413478,
+    "wallMs": 221.3719430000001,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10014.966030413476,
+      "C2": 5138.910945654329,
+      "C4": 2654.6559674521795,
+      "C8": 1532.508587337669
+    },
+    "gatedMs": 52912.60450184289
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 27,
+    "requests": 104,
+    "sequentialMs": 11101.988534359463,
+    "wallMs": 213.70284100000026,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 11101.988534359463,
+      "C2": 5642.837906489439,
+      "C4": 3035.409620356319,
+      "C8": 1728.9201465544534
+    },
+    "gatedMs": 90401.20824352106
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 28,
+    "requests": 104,
+    "sequentialMs": 9957.931821674203,
+    "wallMs": 211.2878299999993,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 9957.931821674205,
+      "C2": 5052.178693669973,
+      "C4": 2685.471834871446,
+      "C8": 1485.8145311514825
+    },
+    "gatedMs": 49527.42810123223
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 29,
+    "requests": 104,
+    "sequentialMs": 10545.632312542053,
+    "wallMs": 210.6689860000006,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10545.632312542053,
+      "C2": 5442.839706589575,
+      "C4": 2886.8610242477084,
+      "C8": 1576.7636973776403
+    },
+    "gatedMs": 57508.97126323315
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 30,
+    "requests": 104,
+    "sequentialMs": 10067.422843721008,
+    "wallMs": 210.08814099999836,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10067.422843721008,
+      "C2": 5167.897729969676,
+      "C4": 2686.3521107179054,
+      "C8": 1432.101800667068
+    },
+    "gatedMs": 50622.89873417724
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 31,
+    "requests": 104,
+    "sequentialMs": 9788.835445139362,
+    "wallMs": 204.17437000000064,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 9788.835445139364,
+      "C2": 5107.243382188391,
+      "C4": 2670.0683197179583,
+      "C8": 1555.1255191658124
+    },
+    "gatedMs": 67208.56398769058
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 32,
+    "requests": 104,
+    "sequentialMs": 10418.922999775259,
+    "wallMs": 225.14702299999954,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10418.922999775263,
+      "C2": 5355.679398778085,
+      "C4": 2816.7099947634824,
+      "C8": 1558.9049405233357
+    },
+    "gatedMs": 52040.8962141608
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 33,
+    "requests": 104,
+    "sequentialMs": 9715.973311704809,
+    "wallMs": 225.4594309999993,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 9715.973311704807,
+      "C2": 4941.79108246101,
+      "C4": 2618.463343424512,
+      "C8": 1471.086387255929
+    },
+    "gatedMs": 54093.355770733826
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 34,
+    "requests": 104,
+    "sequentialMs": 10216.479766948607,
+    "wallMs": 243.85057400000005,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10216.479766948609,
+      "C2": 5237.291827742092,
+      "C4": 2730.797707363214,
+      "C8": 1509.886865386308
+    },
+    "gatedMs": 41260.0328077404
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 35,
+    "requests": 104,
+    "sequentialMs": 10714.420062011255,
+    "wallMs": 229.3445730000003,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10714.420062011253,
+      "C2": 5631.704514157058,
+      "C4": 2986.4738417489143,
+      "C8": 1781.2192058340602
+    },
+    "gatedMs": 77954.55609881705
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 36,
+    "requests": 104,
+    "sequentialMs": 10048.20057383782,
+    "wallMs": 231.429435,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10048.20057383782,
+      "C2": 5156.2770632547135,
+      "C4": 2640.371686842863,
+      "C8": 1454.4066534513988
+    },
+    "gatedMs": 52778.32772006305
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 37,
+    "requests": 104,
+    "sequentialMs": 10427.569539869208,
+    "wallMs": 218.4140780000016,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10427.569539869208,
+      "C2": 5294.865242216954,
+      "C4": 2872.722072304807,
+      "C8": 1658.621713259403
+    },
+    "gatedMs": 49019.44567888932
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 38,
+    "requests": 104,
+    "sequentialMs": 10335.781950595685,
+    "wallMs": 212.43307800000184,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10335.781950595685,
+      "C2": 5288.97134085559,
+      "C4": 2790.80750408183,
+      "C8": 1514.114825965019
+    },
+    "gatedMs": 45223.173359744855
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 39,
+    "requests": 104,
+    "sequentialMs": 10551.09931671698,
+    "wallMs": 221.37968999999794,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10551.09931671698,
+      "C2": 5532.854090830257,
+      "C4": 2952.316175281546,
+      "C8": 1779.572490452286
+    },
+    "gatedMs": 41555.782948005275
+  },
+  {
+    "workload": {
+      "notifications": 50,
+      "subscribedThreads": 0,
+      "streamItems": 3
+    },
+    "seed": 40,
+    "requests": 104,
+    "sequentialMs": 10541.009739327441,
+    "wallMs": 223.6667269999998,
+    "triggers": 153,
+    "failedRound": false,
+    "projections": {
+      "C1": 10541.00973932744,
+      "C2": 5403.976909758185,
+      "C4": 2826.417970294044,
+      "C8": 1556.874766363431
+    },
+    "gatedMs": 40776.367666027974
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 1,
+    "requests": 34,
+    "sequentialMs": 3511.529484716301,
+    "wallMs": 75.67396000000008,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3511.5294847163022,
+      "C2": 1900.447586227292,
+      "C4": 1168.3735292422043,
+      "C8": 814.5621071738767
+    },
+    "gatedMs": 14543.84426505363
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 2,
+    "requests": 34,
+    "sequentialMs": 3552.077990364862,
+    "wallMs": 73.48302200000035,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3552.0779903648618,
+      "C2": 1976.9146952252265,
+      "C4": 1223.0919182610264,
+      "C8": 904.5720425867829
+    },
+    "gatedMs": 30583.150716891
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 3,
+    "requests": 34,
+    "sequentialMs": 3623.6740387183845,
+    "wallMs": 68.20453400000042,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3623.6740387183845,
+      "C2": 2150.006280011565,
+      "C4": 1362.309466573657,
+      "C8": 1041.9665853135402
+    },
+    "gatedMs": 36128.58667878685
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 4,
+    "requests": 34,
+    "sequentialMs": 3239.117515089272,
+    "wallMs": 72.82300000000032,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3239.1175150892723,
+      "C2": 1769.003365292344,
+      "C4": 1031.3847959048792,
+      "C8": 707.0779890930214
+    },
+    "gatedMs": 14119.52880648591
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 5,
+    "requests": 34,
+    "sequentialMs": 3435.592711938983,
+    "wallMs": 78.21422400000301,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3435.5927119389835,
+      "C2": 1868.040044035335,
+      "C4": 1096.5262379048577,
+      "C8": 795.8328175632902
+    },
+    "gatedMs": 23699.20090079028
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 6,
+    "requests": 34,
+    "sequentialMs": 3585.05471061789,
+    "wallMs": 72.09586800000034,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3585.0547106178906,
+      "C2": 1922.3210253841007,
+      "C4": 1147.6532031180598,
+      "C8": 823.9291716010214
+    },
+    "gatedMs": 25563.180963057363
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 7,
+    "requests": 34,
+    "sequentialMs": 3455.5605668852154,
+    "wallMs": 73.23273899999913,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3455.560566885216,
+      "C2": 1957.8197489896759,
+      "C4": 1198.3944124974455,
+      "C8": 902.758355123954
+    },
+    "gatedMs": 16562.242920280056
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 8,
+    "requests": 34,
+    "sequentialMs": 3590.737043047053,
+    "wallMs": 73.29935599999953,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3590.7370430470537,
+      "C2": 1911.4690148799586,
+      "C4": 1200.7427629722956,
+      "C8": 850.4580334097867
+    },
+    "gatedMs": 13220.581531282562
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 9,
+    "requests": 34,
+    "sequentialMs": 3157.42174813892,
+    "wallMs": 77.16874800000005,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3157.421748138919,
+      "C2": 1720.10434030048,
+      "C4": 1061.2189809854772,
+      "C8": 758.3510072984527
+    },
+    "gatedMs": 26228.251031705047
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 10,
+    "requests": 34,
+    "sequentialMs": 3575.3684015866506,
+    "wallMs": 85.47032000000036,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3575.3684015866506,
+      "C2": 2010.2376024274135,
+      "C4": 1214.1876133537492,
+      "C8": 770.160649633381
+    },
+    "gatedMs": 31180.624339455437
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 11,
+    "requests": 34,
+    "sequentialMs": 3169.931081083252,
+    "wallMs": 83.49971000000005,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3169.931081083252,
+      "C2": 1727.330961234938,
+      "C4": 1024.3603336788383,
+      "C8": 760.4301371211279
+    },
+    "gatedMs": 22905.500019170027
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 12,
+    "requests": 34,
+    "sequentialMs": 3537.783277257827,
+    "wallMs": 73.40384300000005,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3537.7832772578276,
+      "C2": 1924.2347914791676,
+      "C4": 1142.632681874697,
+      "C8": 777.790434583995
+    },
+    "gatedMs": 23437.73196017401
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 13,
+    "requests": 34,
+    "sequentialMs": 3905.678246065768,
+    "wallMs": 74.40594400000191,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3905.678246065768,
+      "C2": 2099.754866685617,
+      "C4": 1188.573948239813,
+      "C8": 837.5873442675065
+    },
+    "gatedMs": 25388.20326515277
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 14,
+    "requests": 34,
+    "sequentialMs": 3681.9553444158178,
+    "wallMs": 74.92735800000082,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3681.955344415818,
+      "C2": 1957.0105712066404,
+      "C4": 1146.0226126417997,
+      "C8": 772.5194392995983
+    },
+    "gatedMs": 33026.160973103426
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 15,
+    "requests": 34,
+    "sequentialMs": 3725.0662976020076,
+    "wallMs": 74.67070299999978,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3725.0662976020076,
+      "C2": 2052.9496580472446,
+      "C4": 1224.3189120385878,
+      "C8": 931.3227841089038
+    },
+    "gatedMs": 15917.269047682328
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 16,
+    "requests": 34,
+    "sequentialMs": 3484.057186966487,
+    "wallMs": 72.925223000002,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3484.0571869664873,
+      "C2": 1867.751072387706,
+      "C4": 1061.1835233828003,
+      "C8": 770.8654606341912
+    },
+    "gatedMs": 15061.003551276508
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 17,
+    "requests": 34,
+    "sequentialMs": 3426.020725353233,
+    "wallMs": 87.0724310000005,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3426.0207253532335,
+      "C2": 1902.4695666957018,
+      "C4": 1098.4540503443286,
+      "C8": 696.367530087269
+    },
+    "gatedMs": 30075.968729352662
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 18,
+    "requests": 34,
+    "sequentialMs": 3300.69999574536,
+    "wallMs": 80.40364000000045,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3300.6999957453604,
+      "C2": 1843.5986427430628,
+      "C4": 1138.9572985233171,
+      "C8": 812.1670897596634
+    },
+    "gatedMs": 14004.215722499897
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 19,
+    "requests": 34,
+    "sequentialMs": 3438.9665506870583,
+    "wallMs": 84.08581400000185,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3438.966550687058,
+      "C2": 1936.1969830726557,
+      "C4": 1131.6973756245404,
+      "C8": 861.6699986156837
+    },
+    "gatedMs": 13209.895162158475
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 20,
+    "requests": 34,
+    "sequentialMs": 3369.0520208296593,
+    "wallMs": 85.06723500000226,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3369.0520208296603,
+      "C2": 1816.1080570835131,
+      "C4": 1142.323749195083,
+      "C8": 813.0917759052827
+    },
+    "gatedMs": 27410.739167675485
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 21,
+    "requests": 34,
+    "sequentialMs": 3301.4177273922337,
+    "wallMs": 87.15301099999851,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3301.4177273922323,
+      "C2": 1807.7747864397206,
+      "C4": 1109.8565732905781,
+      "C8": 837.4860556003396
+    },
+    "gatedMs": 16233.787407836542
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 22,
+    "requests": 34,
+    "sequentialMs": 3913.007596721879,
+    "wallMs": 91.7872869999992,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3913.007596721878,
+      "C2": 2120.2850016961825,
+      "C4": 1251.4074491310223,
+      "C8": 878.932636128769
+    },
+    "gatedMs": 23126.183923116892
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 23,
+    "requests": 34,
+    "sequentialMs": 3407.475450781928,
+    "wallMs": 87.33612500000163,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3407.4754507819275,
+      "C2": 1867.0435658345882,
+      "C4": 1117.6494830639372,
+      "C8": 806.0968266510058
+    },
+    "gatedMs": 16109.477000837815
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 24,
+    "requests": 34,
+    "sequentialMs": 3168.290008405696,
+    "wallMs": 78.62665599999673,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3168.2900084056964,
+      "C2": 1738.1164922942041,
+      "C4": 1043.465709626362,
+      "C8": 673.4079672157718
+    },
+    "gatedMs": 20283.540988026154
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 25,
+    "requests": 34,
+    "sequentialMs": 3462.557569151167,
+    "wallMs": 72.8143799999998,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3462.5575691511667,
+      "C2": 1845.5342612032732,
+      "C4": 1051.7870573283803,
+      "C8": 669.4071356217468
+    },
+    "gatedMs": 13841.732657232584
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 26,
+    "requests": 34,
+    "sequentialMs": 3466.375880527261,
+    "wallMs": 83.85995700000058,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3466.375880527261,
+      "C2": 1874.889052612151,
+      "C4": 1147.0140476316533,
+      "C8": 832.1491147296173
+    },
+    "gatedMs": 18736.831616291856
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 27,
+    "requests": 34,
+    "sequentialMs": 3745.186704415223,
+    "wallMs": 80.854546999999,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3745.1867044152223,
+      "C2": 2005.8039123458836,
+      "C4": 1242.9787610629098,
+      "C8": 802.4736258354712
+    },
+    "gatedMs": 27919.77470942809
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 28,
+    "requests": 34,
+    "sequentialMs": 3242.3837243788216,
+    "wallMs": 84.23502500000177,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3242.383724378822,
+      "C2": 1720.0745812864993,
+      "C4": 1062.9649770597603,
+      "C8": 779.9918070712038
+    },
+    "gatedMs": 32844.17774007997
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 29,
+    "requests": 34,
+    "sequentialMs": 3801.6443848549397,
+    "wallMs": 77.85023699999874,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3801.6443848549397,
+      "C2": 2067.2135112436854,
+      "C4": 1187.3970918667908,
+      "C8": 855.9524540396671
+    },
+    "gatedMs": 13486.581998036498
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 30,
+    "requests": 34,
+    "sequentialMs": 3048.9420476674395,
+    "wallMs": 87.54042299999855,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3048.9420476674386,
+      "C2": 1736.8945050243415,
+      "C4": 1107.7317315344555,
+      "C8": 840.5246538530153
+    },
+    "gatedMs": 15753.3532607468
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 31,
+    "requests": 34,
+    "sequentialMs": 3208.998203964876,
+    "wallMs": 82.74572199999966,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3208.9982039648758,
+      "C2": 1761.403146919685,
+      "C4": 980.486039095009,
+      "C8": 654.5774394320912
+    },
+    "gatedMs": 15946.79746905706
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 32,
+    "requests": 34,
+    "sequentialMs": 3284.0892551602115,
+    "wallMs": 85.06540400000085,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3284.089255160211,
+      "C2": 1788.1331642181694,
+      "C4": 1032.7977704430489,
+      "C8": 717.7496495185501
+    },
+    "gatedMs": 13169.907140121031
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 33,
+    "requests": 34,
+    "sequentialMs": 3069.8234427528014,
+    "wallMs": 71.61017999999967,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3069.8234427528014,
+      "C2": 1613.4204150600335,
+      "C4": 1067.8951735350192,
+      "C8": 806.4081700918555
+    },
+    "gatedMs": 13657.942784607725
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 34,
+    "requests": 34,
+    "sequentialMs": 3630.8938448901504,
+    "wallMs": 95.22627400000056,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3630.893844890151,
+      "C2": 1963.8056349955139,
+      "C4": 1195.1066431361032,
+      "C8": 877.4945211352943
+    },
+    "gatedMs": 17199.097008148663
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 35,
+    "requests": 34,
+    "sequentialMs": 3578.0236336119947,
+    "wallMs": 79.32386800000313,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3578.023633611996,
+      "C2": 2122.6373105056336,
+      "C4": 1390.443696348693,
+      "C8": 1074.4801064484213
+    },
+    "gatedMs": 30078.63198854257
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 36,
+    "requests": 34,
+    "sequentialMs": 3491.1040819348955,
+    "wallMs": 82.76630699999805,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3491.1040819348955,
+      "C2": 1867.7681930795156,
+      "C4": 1049.8017815721198,
+      "C8": 730.5591610223307
+    },
+    "gatedMs": 20644.67215308125
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 37,
+    "requests": 34,
+    "sequentialMs": 3121.035099731069,
+    "wallMs": 78.81489599999986,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3121.0350997310684,
+      "C2": 1650.8141284088415,
+      "C4": 1045.3321963228605,
+      "C8": 737.8242435234912
+    },
+    "gatedMs": 28999.333636010502
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 38,
+    "requests": 34,
+    "sequentialMs": 2964.1470497796686,
+    "wallMs": 75.68748200000118,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 2964.147049779668,
+      "C2": 1633.164973267098,
+      "C4": 920.1533281245466,
+      "C8": 636.9808133042562
+    },
+    "gatedMs": 14600.553929470523
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 39,
+    "requests": 34,
+    "sequentialMs": 3442.9977023289894,
+    "wallMs": 80.72521300000153,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3442.9977023289894,
+      "C2": 1920.6427375020914,
+      "C4": 1126.7731193082652,
+      "C8": 838.5738725436895
+    },
+    "gatedMs": 17067.44821233376
+  },
+  {
+    "workload": {
+      "notifications": 10,
+      "subscribedThreads": 10,
+      "streamItems": 3
+    },
+    "seed": 40,
+    "requests": 34,
+    "sequentialMs": 3422.1519550040034,
+    "wallMs": 75.93150999999853,
+    "triggers": 43,
+    "failedRound": false,
+    "projections": {
+      "C1": 3422.151955004003,
+      "C2": 1920.798072439835,
+      "C4": 1094.4220159160122,
+      "C8": 747.0912155261996
+    },
+    "gatedMs": 14500.039951664221
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 1,
+    "requests": 79,
+    "sequentialMs": 7820.110520605061,
+    "wallMs": 157.7602740000002,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7820.1105206050615,
+      "C2": 4090.5206409291422,
+      "C4": 2167.5125329434663,
+      "C8": 1315.902080158823
+    },
+    "gatedMs": 55000.60458977044
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 2,
+    "requests": 79,
+    "sequentialMs": 8033.72645486569,
+    "wallMs": 163.62947799999893,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 8033.726454865689,
+      "C2": 4132.1176498999075,
+      "C4": 2234.990734404531,
+      "C8": 1349.5299267027895
+    },
+    "gatedMs": 64087.610129407665
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 3,
+    "requests": 79,
+    "sequentialMs": 7709.805584643861,
+    "wallMs": 162.71687299999758,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7709.80558464386,
+      "C2": 4014.9464852988285,
+      "C4": 2072.300239867491,
+      "C8": 1406.0558384343628
+    },
+    "gatedMs": 35756.63628086903
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 4,
+    "requests": 79,
+    "sequentialMs": 7665.824754562811,
+    "wallMs": 172.41658100000132,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7665.824754562813,
+      "C2": 4070.8569285134135,
+      "C4": 2277.8495472281825,
+      "C8": 1439.2226183343644
+    },
+    "gatedMs": 35922.014393777914
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 5,
+    "requests": 79,
+    "sequentialMs": 7860.714054926637,
+    "wallMs": 166.50340399999914,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7860.714054926637,
+      "C2": 4110.915646957815,
+      "C4": 2218.144891582856,
+      "C8": 1345.7845318124027
+    },
+    "gatedMs": 37692.0359179768
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 6,
+    "requests": 79,
+    "sequentialMs": 8128.252786467975,
+    "wallMs": 158.99538499999835,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 8128.252786467976,
+      "C2": 4176.528886047468,
+      "C4": 2334.433669438385,
+      "C8": 1443.3129054519034
+    },
+    "gatedMs": 41588.948667699646
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 7,
+    "requests": 79,
+    "sequentialMs": 7907.045248838171,
+    "wallMs": 157.55770699999994,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7907.045248838171,
+      "C2": 4229.353441754996,
+      "C4": 2404.657470768273,
+      "C8": 1608.766374265861
+    },
+    "gatedMs": 54917.072931904746
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 8,
+    "requests": 79,
+    "sequentialMs": 8271.07423766688,
+    "wallMs": 153.87066499999855,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 8271.07423766688,
+      "C2": 4276.3419382445,
+      "C4": 2406.1264908144954,
+      "C8": 1520.239733475681
+    },
+    "gatedMs": 41748.39104497362
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 9,
+    "requests": 79,
+    "sequentialMs": 7223.631903691314,
+    "wallMs": 153.2130249999973,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7223.6319036913155,
+      "C2": 3752.20625366132,
+      "C4": 2015.6082215044755,
+      "C8": 1213.5951909245434
+    },
+    "gatedMs": 55109.07177365932
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 10,
+    "requests": 79,
+    "sequentialMs": 8239.29720290358,
+    "wallMs": 157.85392499999944,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 8239.297202903583,
+      "C2": 4349.8887422754,
+      "C4": 2564.981711482512,
+      "C8": 1637.290502211225
+    },
+    "gatedMs": 64567.87677381073
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 11,
+    "requests": 79,
+    "sequentialMs": 7697.2348656616305,
+    "wallMs": 155.07256600000255,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7697.234865661632,
+      "C2": 4017.258555685601,
+      "C4": 2182.8519837137405,
+      "C8": 1396.6938870013523
+    },
+    "gatedMs": 40257.05201029479
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 12,
+    "requests": 79,
+    "sequentialMs": 8533.809913877212,
+    "wallMs": 148.35960299999715,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 8533.809913877212,
+      "C2": 4438.507408806378,
+      "C4": 2471.0022642418717,
+      "C8": 1461.258038637507
+    },
+    "gatedMs": 32835.655924291
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 13,
+    "requests": 79,
+    "sequentialMs": 8518.014537538813,
+    "wallMs": 152.32154699999955,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 8518.014537538813,
+      "C2": 4385.420536149896,
+      "C4": 2398.527955802688,
+      "C8": 1415.7168467338297
+    },
+    "gatedMs": 39636.6907449949
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 14,
+    "requests": 79,
+    "sequentialMs": 8472.430001858824,
+    "wallMs": 156.8382390000006,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 8472.430001858822,
+      "C2": 4488.397445460923,
+      "C4": 2642.743547471539,
+      "C8": 1795.2920102665607
+    },
+    "gatedMs": 44440.85916532366
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 15,
+    "requests": 79,
+    "sequentialMs": 8059.366020709796,
+    "wallMs": 155.08130700000038,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 8059.3660207097955,
+      "C2": 4197.719842185046,
+      "C4": 2254.0959306576697,
+      "C8": 1330.7461310329925
+    },
+    "gatedMs": 34981.61756503852
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 16,
+    "requests": 79,
+    "sequentialMs": 7780.774907955886,
+    "wallMs": 153.13421499999822,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7780.774907955885,
+      "C2": 4027.712236893566,
+      "C4": 2120.689594197098,
+      "C8": 1291.3397946577395
+    },
+    "gatedMs": 40410.40024221543
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 17,
+    "requests": 79,
+    "sequentialMs": 7845.1291674879185,
+    "wallMs": 151.61054700000022,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7845.129167487918,
+      "C2": 4092.769055041511,
+      "C4": 2255.8072152617406,
+      "C8": 1365.0789612123388
+    },
+    "gatedMs": 81920.62300200565
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 18,
+    "requests": 79,
+    "sequentialMs": 7480.619278590019,
+    "wallMs": 161.92244500000015,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7480.619278590021,
+      "C2": 3957.862062053897,
+      "C4": 2130.5259421399305,
+      "C8": 1295.456604975594
+    },
+    "gatedMs": 32373.201541985123
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 19,
+    "requests": 79,
+    "sequentialMs": 8524.001760687726,
+    "wallMs": 153.22876099999849,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 8524.001760687726,
+      "C2": 4455.088520762023,
+      "C4": 2487.9858876219027,
+      "C8": 1580.544723211939
+    },
+    "gatedMs": 31805.64709006012
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 20,
+    "requests": 79,
+    "sequentialMs": 7777.401379843549,
+    "wallMs": 158.8183140000001,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7777.401379843552,
+      "C2": 4110.317174646246,
+      "C4": 2222.1156852407717,
+      "C8": 1379.0304023903873
+    },
+    "gatedMs": 56083.18992964564
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 21,
+    "requests": 79,
+    "sequentialMs": 7909.8615207104895,
+    "wallMs": 149.55430400000114,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7909.86152071049,
+      "C2": 4086.3941752370038,
+      "C4": 2246.84943541861,
+      "C8": 1387.6867402274893
+    },
+    "gatedMs": 60435.58007373434
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 22,
+    "requests": 79,
+    "sequentialMs": 8944.32916726689,
+    "wallMs": 156.72170800000094,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 8944.329167266891,
+      "C2": 4587.9738654471585,
+      "C4": 2438.760002631405,
+      "C8": 1532.9933316207716
+    },
+    "gatedMs": 56924.77587160187
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 23,
+    "requests": 79,
+    "sequentialMs": 8044.869856965549,
+    "wallMs": 150.0308479999985,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 8044.869856965546,
+      "C2": 4323.460203191911,
+      "C4": 2427.588123135845,
+      "C8": 1561.4611856103065
+    },
+    "gatedMs": 39349.51662527038
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 24,
+    "requests": 79,
+    "sequentialMs": 7302.175741775168,
+    "wallMs": 150.0490690000006,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7302.1757417751705,
+      "C2": 3781.2409708495907,
+      "C4": 2016.5914516681169,
+      "C8": 1218.2104210286716
+    },
+    "gatedMs": 33387.24436747363
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 25,
+    "requests": 79,
+    "sequentialMs": 7956.136810822299,
+    "wallMs": 146.81185999999798,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7956.136810822299,
+      "C2": 4147.404844553399,
+      "C4": 2244.71209676678,
+      "C8": 1284.2468778101488
+    },
+    "gatedMs": 70932.12311478754
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 26,
+    "requests": 79,
+    "sequentialMs": 7804.627432531693,
+    "wallMs": 150.00456499999927,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7804.627432531693,
+      "C2": 4044.8268062115635,
+      "C4": 2180.487688869962,
+      "C8": 1313.225823776443
+    },
+    "gatedMs": 39503.21150073751
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 27,
+    "requests": 79,
+    "sequentialMs": 8442.799417826467,
+    "wallMs": 148.74167099999977,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 8442.799417826467,
+      "C2": 4412.643302013415,
+      "C4": 2392.0579374940576,
+      "C8": 1435.4845449823702
+    },
+    "gatedMs": 43281.91069661218
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 28,
+    "requests": 79,
+    "sequentialMs": 7447.739982198253,
+    "wallMs": 152.89833999999973,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7447.739982198254,
+      "C2": 3879.867656961436,
+      "C4": 2090.8329588670404,
+      "C8": 1257.189712590543
+    },
+    "gatedMs": 43864.251852806425
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 29,
+    "requests": 79,
+    "sequentialMs": 8128.664964400546,
+    "wallMs": 147.76027199999953,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 8128.664964400545,
+      "C2": 4228.742414222206,
+      "C4": 2263.1456875900367,
+      "C8": 1362.9240199016467
+    },
+    "gatedMs": 45118.93425862925
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 30,
+    "requests": 79,
+    "sequentialMs": 7739.142810605946,
+    "wallMs": 146.82498900000064,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7739.142810605947,
+      "C2": 4057.460916082714,
+      "C4": 2232.2709918258993,
+      "C8": 1287.7849213222655
+    },
+    "gatedMs": 59485.20203879959
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 31,
+    "requests": 79,
+    "sequentialMs": 7299.372469038491,
+    "wallMs": 150.74292499999865,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7299.3724690384915,
+      "C2": 3776.0959916106162,
+      "C4": 2029.1839916243025,
+      "C8": 1226.5954799052874
+    },
+    "gatedMs": 46956.09855831988
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 32,
+    "requests": 79,
+    "sequentialMs": 7661.194557719013,
+    "wallMs": 151.21812599999976,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7661.194557719015,
+      "C2": 3993.42821225008,
+      "C4": 2226.9508404130816,
+      "C8": 1305.7406158724573
+    },
+    "gatedMs": 64799.724487574
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 33,
+    "requests": 79,
+    "sequentialMs": 7288.761606707015,
+    "wallMs": 169.02118300000075,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7288.761606707014,
+      "C2": 3849.3929045203495,
+      "C4": 2117.2008771542687,
+      "C8": 1347.168674682596
+    },
+    "gatedMs": 30602.448142179273
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 34,
+    "requests": 79,
+    "sequentialMs": 7960.958494620843,
+    "wallMs": 162.39470699999947,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7960.9584946208415,
+      "C2": 4109.475641754971,
+      "C4": 2249.793174057648,
+      "C8": 1334.5579423008205
+    },
+    "gatedMs": 84620.90338301245
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 35,
+    "requests": 79,
+    "sequentialMs": 8436.765198356657,
+    "wallMs": 164.36726700000145,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 8436.765198356656,
+      "C2": 4509.4188221455,
+      "C4": 2566.7346126705725,
+      "C8": 1688.6810830877769
+    },
+    "gatedMs": 43010.16645656631
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 36,
+    "requests": 79,
+    "sequentialMs": 7798.431559733411,
+    "wallMs": 165.3970449999979,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7798.431559733409,
+      "C2": 3993.829251339081,
+      "C4": 2213.5157612296252,
+      "C8": 1309.743999192226
+    },
+    "gatedMs": 37787.97568351024
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 37,
+    "requests": 79,
+    "sequentialMs": 7528.996778692043,
+    "wallMs": 165.01393599999938,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7528.996778692041,
+      "C2": 3997.8931051312866,
+      "C4": 2091.9332837703196,
+      "C8": 1249.0481837877546
+    },
+    "gatedMs": 58721.53181853943
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 38,
+    "requests": 79,
+    "sequentialMs": 7498.592095018116,
+    "wallMs": 162.4219469999989,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7498.592095018117,
+      "C2": 3857.9890294015786,
+      "C4": 2091.0961944183337,
+      "C8": 1288.945607221328
+    },
+    "gatedMs": 35279.537555402974
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 39,
+    "requests": 79,
+    "sequentialMs": 7963.8690546789985,
+    "wallMs": 165.02850600000238,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7963.8690546789985,
+      "C2": 4133.061674458595,
+      "C4": 2323.7590043256846,
+      "C8": 1432.737036789166
+    },
+    "gatedMs": 83867.21935779286
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 25,
+      "streamItems": 3
+    },
+    "seed": 40,
+    "requests": 79,
+    "sequentialMs": 7893.737661032252,
+    "wallMs": 150.48315900000307,
+    "triggers": 103,
+    "failedRound": false,
+    "projections": {
+      "C1": 7893.737661032252,
+      "C2": 4210.402410377891,
+      "C4": 2275.131866827127,
+      "C8": 1453.3775797290427
+    },
+    "gatedMs": 49232.5084865833
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 1,
+    "requests": 53,
+    "sequentialMs": 5404.0606375333,
+    "wallMs": 111.47657800000161,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5404.060637533301,
+      "C2": 2762.278746260135,
+      "C4": 1613.551633315227,
+      "C8": 969.6513530114743
+    },
+    "gatedMs": 33477.09091386704
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 2,
+    "requests": 53,
+    "sequentialMs": 5712.434206471883,
+    "wallMs": 112.68799199999921,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5712.434206471882,
+      "C2": 2977.7339128720564,
+      "C4": 1628.2606818687968,
+      "C8": 1057.0717759169997
+    },
+    "gatedMs": 20508.423036519
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 3,
+    "requests": 53,
+    "sequentialMs": 5405.7385928628255,
+    "wallMs": 113.3614720000005,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5405.738592862826,
+      "C2": 2820.0554395200193,
+      "C4": 1477.3804892176486,
+      "C8": 1052.6535398632655
+    },
+    "gatedMs": 34635.56291223749
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 4,
+    "requests": 53,
+    "sequentialMs": 5060.309395314042,
+    "wallMs": 114.13193500000125,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5060.309395314042,
+      "C2": 2600.2085900388734,
+      "C4": 1503.9892474395217,
+      "C8": 896.3095114191666
+    },
+    "gatedMs": 59736.59757322159
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 5,
+    "requests": 53,
+    "sequentialMs": 5278.425468085581,
+    "wallMs": 110.34545699999944,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5278.425468085581,
+      "C2": 2828.887090780954,
+      "C4": 1574.7556763903294,
+      "C8": 1012.3982113549272
+    },
+    "gatedMs": 22258.104450189756
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 6,
+    "requests": 53,
+    "sequentialMs": 5362.271843968616,
+    "wallMs": 126.19924500000343,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5362.271843968616,
+      "C2": 2816.908993663935,
+      "C4": 1559.2471994241337,
+      "C8": 1034.5120587901308
+    },
+    "gatedMs": 38169.33371062841
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 7,
+    "requests": 53,
+    "sequentialMs": 5463.045337092993,
+    "wallMs": 126.33098599999721,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5463.045337092994,
+      "C2": 2976.314817976319,
+      "C4": 1628.2010918718963,
+      "C8": 1073.8531638233317
+    },
+    "gatedMs": 47845.20809028532
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 8,
+    "requests": 53,
+    "sequentialMs": 5430.003783867091,
+    "wallMs": 115.54590400000234,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5430.003783867091,
+      "C2": 2842.9506330414324,
+      "C4": 1658.904794231431,
+      "C8": 1033.4279738527687
+    },
+    "gatedMs": 29021.29931186104
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 9,
+    "requests": 53,
+    "sequentialMs": 4949.095153061377,
+    "wallMs": 115.23032699999749,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 4949.0951530613775,
+      "C2": 2628.353231115104,
+      "C4": 1392.5090597544881,
+      "C8": 851.0577286719331
+    },
+    "gatedMs": 44431.42677448472
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 10,
+    "requests": 53,
+    "sequentialMs": 5490.718002804881,
+    "wallMs": 110.48689599999852,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5490.718002804881,
+      "C2": 2862.33492637129,
+      "C4": 1622.460508616756,
+      "C8": 1045.5905704102215
+    },
+    "gatedMs": 24828.2607631339
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 11,
+    "requests": 53,
+    "sequentialMs": 5074.657836427633,
+    "wallMs": 118.14051500000278,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5074.657836427633,
+      "C2": 2680.688950689508,
+      "C4": 1432.809966303454,
+      "C8": 944.139849118283
+    },
+    "gatedMs": 51207.48448470937
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 12,
+    "requests": 53,
+    "sequentialMs": 5669.801195301338,
+    "wallMs": 118.45748699999967,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5669.801195301339,
+      "C2": 3049.9948628280567,
+      "C4": 1622.6485318288424,
+      "C8": 1049.036835038568
+    },
+    "gatedMs": 24555.449051006566
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 13,
+    "requests": 53,
+    "sequentialMs": 6192.780292677078,
+    "wallMs": 130.67309000000023,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 6192.780292677078,
+      "C2": 3242.0081069122134,
+      "C4": 1746.6162758363716,
+      "C8": 1002.7431311172235
+    },
+    "gatedMs": 21695.726152879422
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 14,
+    "requests": 53,
+    "sequentialMs": 5909.525396620871,
+    "wallMs": 132.34466199999952,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5909.525396620871,
+      "C2": 3140.3387048738923,
+      "C4": 1860.341952511968,
+      "C8": 1217.922108030985
+    },
+    "gatedMs": 30524.962554924656
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 15,
+    "requests": 53,
+    "sequentialMs": 5682.137689253647,
+    "wallMs": 132.3958939999975,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5682.137689253648,
+      "C2": 2962.255373140794,
+      "C4": 1615.3799835699458,
+      "C8": 988.9303476751627
+    },
+    "gatedMs": 39831.5191239374
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 16,
+    "requests": 53,
+    "sequentialMs": 5202.2585046714585,
+    "wallMs": 129.1884570000002,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5202.2585046714585,
+      "C2": 2766.5735411060305,
+      "C4": 1508.8407991972592,
+      "C8": 966.1121895746979
+    },
+    "gatedMs": 42857.05766486336
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 17,
+    "requests": 53,
+    "sequentialMs": 5310.0650008014645,
+    "wallMs": 138.2306200000021,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5310.0650008014645,
+      "C2": 2800.100114068668,
+      "C4": 1531.06259291745,
+      "C8": 932.3523116174235
+    },
+    "gatedMs": 48243.59926356113
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 18,
+    "requests": 53,
+    "sequentialMs": 4944.630452757447,
+    "wallMs": 126.5461749999995,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 4944.630452757446,
+      "C2": 2651.655969531413,
+      "C4": 1432.1592514099893,
+      "C8": 840.887227156889
+    },
+    "gatedMs": 40880.86708036771
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 19,
+    "requests": 53,
+    "sequentialMs": 5470.453714910868,
+    "wallMs": 123.46557199999734,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5470.453714910868,
+      "C2": 2919.3450909838966,
+      "C4": 1618.5985539175322,
+      "C8": 1091.1350930950998
+    },
+    "gatedMs": 25569.248356629534
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 20,
+    "requests": 53,
+    "sequentialMs": 5438.342016103098,
+    "wallMs": 116.54256199999872,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5438.342016103099,
+      "C2": 2774.78289071398,
+      "C4": 1669.7519532899892,
+      "C8": 1126.6312383656475
+    },
+    "gatedMs": 25254.762523226105
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 21,
+    "requests": 53,
+    "sequentialMs": 5077.5538540351,
+    "wallMs": 126.64868599999681,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5077.5538540351,
+      "C2": 2708.208189727909,
+      "C4": 1455.7946068892202,
+      "C8": 917.3149448626881
+    },
+    "gatedMs": 42274.59446730274
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 22,
+    "requests": 53,
+    "sequentialMs": 6234.393458975998,
+    "wallMs": 117.49152699999831,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 6234.393458975998,
+      "C2": 3251.8817485032555,
+      "C4": 1761.8650713667337,
+      "C8": 1050.538759869568
+    },
+    "gatedMs": 31636.2687253654
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 23,
+    "requests": 53,
+    "sequentialMs": 5015.982593443146,
+    "wallMs": 127.50548999999955,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5015.982593443145,
+      "C2": 2666.2402283118536,
+      "C4": 1468.4311482130765,
+      "C8": 885.7894074230427
+    },
+    "gatedMs": 59803.48038353161
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 24,
+    "requests": 53,
+    "sequentialMs": 4876.189939223988,
+    "wallMs": 124.78196499999831,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 4876.189939223989,
+      "C2": 2591.4959063213005,
+      "C4": 1419.0993992199026,
+      "C8": 860.9586331408716
+    },
+    "gatedMs": 23575.376139078584
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 25,
+    "requests": 53,
+    "sequentialMs": 5109.142467253132,
+    "wallMs": 125.42781800000012,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5109.142467253132,
+      "C2": 2706.1590060027197,
+      "C4": 1430.5805198091186,
+      "C8": 830.7895085739694
+    },
+    "gatedMs": 49833.63783480628
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 26,
+    "requests": 53,
+    "sequentialMs": 5163.644176227876,
+    "wallMs": 108.16471699999965,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5163.644176227877,
+      "C2": 2697.670677574386,
+      "C4": 1500.2144330712401,
+      "C8": 925.6357256494275
+    },
+    "gatedMs": 29215.96527882182
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 27,
+    "requests": 53,
+    "sequentialMs": 5633.002325645078,
+    "wallMs": 109.9193809999997,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5633.002325645078,
+      "C2": 2974.246302319463,
+      "C4": 1620.2406844592615,
+      "C8": 987.6275489858406
+    },
+    "gatedMs": 57542.55760008948
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 28,
+    "requests": 53,
+    "sequentialMs": 5029.487695767985,
+    "wallMs": 108.93854999999894,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5029.487695767985,
+      "C2": 2618.8764392778567,
+      "C4": 1476.6648387515343,
+      "C8": 902.2185045615992
+    },
+    "gatedMs": 33246.15797468167
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 29,
+    "requests": 53,
+    "sequentialMs": 5769.559380755227,
+    "wallMs": 111.09713099999863,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5769.559380755227,
+      "C2": 3053.720033576908,
+      "C4": 1698.7511366436374,
+      "C8": 1030.8755085110188
+    },
+    "gatedMs": 26724.240902603156
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 30,
+    "requests": 53,
+    "sequentialMs": 5263.241153523775,
+    "wallMs": 109.40553699999873,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5263.241153523773,
+      "C2": 2728.8600343286284,
+      "C4": 1521.0732167141955,
+      "C8": 939.6505461250665
+    },
+    "gatedMs": 20761.98415597033
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 31,
+    "requests": 53,
+    "sequentialMs": 5064.064450345847,
+    "wallMs": 115.00688399999854,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5064.064450345847,
+      "C2": 2649.2233961433535,
+      "C4": 1436.2456607641593,
+      "C8": 938.4877006705358
+    },
+    "gatedMs": 34094.51084266988
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 32,
+    "requests": 53,
+    "sequentialMs": 5107.933725293102,
+    "wallMs": 115.96703300000081,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5107.933725293104,
+      "C2": 2682.27790312907,
+      "C4": 1414.0331647996063,
+      "C8": 958.5527782207606
+    },
+    "gatedMs": 25152.100658075495
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 33,
+    "requests": 53,
+    "sequentialMs": 4914.883397802384,
+    "wallMs": 111.52272699999958,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 4914.883397802383,
+      "C2": 2620.3431133775625,
+      "C4": 1445.3148816747064,
+      "C8": 905.3727422280435
+    },
+    "gatedMs": 26791.48192168213
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 34,
+    "requests": 53,
+    "sequentialMs": 5333.037560430109,
+    "wallMs": 114.80906099999993,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5333.037560430109,
+      "C2": 2860.5083721214883,
+      "C4": 1568.7194820911307,
+      "C8": 975.3525422768987
+    },
+    "gatedMs": 25181.893994719587
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 35,
+    "requests": 53,
+    "sequentialMs": 5593.8374805691965,
+    "wallMs": 114.42469100000017,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5593.8374805691965,
+      "C2": 2989.610445229693,
+      "C4": 1696.5044617392634,
+      "C8": 1119.6094810379034
+    },
+    "gatedMs": 42618.0460821919
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 36,
+    "requests": 53,
+    "sequentialMs": 5282.690411234565,
+    "wallMs": 116.76558599999771,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5282.690411234562,
+      "C2": 2728.2093152220173,
+      "C4": 1481.8306031960856,
+      "C8": 877.7508384607119
+    },
+    "gatedMs": 23738.4015375812
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 37,
+    "requests": 53,
+    "sequentialMs": 5122.3766713034265,
+    "wallMs": 116.39957399999912,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5122.3766713034265,
+      "C2": 2664.227391479161,
+      "C4": 1546.5626257566798,
+      "C8": 977.1528472891569
+    },
+    "gatedMs": 21829.907491711958
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 38,
+    "requests": 53,
+    "sequentialMs": 4783.72700606629,
+    "wallMs": 114.91042000000016,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 4783.72700606629,
+      "C2": 2447.076896408591,
+      "C4": 1345.0228075717,
+      "C8": 938.2199145418504
+    },
+    "gatedMs": 21810.915089867514
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 39,
+    "requests": 53,
+    "sequentialMs": 5430.343909348378,
+    "wallMs": 127.51826400000209,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5430.343909348377,
+      "C2": 2871.5818830190715,
+      "C4": 1554.5950409180084,
+      "C8": 1007.7786134141668
+    },
+    "gatedMs": 29639.3782791182
+  },
+  {
+    "workload": {
+      "notifications": 25,
+      "subscribedThreads": 0,
+      "streamItems": 3,
+      "failConversation": 107
+    },
+    "seed": 40,
+    "requests": 53,
+    "sequentialMs": 5273.376858590614,
+    "wallMs": 112.65747100000226,
+    "triggers": 75,
+    "failedRound": true,
+    "projections": {
+      "C1": 5273.376858590614,
+      "C2": 2720.4690394035924,
+      "C4": 1514.6328457226023,
+      "C8": 951.3949705472633
+    },
+    "gatedMs": 55635.42223817821
+  }
+]

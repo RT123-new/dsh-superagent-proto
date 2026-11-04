@@ -1,0 +1,9 @@
+{"part":"semantics","check":"404 -> CliError code 404 (cli)","ok":true}
+{"part":"semantics","check":"404 -> CliError code 404 (http)","ok":true}
+{"part":"semantics","check":"ETag 304 -> CliError code 304 (cli)","ok":true}
+{"part":"semantics","check":"ETag 304 -> CliError code 304 (http)","ok":true}
+{"part":"semantics","check":"scoping rejects absolute path (cli)","ok":true}
+{"part":"semantics","check":"scoping rejects absolute path (http)","ok":true}
+{"part":"semantics","check":"scoping rejects traversal (http)","ok":true}
+{"part":"semantics","check":"cancellation aborts in-flight (cli)","ok":true}
+{"part":"semantics","check":"cancellation aborts in-flight (http)","ok":true}
