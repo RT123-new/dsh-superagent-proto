@@ -1,4 +1,4 @@
-/** Issue 9: `slot_wait` is the time from a launch effect's first enqueue to its worker slot being reserved. It is not model start. */
+/** Issue 9: `launch_slot_wait` is the time from a launch effect's first enqueue to its worker slot being reserved. It is not model start. */
 import { afterEach, expect, it, vi } from 'vitest'
 import { DshExecutor } from '../src/executor/dsh.ts'
 import { Later } from '../src/app/effects.ts'
@@ -25,7 +25,7 @@ function setup(maxWorkers = 4) {
   }
   const executor = new DshExecutor(host as never)
   const launch = () => handlers.get('launch')!({ ticketId: 't1', assignmentId: 'a1' } as never).catch(() => {})
-  const samples = () => metrics.snapshot().durations['slot_wait|internal']
+  const samples = () => metrics.snapshot().durations['launch_slot_wait|internal']
   return { executor, state, launch, samples, metrics, ticket }
 }
 
@@ -86,7 +86,7 @@ it('uses the injected monotonic clock and clears stamps at disposal', async () =
   h.executor.start(h.ticket as never, h.ticket.assignments[0] as never)
   now = 350
   await h.launch()
-  expect(metrics.snapshot().durations['slot_wait|internal']).toMatchObject({ maxMs: 300 })
+  expect(metrics.snapshot().durations['launch_slot_wait|internal']).toMatchObject({ maxMs: 300 })
   const disposed = setup()
   disposed.executor.start(disposed.ticket as never, disposed.ticket.assignments[0] as never)
   disposed.executor.dispose()
