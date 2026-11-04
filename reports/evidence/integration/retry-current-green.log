@@ -1,0 +1,21 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/home/sandbox/work/dsh-superagent-proto[39m
+
+(node:6379) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/issue-15-retry-backoff.spec.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 126[2mms[22m[39m
+(node:6386) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/effects.spec.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 354[2mms[22m[39m
+(node:6393) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/issue-15-retry-seam.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 61[2mms[22m[39m
+(node:6400) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/issue-15-adversarial.spec.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 40[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m44 passed[39m[22m[90m (44)[39m
+[2m   Start at [22m 07:30:42
+[2m   Duration [22m 1.80s[2m (transform 412ms, setup 0ms, import 875ms, tests 581ms, environment 0ms)[22m
+

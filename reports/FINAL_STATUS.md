@@ -2,7 +2,7 @@
 
 This is a working closeout, not a success declaration. The programme has repaired reviewed correctness defects and adopted the measured storage query optimization. Other mechanisms remain disabled, rejected, partial or under review. Main is unchanged; no automatic merge or external deployment has occurred.
 
-The most recent fully green checkpoint before current retry/coordination integration was f675f71:1442tests/typecheck/build. The current branch has five known stale retry characterization assertions under repair, not a green final suite. StageF and the final pull request remain outstanding. This file will be updated with the exact final tested revision and review result.
+The most recent fully green checkpoint before current retry/coordination integration was f675f71:1442tests/typecheck/build. The five stale retry characterization assertions were repaired in dbbacaa with an explicitly frozen baseline model plus current production checks;44focused tests pass, final full suite still pending. StageF and the final pull request remain outstanding. This file will be updated with the exact final tested revision and review result.
 
 | Issue | Initial status | Action taken | Verified result | Remaining risk |
 | --- | --- | --- | --- | --- |
@@ -20,7 +20,7 @@ The most recent fully green checkpoint before current retry/coordination integra
 |12 CLI overhead|Repeated process startup costs time|Measured startup and loopback transport alternative|200paired iterations/profile;3page gain below15%|Retain existing CLI account/wrapper boundary; no production HTTP replacement|
 |13 Coordinator load|Potential overload from reports/notices|Store/Effects virtualclock workload at1/3/6/12workers|Independent explicit two-case benchmark and conservation tests pass|No real-model quality/cost/throughput inference|
 |14 Ordered queues|Head-of-line blocking exists|Partition fixture evaluated; real single-writer boundary audited|Ordering/failure fixtures pass|No partition adopted; blocked ordered head intentionally holds following rows|
-|15 Retry policy|Lockstep retries and repeating permanent failures|Jitter and typed transport semantics; blocked row persists until explicit samekey enqueue|11independent failures before review repair;36current production checks green|Five stale old-behavior characterization assertions pending repair; unknown TypeError transient; no new rearmUI; actual header producer pending|
+|15 Retry policy|Lockstep retries and repeating permanent failures|Jitter and typed transport semantics; blocked row persists until explicit samekey enqueue|11independent failures before review repair;36current production checks green|Current/frozen-baseline44tests pass; unknown TypeError transient; no new rearmUI; actual header producer pending|
 |16 Background slots|Some background work retains slot|Measured handoff/ownership/cancel/person cases|14independent executor baseline cases pass|No generic release without ownership/completion proof; default count unchanged|
 |17 Slot refill|Quiet completion could wait~2s for pump|Narrow wake-on-free candidate and capacity/FIFO experiments|Independent candidate review in progress|Not adopted yet; disposed callback edge being repaired; exploratory sample sizes|
 |18 Creation overhead|Possible repeated preparation/decorating cost|Real filesystem/cold-warm/restart/decorating measurement|Existing prep reuse works; no extra cache justified|Provider/session startup not fully measured|
