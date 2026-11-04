@@ -48,10 +48,25 @@ function ended(error: unknown): string {
   if (typeof code === 'number') return `exited with code ${code}`
   return typeof code === 'string' ? `could not run: ${code}` : 'failed'
 }
-export interface Tally { skipped: number }
-/** Parses array elements against a schema, skipping invalid items and incrementing `tally.skipped`. */
+/** `rejected` holds bounded, redacted diagnostics (identifier and failing field names only, never values) so a skipped item can be found and re-read. */
+export interface Tally { skipped: number; rejected?: RejectedItem[] }
+export interface RejectedItem { id?: string | number; fields: string[] }
+const MAX_REJECTED = 20
+/** Parses array elements against a schema, skipping invalid items, incrementing `tally.skipped` and recording a redacted diagnostic. */
 export function validItems<T>(item: z.ZodType<T>, list: readonly unknown[], tally?: Tally): T[] {
-  const items = list.flatMap(value => { const parsed = item.safeParse(value); return parsed.success ? [parsed.data] : [] })
+  const items = list.flatMap(value => {
+    const parsed = item.safeParse(value)
+    if (parsed.success) return [parsed.data]
+    if (tally) {
+      const rejected = tally.rejected ??= []
+      if (rejected.length < MAX_REJECTED) {
+        const id = value && typeof value === 'object' && 'id' in value ? (value as { id: unknown }).id : undefined
+        rejected.push({ ...typeof id === 'number' || (typeof id === 'string' && id.length <= 64) ? { id } : {},
+          fields: [...new Set(parsed.error.issues.map(issue => issue.path.map(String).join('.') || '(item)'))].slice(0, 5).map(name => name.slice(0, 64)) })
+      }
+    }
+    return []
+  })
   if (tally) tally.skipped += list.length - items.length
   return items
 }
@@ -126,7 +141,9 @@ export class Commands {
     const perPage = Math.min(100, Math.max(1, Number(params.get('per_page')) || 100))
     params.set('per_page', String(perPage))
     const all: unknown[] = []
-    for (let page = 1; page <= MAX_PAGES; page++) {
+    // Callers that already read earlier pages pass `page=N`; continue from there exactly as `--paginate` would.
+    const start = Math.max(1, Math.floor(Number(params.get('page'))) || 1)
+    for (let page = start; page < start + MAX_PAGES; page++) {
       params.set('page', String(page))
       const batch = z.array(z.unknown()).parse(await this.gh(['api', `${base}?${params}`]))
       all.push(...batch)

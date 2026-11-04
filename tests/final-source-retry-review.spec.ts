@@ -3,7 +3,7 @@ import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { Commands, commandError } from '../src/infra/commands.ts'
+import { Commands, commandError, validItems } from '../src/infra/commands.ts'
 import { classifyError, retryDecision } from '../src/app/retry-policy.ts'
 import { testDeployment } from './fixtures/deployment.ts'
 
@@ -80,8 +80,41 @@ console.log(JSON.stringify(out)) }' -- "$@"`)
     const items = await commands.pages(z.looseObject({ id: z.number() }), 'issues?per_page=100')
     expect(items.map(i => i.id)).toEqual(Array.from({ length: 250 }, (_, i) => i + 1))
   })
+  it('continues from the caller-requested start page instead of re-reading page 1', async () => {
+    const commands = fakeGh(`exec node -e '
+const a = process.argv.slice(1).join(" ")
+if (a.includes("--slurp")) process.stdout.write("a".repeat(17000000))
+else { const page = Number(/[?&]page=(\\d+)/.exec(a)[1]); const out = []
+for (let i = (page - 1) * 100 + 1; i <= Math.min(250, page * 100); i++) out.push({ id: i })
+console.log(JSON.stringify(out)) }' -- "$@"`)
+    const z = (await import('zod')).z
+    const items = await commands.pages(z.looseObject({ id: z.number() }), 'issues?per_page=100&page=2')
+    expect(items.map(i => i.id)).toEqual(Array.from({ length: 150 }, (_, i) => i + 101))
+  })
   it('still refuses a path outside the repository on the fallback route', async () => {
     const commands = fakeGh('true')
     await expect(commands.pages((await import('zod')).z.unknown(), '../../orgs/x')).rejects.toThrow()
+  })
+})
+
+describe('3.4 malformed remote items', () => {
+  it('records a bounded, redacted diagnostic (id and field names, never values) for a skipped item', async () => {
+    const { z } = await import('zod'); const { CommentSchema } = await import('../src/sources/github-trigger.ts')
+    const tally = { skipped: 0 } as { skipped: number; rejected?: { id?: string | number; fields: string[] }[] }
+    const secret = 'ghp_SECRETSECRETSECRET'
+    const list = [{ id: 1, user: { login: 'a' } }, { id: 2, user: { login: 'b' }, body: { nested: secret } }, { id: 3, body: 7, created_at: secret }, ...Array.from({ length: 50 }, (_, i) => ({ id: 100 + i, body: 1 }))]
+    expect(validItems(CommentSchema, list, tally).map(i => i.id)).toEqual([1])
+    expect(tally.skipped).toBe(52)
+    expect(tally.rejected!.length).toBe(20)
+    expect(tally.rejected![0]).toEqual({ id: 2, fields: ['body'] })
+    expect(JSON.stringify(tally)).not.toContain(secret)
+    void z
+  })
+  it('a comment lacking the user key is read as the ghost user, not silently dropped', async () => {
+    const { CommentSchema } = await import('../src/sources/github-trigger.ts')
+    const tally = { skipped: 0 }
+    const [read] = validItems(CommentSchema, [{ id: 9, body: 'actionable' }], tally)
+    expect(read?.user.login).toBe('ghost')
+    expect(tally.skipped).toBe(0)
   })
 })

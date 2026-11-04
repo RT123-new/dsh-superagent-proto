@@ -155,7 +155,7 @@ describe('GitHub calls', () => {
     run.mockResolvedValue('[[{"id":1}],[{"id":"two"}]]')
     const tally = { skipped: 0 }
     expect(await value.pages(z.looseObject({ id: z.number() }), 'issues/12/comments', tally)).toEqual([{ id: 1 }])
-    expect(tally).toEqual({ skipped: 1 })
+    expect(tally).toEqual({ skipped: 1, rejected: [{ id: 'two', fields: ["id"] }] })
     run.mockResolvedValue('{"message":"not a list"}')
     await expect(value.pages(z.looseObject({ id: z.number() }), 'issues/12/comments')).rejects.toThrow()
   })

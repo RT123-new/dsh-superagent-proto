@@ -308,7 +308,7 @@ export async function pollRound(ctx: SourceContext, signal?: AbortSignal): Promi
   const named = (numbers: number[]) => [...new Set(numbers)].sort((a, b) => a - b).map(number => `#${number}`).join(', ')
   const dropped = (round.dropped.length ? `; deleted on GitHub: ${named(round.dropped)}` : '')
     + (round.abandoned.length ? `; dropped after their reads kept failing: ${named(round.abandoned)}` : '')
-    + (round.tally.skipped ? `; ${round.tally.skipped} unreadable items skipped` : '')
+    + (round.tally.skipped ? `; ${round.tally.skipped} unreadable items skipped${round.tally.rejected?.length ? ` (${round.tally.rejected.slice(0, 5).map(item => `${item.id ?? '?'}: ${item.fields.join('/')}`).join(', ')})` : ''}` : '')
     + (reconciled ? `; reconciliation recovered ${reconciled} earlier` : '')
   ctx.report('github', { state: 'ready', detail: `${count} notifications; next poll ≥ ${interval}s${dropped}`, at: round.started })
   return interval
