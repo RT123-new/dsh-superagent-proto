@@ -63,3 +63,43 @@ describe('Stage D isolated candidates', () => {
     } finally { inbox.close(); rmSync(dir,{recursive:true,force:true}) }
   })
 })
+
+it('pool stops dispatch after cancellation and waits for current readers to settle', async () => {
+  const { boundedPool } = await import('./issue-10-polling/pool.ts')
+  let stop=false,active=0,settled=0
+  await boundedPool([1,2,3,4],2,()=>stop,async () => {
+    active++;stop=true;await Promise.resolve();active--;settled++
+  })
+  expect(active).toBe(0);expect(settled).toBe(1)
+})
+it('actual pooled Source leaves failed cursor and deduplicates replay after SQLite reopen', async () => {
+  const { pooledSubscriptions } = await import('./issue-10-polling/pool.ts')
+  const { sourceHost,hostDir,closeHost } = await import('./lib/host.ts')
+  const dir=hostDir('pool-restart-'), at=new Date(Date.now()-1000).toISOString()
+  let h=sourceHost(dir),fail=true
+  const setup=()=>{
+    h.store.saveSettings({...h.store.settings(),sources:{github:{enabled:true,config:{reconcileMinutes:0}}}})
+    h.commands.withSignal=()=>h.commands
+    h.commands.run=async(_program,args)=>{
+      const n=Number(/issues\/(\d+)/.exec(args[1]!)?.[1])
+      if(n===1&&fail)throw new Error('mid-read failure')
+      return JSON.stringify([[{id:n,body:'@agent-bot take this',user:{login:'alice',type:'User'},
+        html_url:`https://github.com/acme/widgets/issues/${n}#issuecomment-${n}`,created_at:at,updated_at:at}]])
+    }
+  }
+  try{
+    setup()
+    for(let n=1;n<=2;n++)h.store.threads.save({key:`github:${n}`,ref:{source:'github',id:String(n)},
+      createdAt:new Date(Date.now()-60000).toISOString(),subscriptions:['ticket'],correlated:[],pending:[],meta:{isPr:false,title:'Test'}})
+    await pooledSubscriptions(h,2,new AbortController().signal)
+    expect(h.store.get('github-cursor:1')).toBeUndefined();expect(h.store.get('github-cursor:2')).toBeDefined()
+    expect(h.results.filter(r=>r==='stored')).toHaveLength(1)
+    h.store.close()
+    // Rebuild full Source/Engine around same SQLite database; sourceHost saves settings, preserves data.
+    h=sourceHost(dir);fail=false;setup()
+    await pooledSubscriptions(h,2,new AbortController().signal)
+    expect(h.results.filter(r=>r==='stored')).toHaveLength(1)
+    expect(h.results.filter(r=>r==='duplicate')).toHaveLength(1)
+    expect(h.store.get('github-cursor:1')).toBeDefined()
+  }finally{closeHost(h)}
+})

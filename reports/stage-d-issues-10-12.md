@@ -79,3 +79,30 @@ node --experimental-transform-types scripts/stage-d/issue-12-transport/bench.ts 
 ```
 
 Independent review is pending. No Issue 10-12 production optimization is claimed complete. Keep the simpler implementation until the above gates are met.
+
+## Follow-up: actual bounded-pool adapter, matched gates
+
+The follow-up in `pool-benchmark.spec.ts` executes actual `github.pollThreads` under a bounded pool, not trace replay. Adapter partitions subscribed threads into singleton contexts and calls the real source read path, real Engine policy and real SQLite. No production source edits. Every C uses the same service delays keyed by (seed, conversation) and the same serialized request gate. Timers are virtual, wall time and virtual completion are stored separately. This is deterministic Source integration, not real network throughput.
+
+80 rounds: four profiles x five seeds x C=1/2/4/8, 200 conversations/round, 16,000 reads. Exact counts, in-flight occupancy bounds, checkpoint-before-response prohibition, per-failed-thread unchanged cursor, unrelated completion and matched failure totals are assertions. Five round pairs/profile means the round-level bootstrap is exploratory, despite 200 events/round.
+
+| Profile | C2 P95 gain | C4 P95 gain | C8 P95 gain |
+| --- | ---: | ---: | ---: |
+| 60ms + 40ms exponential tail, 10rps identical fallback | 13.37% | 13.51% | 13.51% |
+| Same service, 2.5rps reserve gate | 0% | 0% | 0% |
+| 60ms + tail with every17th conversation failed | 13.37% | 13.51% | 13.51% |
+| 300ms + 200ms exponential tail, 10rps identical fallback | 48.65% | 72.49% | 79.50% |
+
+Raw rows, P95 paired intervals and test logs: `actual-pool-*`. Slow-network C2 interval [48.65%,48.99%], C4 [72.49%,72.92%], C8 [79.50%,79.90%]. The ordinary low-latency/failure profiles do not meet15%; rate-bound profile gains nothing. This supports evaluating optional subscription concurrency for demonstrably network-bound deployments, not increasing defaults. No all-round concurrency claim. Additional adversarial tests stop dispatch after cancellation, settle current workers, reopen SQLite after a failed read and verify one logical intake per replayed event.
+
+### Narrow production route and concrete remaining gate
+
+Minimal candidate would preserve phase barriers and apply a pool only to independent subscribed threads, not notification/repository/ticket work. Default C=1, opt-in C2/4/8 only after measured need. Pool must reject duplicate conversation identities, keep a single serialized budget reservation per account, and honor signal/config shutdown before dispatch and before cursor commit. Existing actual source checks remain inside each reader.
+
+The concrete production blocker is request metadata, not lack of a pool algorithm: `Commands.pages` calls gh `--paginate --slurp` and returns arrays, losing headers on intermediate pages. A conversation limiter cannot enforce an API-request budget for a multi-page conversation. Adding concurrency without fixing this would violate the mandate's rate requirement. Required interface proposal is an additive header-preserving paginated API reader, under the same configured CLI identity. It must expose each page's status/rate/retry metadata before permitting its successor, normalize304/errors and preserve schema/tally/cancellation behavior. Both C1 and variants must use it in matched benchmarks. Until independently reviewed this is not adopted, and the adapter is retained as executable evidence. Separate production branch at current integration can be used after that scope is approved; no base replacement or force-push.
+
+### Optional webhook integration route, not deployment permission
+
+Minimal optional route is a disabled-by-default signed POST endpoint in the existing authenticated service host, with a separate HMAC secret, strict raw-byte and body-size handling, repository binding and durable delivery inbox. Endpoint acknowledges only after commit. It queues a wake/reconciliation hint, never calls Engine with payload authority. A serialized drain fetches canonical current source data under the deployment's configured GitHub CLI, applies current source and policy settings, and uses the existing logical trigger identity dedupe. Periodic polling remains enabled and respects X-Poll-Interval; inbound wakes need coalescing/rate gates rather than bypassing provider guidance.
+
+Unresolved deployment facts: reachable HTTPS endpoint/domain and owner-approved audience, proxy preservation of raw body, secret setup/rotation, GitHub webhook administration permission, service authentication boundary, routing to the correct single repository/account, host restart readiness, and any hosting cost. None is established by the offline experiment. Security work before enablement: concurrent inbox insertion/drain ownership, bounded retention without losing replay identity, crash between reconciliation and completion, unsupported event types/actions, delivery order inversion, stale/revoked actor authorization and source disable races, malformed/oversize bodies, endpoint throttling and replay abuse. No public endpoint or webhook registration is authorized or created by this work.
