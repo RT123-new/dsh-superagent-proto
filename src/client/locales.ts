@@ -8,6 +8,16 @@ import { HEALTH_TEXT } from '../sources/host.ts'
 const TEXT = {
   // Shared
   title: ['Superagent', 'Superagent'],
+  resumeSnapshotTitle: ['恢复快照', 'Resume snapshot'],
+  resumeSnapshotDisclaimer: ['这是未验证的工作记录。继续前请检查实际文件、权限与测试结果。', 'Unverified worker notes. Check current files, authorisation and test evidence before resuming.'],
+  resumeState: ['上次状态', 'Where it stopped'],
+  resumeNext: ['下一步', 'Next action'],
+  resumeUnknown: ['未解决问题', 'Unresolved question'],
+  resumeCaptured: ['保存时间', 'Captured'],
+  resumeRevision: ['修订号', 'Revision'],
+  resumeStale: ['工作状态可能已改变；需重新核实。', 'Possibly stale: verify current assignment, new messages and repository state.'],
+  resumeSnapshotsTitle: ['启用恢复快照（实验性）', 'Enable resume snapshots (experimental)'],
+  resumeSnapshotsHint: ['默认关闭。保存简短上下文供中断后恢复，实际改进尚未验证。', 'Off by default. Save short context for interrupted work; performance improvements are not yet proven.'],
   close: ['关闭', 'Close'],
   cancel: ['取消', 'Cancel'],
   confirm: ['确定', 'Confirm'],
