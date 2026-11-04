@@ -80,3 +80,16 @@ it('a ready report that arrives during quiet settlement still refills promptly w
   expect(h!.runtime.store.tickets.get(s.first.ticket.id)?.assignments.at(-1)?.report?.summary).toBe('Ready evidence')
   expect(h!.agents.get(s.next.sessionId)?.status).toBe('running')
 })
+
+it('disposing during background settlement aborts the pending look without a later report or kick', async () => {
+  const s = await scenario(), gate = deferred()
+  const subagents = h!.ctx.get('subagents') as unknown as { waitForChildren: (...args: unknown[]) => Promise<boolean> }
+  vi.spyOn(subagents, 'waitForChildren').mockImplementation(async () => { await gate.promise; return false })
+  const report = vi.spyOn(h!.runtime.engine, 'report'), kick = vi.spyOn(h!.runtime.effects, 'kick')
+  const work = methods().workerIdle(s.latest, s.assignment, s.agent)
+  await sleep(1)
+  h!.runtime.executor.dispose()
+  await work
+  expect(report).not.toHaveBeenCalled(); expect(kick).not.toHaveBeenCalled()
+  gate.resolve()
+})

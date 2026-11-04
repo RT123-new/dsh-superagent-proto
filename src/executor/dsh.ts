@@ -234,6 +234,7 @@ export class WorkerSlots {
  */
 export class DshExecutor implements Executor {
   private readonly disposers: (() => void)[] = []
+  private disposed = false
   private readonly slots: WorkerSlots
   private readonly probe: Probe
   private readonly timeline: SessionTimeline
@@ -690,6 +691,9 @@ export class DshExecutor implements Executor {
   }
   /** Unsubscribes from host agent events and clears any pending transient-retry timers. */
   dispose(): void {
+    this.disposed = true
+    for (const look of this.settling.values()) look.abort()
+    this.settling.clear()
     for (const dispose of this.disposers.splice(0)) dispose()
     for (const timer of this.timers) clearTimeout(timer)
     this.timers.clear(); this.historyQueued.clear(); this.deliveryQueued.clear(); this.launchStamps.clear()
@@ -799,7 +803,7 @@ export class DshExecutor implements Executor {
   private async workerIdle(ticket: Ticket, idle: Assignment, agent: Agent): Promise<void> {
     await agent.whenIdle()
     // A turn that failed for a passing reason goes on after its backoff, which is no end of the turn.
-    if (this.resuming.has(idle.id) || agent.status !== 'idle') return
+    if (this.disposed || this.resuming.has(idle.id) || agent.status !== 'idle') return
     // A turn that ended as turns do starts the count of passing failures again.
     this.transient.delete(idle.id)
     // The ticket while the Assignment that went idle runs it.
@@ -837,7 +841,7 @@ export class DshExecutor implements Executor {
     try { quiet = await untilQuiet(this.host.context, agent, AbortSignal.any([this.host.lifetime, look.signal, limit.signal]), left) }
     finally { clearTimeout(timer); if (this.settling.get(ticket.id) === look) this.settling.delete(ticket.id) }
     const current = live()
-    if (this.host.closing() || look.signal.aborted || (!quiet && !limit.signal.aborted) || !current || this.resuming.has(idle.id)) return
+    if (this.disposed || this.host.closing() || look.signal.aborted || (!quiet && !limit.signal.aborted) || !current || this.resuming.has(idle.id)) return
     if (quiet) this.host.engine.turnEnded(ticket.id, idle.id)
     let stopped = ''
     if (!quiet) {
@@ -875,5 +879,5 @@ export class DshExecutor implements Executor {
    * handler re-validates its ticket, so a stale or cancelled queued launch is skipped; while paused its limit is 0, so
    * the wake dispatches nothing, and `kick` coalesces, so repeated wakes cannot spin.
    */
-  private slotFreed(): void { if (this.host.effects.pending('launch')) this.host.effects.kick() }
+  private slotFreed(): void { if (!this.disposed && !this.host.closing() && this.host.effects.pending('launch')) this.host.effects.kick() }
 }

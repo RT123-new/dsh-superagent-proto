@@ -455,6 +455,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/stage-d/issue-17-slot-refill-bench.spec.ts` | Stage D Issue 17 follow-up: paired baseline/variant benchmark of the slot-free wake across capacities and seeds, raw evidence per arm for refill-bench-analyze.mjs |
 | `tests/issue-5-decoration-races.spec.ts` | Skill-scope cancellation, generation-scoped release and concurrent decoration readiness |
 | `tests/issue-5-session-creation-gates.spec.ts` | Cancellation checks across session resolution, workspace creation, create RPC and model initialization |
+| `tests/issue-17-slot-wake-adversarial.spec.ts` | Independent slot wake commit, rollback, disposal and stale assignment proofs |
 | `tests/issue-21-context.spec.ts` | Exact context paging, refresh, isolation, older-correction preservation and honest offline usage fields |
 | `tests/issue-23-review-handoff.spec.ts` | Complete review evidence behind compact reports, ready-vs-review state and merge identity boundaries |
 | `tests/issue-24-repository-scope.spec.ts` | Foreign same-number URL isolation through candidate cards, local shorthand and one-repository identity limits |
