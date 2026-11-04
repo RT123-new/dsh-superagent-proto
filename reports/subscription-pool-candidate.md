@@ -1,3 +1,5 @@
+> Historical candidate report, NOT adopted in programme/reliability. Later independent review and integration disposition supersede its implementation/performance statements. Candidate code remains on its separate review branch.
+
 # Optional subscribed-thread pool candidate (review required)
 
 Base e50b32b, separate `candidate/subscription-pool`. Neutral transport class cherry-picked from reviewer0e4359b as f5e6710. No deployments, credentials, live GitHub API monitoring, paid calls or effects.

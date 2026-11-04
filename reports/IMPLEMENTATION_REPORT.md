@@ -1,6 +1,6 @@
-# Implementation report (integration work in progress)
+# Implementation report
 
-This report records accepted integrations, not final programme acceptance. Starting point8c32a9d; default main remains unchanged. Integration branch programme/reliability. No external deployment or automatic merge. Reviewed bounded correctness baseline: tag reviewed/correctness-stage-b at5752c4c.
+This report records adopted code separately from held experiments and known limitations. Starting point8c32a9d; default main remains unchanged. Integration branch programme/reliability. No external deployment or automatic merge. Reviewed bounded correctness baseline: tag reviewed/correctness-stage-b at5752c4c.
 
 ## Confirmed correctness repairs
 
@@ -53,3 +53,10 @@ Full `pnpm check` passes1498/1498tests in102files plus typecheck/build, and norm
 Sourcequeue fe1105c/106359a/c9f952f now records application receipt to committed actual Evalqueue boundary with failure-isolated optional hooks; own1red before repair,153targetedgreenafter. Full lifecycle remains partial, not per-provider-attempt latency or task-correctness throughput.
 
 Slotwake optimization remains unadopted because broad-profile evidence missed target or allows tail regression. Independent disposal defect separately reproduced2red/2green and repairedc25187b without slotFreed/kick/capacity changes. Reviewed experiment and cluster results retained, not enabled.
+
+
+## Final code freeze and held candidates
+
+Source/test/scripts/config at candidatea4f1812 are byte-equivalent to tested90e6d47 (git diff --exit-code over src/tests/scripts/package/lock/config returned0). Subsequent commits only add reports/raw evidence. Thus1498full/typecheck/build and independent1498full apply to the frozen implementation without inventing a rerun. Final report review and PR publication are separate completion steps.
+
+No production source from optionalpoolb270676, retentionf921a28 or general slotwake15ed8e3 is adopted. Their reports and raw failures/repairs are retained with explicit held dispositions. Production has no retention module/tombstones, no subscription concurrency setting and no slotFreed/kick optimization. Minimal disposal guard from independent no-slotwake failure remains a correctness repair.

@@ -1,3 +1,5 @@
+> Historical candidate report, NOT adopted in programme/reliability. Later independent review and integration disposition supersede its implementation/performance statements. Candidate code remains on its separate review branch.
+
 # Issue 19: opt-in, reference-safe Trigger retention (branch review/issue-19-retention, base a69705d)
 
 Scope implemented (smallest safe path): `store.retention.run(options)` / `restore(archivePath, ids?)` for old Triggers only. Off by default: nothing in the runtime calls it, no schedule, no setting. Decisions, Tickets, Threads, outbox, effects and kv are never deleted.

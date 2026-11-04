@@ -41,3 +41,8 @@ Reproduced all3 causal/receipt failures from557adf6 before33a9d0e. Integrated re
 ## Final cross-scope discoveries and current repair
 
 Independent reviewer f0fc44a found ordinary follow-up after pause and pre-create cancellation bypass through deleted-worker recreation. Own2/2red on currentintegration reproduced;90e6d47 applies deliveryCurrent at ensure and prompt async boundaries.26targeted and full1498/typecheck/build pass. Independent refresh is still required. Two disposed idle-continuation defects also reproduced without slotwake and repaired separately(c25187b). No general slotwake adopted. Normal tests no longer rewrite archived StageD evidence.
+
+
+## Adoption boundary after candidate review
+
+Independent optionalpool review proved4defects and repaired them, but restart embargo/account-wide gate remained incomplete. Destructive retention review proved5defects and repaired them, but fresh paired benefit and powerloss/hostile archive operations were not established. General slotwake broad-profile thresholds were not met. None of these candidate production changes is in the frozen integration. Candidate evidence is retained rather than silently discarded or called production-ready. Minimal disposal correctness and cross-scope ordinary-delivery guards are adopted and independently accepted.
