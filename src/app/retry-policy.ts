@@ -38,7 +38,7 @@ export function classifyError(error: unknown): ErrorClass {
   if (error instanceof CliError && error.unreadable) return 'transient'
   // GitHub reports primary and secondary rate limits as HTTP 403 (or 429); only the CLI's own diagnostic distinguishes them from a permission failure.
   // This chooses the class only; no delay is ever read from the text.
-  if (status === 403 && error instanceof CliError && /rate limit|abuse detection/i.test(error.message)) return 'rate_limited'
+  if (status === 403 && error instanceof CliError && /^gh: (API rate limit exceeded|You have exceeded a secondary rate limit)/.test(error.message)) return 'rate_limited'
   if (status === 401 || status === 403 || /AUTH|UNAUTHORIZED|FORBIDDEN|PERMISSION/i.test(code)) return 'unauthorized'
   if (status === 429 || /RATE_LIMIT|THROTTLE|QUOTA/i.test(code)) return 'rate_limited'
   if (status === 400 || status === 404 || status === 410 || status === 422 || /INVALID|NOT_FOUND|BAD_REQUEST/i.test(code)) return 'permanent'

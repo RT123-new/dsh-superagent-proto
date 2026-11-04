@@ -44,6 +44,13 @@ describe('4.2 actual gh failure pathways', () => {
     ['error connecting to api.github.com: dial tcp: lookup api.github.com: no such host', 'transient'],
   ])('%s -> %s', (stderr, kind) => { expect(classifyError(failure(stderr))).toBe(kind) })
 })
+describe('4.2 hostile 403 text must not become retryable', () => {
+  it.each([
+    'gh: Resource not accessible by integration: cannot read branch "rate limit-fix" (HTTP 403)',
+    'gh: Repository rule violations found: branch name abuse detection not allowed (HTTP 403)',
+    'gh: Forbidden: your API rate limit exceeded policy is not set (HTTP 403)',
+  ])('%s -> unauthorized', stderr => { expect(classifyError(failure(stderr))).toBe('unauthorized') })
+})
 describe('3.2 large and malformed gh output through a real subprocess', () => {
   it('a >16 MiB paginated history fails with a retryable-looking class (documents repeated non-progress)', async () => {
     const commands = fakeGh(`head -c 17000000 /dev/zero | tr '\\0' 'a'`)
