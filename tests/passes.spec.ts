@@ -19,7 +19,7 @@ it('reports a failed pass as an error of the runtime, which the next pass that s
   h.engine.evaluateDue.mockImplementationOnce(() => { throw new Error('database is locked') })
   h.passes.request()
   await h.passes.idle()
-  expect(h.health.get()).toMatchObject({ state: 'error', detail: 'A pass failed: Error: database is locked' })
+  expect(h.health.get()).toMatchObject({ state: 'error', detail: 'A pass failed: transient' })
   h.passes.request()
   await h.passes.idle()
   expect(h.health.get()).toMatchObject({ state: 'ready', detail: 'Orchestrator is ready' })

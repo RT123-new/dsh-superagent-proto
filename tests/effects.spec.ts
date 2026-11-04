@@ -202,7 +202,7 @@ it('reports a failure of the queue itself under its kind, until a dispatch of th
   effects.handle('relay', async () => {}, { limit: () => { if (broken) throw new Error('database is locked'); return 1 } })
   effects.enqueue('relay', 'k', relay('a'))
   await effects.idle()
-  expect(health.relay).toMatchObject({ state: 'error', detail: 'The effect queue failed: Error: database is locked' })
+  expect(health.relay).toMatchObject({ state: 'error', detail: 'The effect queue failed: transient' })
   broken = false
   effects.kick()
   await effects.idle()

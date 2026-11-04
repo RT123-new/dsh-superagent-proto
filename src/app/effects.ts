@@ -8,7 +8,7 @@ export const FAILURES_BEFORE_ERROR = 3
 import type { HealthBoard, HealthEntry } from '../infra/health.ts'
 import type { Store } from './store.ts'
 import { Probe } from '../infra/metrics-probe.ts'
-import { errorRecord, retryDecision, classifyError } from './retry-policy.ts'
+import { errorRecord, retryDecision, classifyError, healthErrorDetail, healthStoredError } from './retry-policy.ts'
 import { AttemptUnknownError, SendNotAttempted } from '../sources/send.ts'
 
 export interface EffectPayloads {
@@ -313,7 +313,8 @@ export class Effects {
   }
   private failed(kind: EffectKind, error: unknown): void {
     this.broken.add(kind)
-    this.health.get(kind)?.set({ state: 'error', detail: `The effect queue failed: ${String(error)}`, at: new Date(this.now()).toISOString() })
+    // §10: a typed class + whitelisted status only; arbitrary error prose (provider remote text) never reaches the operator panel.
+    this.health.get(kind)?.set({ state: 'error', detail: `The effect queue failed: ${healthErrorDetail(error)}`, at: new Date(this.now()).toISOString() })
   }
   private report(kind: EffectKind): void {
     const row = this.store.db.prepare(`SELECT COUNT(*) AS waiting, MIN(since) AS since, MAX(attempts) AS attempts,
@@ -324,7 +325,7 @@ export class Effects {
     const failing = (Number(row?.attempts ?? 0) >= FAILURES_BEFORE_ERROR || blocked) && (!this.handlers.get(kind)?.quiet || blocked)
     const detail = waiting ? `${waiting} waiting since ${String(row?.since)}` : 'Nothing waiting'
     this.health.get(kind)?.set(failing
-      ? { state: 'error', detail: `${detail}; the last failure: ${String(row?.error)}`, at: new Date(this.now()).toISOString() }
+      ? { state: 'error', detail: `${detail}; the last failure: ${healthStoredError(row?.error)}`, at: new Date(this.now()).toISOString() }
       : { state: 'ready', detail, at: new Date(this.now()).toISOString() })
   }
 }

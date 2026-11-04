@@ -1,5 +1,6 @@
 /** Coordinates periodic and on-demand orchestration passes that drive due effects and Engine evaluations. */
 import type { Engine, ReceiveResult, Trigger } from '../core/index.ts'
+import { healthErrorDetail } from './retry-policy.ts'
 import type { HealthEntry } from '../infra/health.ts'
 import type { Effects } from './effects.ts'
 import type { Probe } from '../infra/metrics-probe.ts'
@@ -57,7 +58,7 @@ export class Passes {
     this.pump().then(() => {
       if (health.get()?.state !== 'error' || this.host.lifetime.aborted) return
       health.set({ state: 'ready', detail: 'Orchestrator is ready', at: now() })
-    }, (error: unknown) => { health.set({ state: 'error', detail: `A pass failed: ${String(error)}`, at: now() }) })
+    }, (error: unknown) => { health.set({ state: 'error', detail: `A pass failed: ${healthErrorDetail(error)}`, at: now() }) })
   }
   /** Wait until no pass or effect that can start now is running. */
   async idle(): Promise<void> {

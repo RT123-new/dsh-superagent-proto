@@ -51,6 +51,34 @@ export function classifyError(error: unknown): ErrorClass {
   return 'transient'
 }
 
+/**
+ * Operator-facing health detail for a failure (mandate §10): the stable typed class plus a whitelisted numeric status only.
+ * Error message text is never included - a length bound is a limit, not redaction, and provider prose is arbitrary remote text.
+ */
+export function healthErrorDetail(error: unknown): string {
+  const kind = classifyError(error)
+  const status = transportOf(error)?.status ?? (error instanceof CliError ? error.code : Number(record(error)?.status ?? record(error)?.statusCode))
+  return Number.isFinite(status) && status ? `${kind} (HTTP ${status})` : kind
+}
+
+/**
+ * Operator-facing rendering of a STORED error record (mandate §10): emits only the blocked marker, the typed class and a
+ * whitelisted numeric status from our structured record. Stored message text (arbitrary provider prose) is never rendered;
+ * an unparseable legacy record degrades to its blocked-class marker or a generic 'failure', never raw text.
+ */
+export function healthStoredError(stored: unknown): string {
+  if (typeof stored !== 'string' || !stored) return 'none recorded'
+  const blocked = /^blocked:([a-z_]+): /.exec(stored)
+  try {
+    const rec = JSON.parse(stored.slice(blocked ? blocked[0].length : 0)) as { class?: unknown, status?: unknown }
+    const cls = typeof rec.class === 'string' && /^[a-z_]+$/.test(rec.class) ? rec.class : 'transient'
+    const status = typeof rec.status === 'number' && Number.isFinite(rec.status) && rec.status ? ` (HTTP ${rec.status})` : ''
+    return blocked ? `blocked:${cls}${status}` : `${cls}${status}`
+  } catch {
+    return blocked ? `blocked:${blocked[1]}` : 'failure'
+  }
+}
+
 /** The retry decision for a failure. */
 export type RetryDecision = { retry: true; class: ErrorClass; delay: number } | { retry: false; class: ErrorClass }
 export function retryDecision(error: unknown, attempt: number, base: number, max: number, rng: () => number, now: number): RetryDecision {
