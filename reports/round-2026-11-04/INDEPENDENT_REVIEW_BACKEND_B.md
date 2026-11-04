@@ -48,3 +48,22 @@ NOT read by this reviewer (assigned to focused backend helper agent-01M6KDSSNP4W
 - No whole-PR pass claimed. Verdicts bind to fd3b7a6 (code) and the probes cited; docs descendant c1d4510 verified as docs-only (src/ delta empty).
 - No production race verdict (UNPROVEN above). No claim from suite-green alone: the masked-run class of failure is fixed and the canonical run is sha-bound with truthful EXIT.
 - P3 findings above are ownable and not merge-blockers individually; the T_i take-consumption finding should land or be explicitly accepted-before-freeze.
+
+## FINAL ADDENDUM 2026-11-04 14:30 GMT - acceptance canonical + health redaction round
+ACCEPTANCE CANONICAL (real bundle, identity exact): HEAD 07e74708b60df011b89d7449edc3b52caeed70c6, code 3144dde + test-only 07e7470. Tree-equivalence chain PROVEN: my proof worktree = 03feb74 + adversary patch; 07e7470 tree (925ce362) vs 03feb74 tree (876fd1bb) delta = tests/runtime.spec.ts +3/-1 (my exact patch) + 2 reports/ docs files (no test-surface impact). Proof run at the equivalent tree: install --frozen-lockfile RC=0, tsc RC=0, build RC=0, full pnpm test = **144 files / 1757 passed / 2 skipped / 0 failed / EXIT=0 truthful** (log /tmp/adv-test-final-fixed.log). No redundant rerun needed; docs delta verified separately (EVIDENCE_LEDGER/MERGE_READINESS metadata edits only).
+Intermediate frozen REDs preserved as evidence: fd3b7a6 (9 sources failures, /tmp/adv-test-fd3b7a6.log) and 03feb74 (1 runtime health-expectation failure, /tmp/adv-test-final.log).
+
+HEALTH REDACTION (3144dde) REVIEW: SOUND - typed class + whitelisted numeric status only; stored-record parser with charset-validated class and safe fallbacks; '2200' prose positively asserted GONE in the repaired test. My §10 health P3 CLOSED.
+NEW P3 SCOPE FINDING (relayed; lead decision pending): the same prose class persists on two other operator-visible fields: (1) overview problems outgoing.error (views/overview.ts:65) renders the raw stored effect error record (bounded 500 chars but arbitrary provider prose; runtime.spec:1154 pins '2200' in this field); (2) ticket delivery error previews (views/records.ts:113,127) render ticket.delivery.error (300-char bounded arbitrary prose). DISTINCTION: the STORED DB record (effect.error) is private failure history and may keep bounded prose; the OPERATOR-VISIBLE fields are the same exposure class the health fix closed and need the same treatment (typed class + status) or an explicit documented judgment note in the final reports. Loopback+same-origin binding (http.ts:269) bounds the audience; no credential-echo path identified (CliError never echoes argv). Not a cosmetics question: by the fix's own stated principle, a length bound is not redaction.
+
+UNPROVEN register unchanged: runtime:758 production race (mechanism documented, barrier probe stopped per scope call), Feishu E=I floor case (fixture), provider HTTP-attempt boundary (documented), Q metric (documented remaining Stage C, must stay in final reports).
+
+## Addendum 14:44 GMT - c69a1f9/70b8bf0 presentation-field repair (final accepted candidate)
+
+Scope: overview outgoing.error, ticket delivery note + deliveryError (the two P3 fields reported 14:30). Verdict: SOUND, CLOSED.
+- Identity: HEAD 70b8bf0e09c9fa9cba2df9596ab1c053fa16a62f = c69a1f9 (code) + docs; lockfile unchanged.
+- Mechanism: operator fields render healthErrorDetail/healthStoredError only (typed class, /^[a-z_]+$/ validated, whitelisted numeric status, blocked: marker). Unparseable legacy/plain-prose stored records degrade to generic 'failure', never raw text. Stored delivery.error/effect.error remain private bounded records (intentional, mandate-consistent).
+- RED->green verified independently: new review-phase3-operator-error-redaction.spec.ts FAILS 3/3 on 07e7470-equivalent code (marker leaks), PASSES 3/3 at 70b8bf0. Wire claim true.
+- Targeted critical replay: 16 files / 343 tests GREEN (runtime, panel-overview, views, core-engine, delivery x3, effects, outbox, health, retry-health, phase3-health-redaction, http, index, client, issue-22-dashboard).
+- Fresh immutable full canonical at 70b8bf0, SHA-bound log /tmp/adv-test-70b8bf0.log: install OK, typecheck EXIT=0, build EXIT=0, pnpm test 145 files / 1760 passed / 2 skipped / 0 failed, EXIT=0 (duration 143.89s, started 14:39:30 UTC).
+- No new findings. Supersedes the 07e7470 baseline as the current accepted-code proof. Post-push CI artifact proof still outstanding (truthful exit + tested SHA).
