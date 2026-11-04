@@ -41,3 +41,12 @@ Arrow-key scroll now proven in headless Chrome: after Tab to the Successful-atte
 Still unverified: real DSH host shell/theme variables and live-host restart (no host available in this environment).
 
 M5 single-read contract (supersedes the earlier two-call design, which the adversary showed ran effects.measure and counted metrics_error twice per failed overview; proof on 0d75c2d: reports/evidence/pr-final/m5-double-read-before-fix.txt, [snapshots, measures] = [2, 2]): Runtime.metricsSnapshot() performs exactly one read and records its outcome; Runtime.metricsState() only reports that recorded outcome and never recomputes. The HTTP layer reads metricsSnapshot() once (hosts may override it), and a missing snapshot is explained by the recorded state: failed -> failed, anything else -> off (a stale 'ok' without a snapshot is reported off, never ok). No second attempt can turn a failure into ok. Tests: real runtime + HTTP counts one snapshot, one measure and one metrics_error per failed request; override and legacy-host cases. Evidence of the keyboard run: reports/evidence/pr-final/cdp-keyboard-check.{mjs,log}.
+
+## Blocked-effects rearm UI, real-browser check (combined candidate 191db58)
+
+Real React `App` bundled for the browser and driven in headless Chrome over CDP with real key and touch events (harness and logs: `reports/evidence/pr-final/rearm-ui/`). The server is the repo's own fake panel server, so no live or paid action ran. Palette is a STAND-IN for the host `--dsw-*` tokens: this is not host-theme or full-host proof.
+
+Confirmed working (en and zh; 360px touch and 1000px keyboard; light and dark): Tab reaches Rearm; Enter opens a dialog with focus inside; 6 Tabs and Shift+Tab stay inside; Escape and Cancel close it, focus returns to Rearm, and no POST is sent; Confirm sends exactly one `POST effects/relay/rearm {"key":"r1"}`; the unknown-outcome warning shows only on the row with `attemptUnknown`; the long key wraps with no horizontal overflow; no page errors. Touch tap at 360px opens the dialog. Touch targets are 72x28 and 88x28 CSS px (below the usual 44px guideline: a risk, not changed).
+
+Finding: with no host tokens the modal is transparent and overlaps the page. This is a platform dependency, not a repo defect, and it cannot be settled without the real host.
+Not verified: real host shell and tokens, real touch device, screen reader, live restart.
