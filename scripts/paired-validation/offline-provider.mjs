@@ -31,6 +31,7 @@ try {
  assert.equal(chunks.findLast(c=>c.type==='finish').reason.kind,'stop')
  const usage=chunks.findLast(c=>c.type==='usage').usage
  assert.equal(usage.inputTokens,10); assert.equal(usage.outputTokens,6)
+ const lockPath=join(dir,'exclusive.json');const one=new Budget(lockPath,1,true);assert.throws(()=>new Budget(lockPath,1,true));one.close();const two=new Budget(lockPath,1,true);two.close();
  const b=new Budget(join(dir,'budget.json')); b.reserve('one'); assert.throws(()=>b.reserve('two'))
  const paid=b.settle(usage);assert.equal(paid,usageCost(usage)); assert.equal(b.state.pending,null)
  b.reserve('unknown');b.stop();assert.throws(()=>b.reserve('retry'))
