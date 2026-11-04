@@ -1,0 +1,59 @@
+name: validate
+# Mandatory validation for the reliability programme (mandate section 9). No secrets, no paid provider calls,
+# no credentials exposed to pull-request code: the job runs with a read-only token on the exact tested SHA.
+on:
+  push:
+    branches: [programme/reliability]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+env:
+  CI: true
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Record the exact tested SHA
+        run: echo "TESTED_SHA=${{ github.sha }}" | tee tested-sha.txt
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.4
+      - name: Enable pnpm 11.7.0 (the committed packageManager pin)
+        run: corepack enable pnpm && pnpm --version
+      # --frozen-lockfile rejects any dependency installation change; pnpm-workspace.yaml's allowBuilds
+      # restrictions (koffi/esbuild build scripts denied) apply as committed.
+      - name: Install (frozen lockfile, restrictive build policy)
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Test (full suite)
+        run: pnpm test 2>&1 | tee test-output.txt
+      - name: Build
+        run: pnpm build
+      - name: Whitespace and conflict check
+        run: git diff --check HEAD
+      - name: Preserve test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-evidence-${{ github.sha }}
+          path: |
+            test-output.txt
+            tested-sha.txt
+          retention-days: 30
+  stage-d:
+    # Opt-in destructive/experiment suites (separate config); never part of the mandatory gate above.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.4
+      - run: corepack enable pnpm && pnpm --version
+      - run: pnpm install --frozen-lockfile
+      - name: Stage D experiment suites
+        run: pnpm exec vitest run --config scripts/stage-d/vitest.config.ts
