@@ -88,7 +88,7 @@ export interface ExecutorHost {
   /** Optional instrumentation; absent means none. */
   readonly probe?: Probe
   /** Session manager for worker sessions and for relaying worker reports to the main Session. */
-  readonly sessions: Pick<Sessions, 'ensure' | 'prompt' | 'promptedId' | 'relay' | 'holds'>
+  readonly sessions: Pick<Sessions, 'ensure' | 'prompt' | 'promptedId' | 'relay' | 'holds' | 'revoke'>
   closing(): boolean
   /** Current policy permission for a new automated retry; does not revoke already active work. */
   authorized(ticket: Ticket): boolean
@@ -544,6 +544,9 @@ export class DshExecutor implements Executor {
       this.launching.get(assignment.id)?.abort()
       this.settling.get(ticket.id)?.abort()
       if (!ownTurn) this.host.context.agents.get(sessionId as SessionId)?.cancel({ kind: 'user' }, { keepInbox: false })
+      // The granted privilege must not outlive its ticket: an ended ticket's worker Session drops to the default preset.
+      // A retried or replaced assignment keeps it: the ticket is live and the next authorized ensure grants afresh.
+      if (!liveTicket(ticket)) this.host.sessions.revoke(sessionId)
       // Its shell jobs and subagents stop with it, also those of a worker that ends its own turn.
       this.stopWork(ticket.id, reason)
       this.left.get(ticket.id)?.collect.abort(); this.left.delete(ticket.id); this.personal.delete(ticket.id)

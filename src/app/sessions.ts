@@ -188,6 +188,11 @@ export class Sessions {
       throw error
     }
   }
+  /** Drops an ended ticket's Session privilege to the default preset: a grant must not outlive its ticket. */
+  revoke(id: string): void {
+    const agent = this.ctx.agents.get(id as SessionId)
+    if (agent) this.ctx.permissionPresets.set(agent.session, this.ctx.permissionPresets.defaultPreset)
+  }
   /** Sessions whose creation overlapped a cancelled assignment and that were not later adopted by an authorized `ensure`. */
   unresolvedSessions(): ReadonlyMap<string, string> { return this.unresolved }
   private readonly unresolved = new Map<string, string>()
