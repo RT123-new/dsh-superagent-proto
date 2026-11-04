@@ -26,6 +26,8 @@ const label = (text: string): string => /^[a-z][a-z0-9_]{0,31}$/.test(text) ? te
 export class DomainTimeline {
   private readonly received: Pending<string, number>
   /** Mandate T_i chain: earliest received stamp carried eval -> decision -> ticket so t_terminal - t_received is one correlated measurement. */
+  /** Receipt stamps for the T_i chain: the intake arrival when the intake noted one, else the queue commit. Never a session or model step. */
+  private readonly taskChain: Pending<string, number>
   private readonly evalReceived: Pending<string, number>
   private readonly taskReceived: Pending<string, number>
   private readonly taskTerminal: Pending<string, number>
@@ -37,6 +39,7 @@ export class DomainTimeline {
   constructor(private readonly probe: Probe, private readonly mono: () => number, cap = 5000, private readonly evalOfDecision?: (id: string) => string | undefined) {
     const drop = () => { probe.count('lifecycle_dropped') }
     this.received = new Pending(cap, drop); this.arrivals = new Pending(cap, drop); this.evaluating = new Pending(cap, drop); this.decided = new Pending(cap, drop)
+    this.taskChain = new Pending(cap, drop)
     this.evalReceived = new Pending(cap, drop); this.taskReceived = new Pending(cap, drop); this.taskTerminal = new Pending(cap, drop)
     this.launching = new Pending(cap, drop); this.alive = new Pending(cap, drop)
   }
@@ -60,13 +63,15 @@ export class DomainTimeline {
           // Only a trigger the intake actually queued for an Eval has a queue entry; a ticket owner's or an already waiting trigger has none.
           if (!event.data.queued) { this.probe.count('trigger_not_queued'); break }
           this.received.set(event.data.triggerId, now)
+          // The mandate's t_received is the application's receipt of the trigger (entry of Passes.receive); the queue commit is the fallback.
+          this.taskChain.set(event.data.triggerId, arrival ?? now)
           if (arrival === undefined) this.probe.count('lifecycle_unmatched')
           else this.probe.observe('source_to_eval_queue', 'internal', now - arrival)
           break
         }
         case 'eval.started': {
           let earliest: number | undefined
-          for (const id of event.data.triggerIds) { const at = this.received.take(id); if (at !== undefined) { this.probe.observe('trigger_to_eval_start', 'internal', now - at); earliest = earliest === undefined ? at : Math.min(earliest, at) } }
+          for (const id of event.data.triggerIds) { const at = this.received.take(id); if (at !== undefined) this.probe.observe('trigger_to_eval_start', 'internal', now - at); const chain = this.taskChain.take(id); if (chain !== undefined) earliest = earliest === undefined ? chain : Math.min(earliest, chain) }
           if (earliest !== undefined) this.evalReceived.set(event.data.evalId, earliest)
           this.evaluating.set(event.data.evalId, now); break
         }

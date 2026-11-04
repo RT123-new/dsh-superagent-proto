@@ -34,18 +34,22 @@ it('DomainTimeline measures trigger to evaluation, evaluation, decision to ticke
 
 it('measures the mandate T_i: one correlated request-received to terminal task latency per task', () => {
   const t = new DomainTimeline(probe, () => mono, 5000, id => id === 'd1' ? 'e1' : undefined)
+  t.arrived('t1'); mono += 7
   t.observe(ev('trigger.received', { triggerId: 't1', threads: [], queued: true })); mono += 5
   t.observe(ev('eval.started', { evalId: 'e1', threadKey: 'th', triggerIds: ['t1'], strength: 'weak' })); mono += 20
   t.observe(ev('decision.recorded', { decisionId: 'd1', kind: 'accept', threadKey: 'th' })); mono += 3
   t.observe(ev('ticket.created', { ticketId: 'k1', decisionId: 'd1', strength: 'weak' })); mono += 140
   t.observe(ev('ticket.ended', { ticketId: 'k1', by: 'worker', outcome: 'merged' }))
-  expect(dur('task_total|internal')?.maxMs).toBe(168)                                   // t_terminal - t_received, every stage included
-  expect(dur('trigger_to_eval_start|internal')?.maxMs).toBe(5)                          // W_i still measured
+  expect(dur('task_total|internal')?.maxMs).toBe(175)                                   // t_terminal - t_received: the intake arrival, every stage included
+  expect(dur('source_to_eval_queue|internal')?.maxMs).toBe(7)                           // the intake window is part of T_i, not lost
+  expect(dur('trigger_to_eval_start|internal')?.maxMs).toBe(5)                          // W_i still measured from the queue commit
   expect(dur('ticket_lifetime|internal')?.maxMs).toBe(140)
 })
 
 it('T_i uses the earliest received trigger of the eval and survives a resume; a terminal without the chain is unmatched, not guessed', () => {
   const t = new DomainTimeline(probe, () => mono, 5000, id => id === 'd1' ? 'e1' : undefined)
+  t.arrived('t1'); mono += 4
+  t.arrived('t2'); mono += 1
   t.observe(ev('trigger.received', { triggerId: 't1', threads: [], queued: true })); mono += 2
   t.observe(ev('trigger.received', { triggerId: 't2', threads: [], queued: true })); mono += 3
   t.observe(ev('eval.started', { evalId: 'e1', threadKey: 'th', triggerIds: ['t1', 't2'], strength: 'weak' })); mono += 10
@@ -53,11 +57,11 @@ it('T_i uses the earliest received trigger of the eval and survives a resume; a 
   t.observe(ev('ticket.created', { ticketId: 'k1', decisionId: 'd1', strength: 'weak' })); mono += 50
   t.observe(ev('ticket.resumed', { ticketId: 'k1', triggerId: 't9' })); mono += 20
   t.observe(ev('ticket.ended', { ticketId: 'k1', by: 'worker', outcome: 'merged' }))
-  expect(dur('task_total|internal')?.maxMs).toBe(90)                                    // 2+3+10+5+50+20 from t1 received; resume does not rebase
+  expect(dur('task_total|internal')?.maxMs).toBe(95)                                    // 4+1+2+3+10+5+50+20 from t1's intake arrival; resume does not rebase
   const before = metrics.snapshot().counters.lifecycle_unmatched ?? 0
   t.observe(ev('ticket.ended', { ticketId: 'k-orphan', by: 'human', outcome: 'stopped' }))
   expect(metrics.snapshot().counters.lifecycle_unmatched).toBe(before + 1)
-  expect(dur('task_total|internal')?.maxMs).toBe(90)                                    // no second sample
+  expect(dur('task_total|internal')?.maxMs).toBe(95)                                    // no second sample
 })
 
 it('a start that was never observed records nothing and is counted, not guessed as zero', () => {
@@ -71,7 +75,7 @@ it('a start that was never observed records nothing and is counted, not guessed 
 it('pending state is bounded: the oldest unmatched entry drops and is counted', () => {
   const t = new DomainTimeline(probe, () => mono, 3)
   for (let i = 0; i < 10; i++) t.observe(ev('trigger.received', { triggerId: `t${i}`, threads: [], queued: true }))
-  expect(metrics.snapshot().counters.lifecycle_dropped).toBe(7)
+  expect(metrics.snapshot().counters.lifecycle_dropped).toBe(14)  // 7 drops from each of the two trigger-keyed pending chains (W_i and T_i)
 })
 
 it('DomainTimeline never throws on a malformed event', () => {
