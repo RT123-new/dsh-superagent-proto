@@ -46,6 +46,9 @@ export function migrateTo11(store: Store): void {
   for (const row of store.db.prepare('SELECT id, value FROM ticket').all()) {
     step(`ticket ${String(row.id)}`, () => { store.tickets.save(ticketOf(JSON.parse(String(row.value)) as Stored, answers, human, closed)) })
   }
+  // A decision that is not valid JSON stops the upgrade (nothing is skipped or removed); name its id, never its payload, so it can be repaired.
+  const unreadable = store.db.prepare('SELECT id FROM decision WHERE NOT json_valid(value) ORDER BY rowid LIMIT 1').get()
+  if (unreadable) step(`decision ${String(unreadable.id)}`, () => { throw new Error('its stored value is not valid JSON') })
   for (const row of store.db.prepare("SELECT id, value FROM decision WHERE json_type(value, '$.mandate') = 'object'").all()) {
     step(`decision ${String(row.id)}`, () => {
       const decision = JSON.parse(String(row.value)) as Decision

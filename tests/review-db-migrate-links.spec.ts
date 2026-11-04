@@ -45,11 +45,11 @@ it('a failed schema 10 migration rolls back the link table and triggers with it,
   again.close()
 })
 
-// Characterisation of unchanged baseline behaviour (migration.ts is not modified by this PR): a malformed decision row blocks the schema 10 upgrade, fail closed.
-it('a schema 10 database holding a malformed decision row is refused with the file unchanged (baseline behaviour, message does not name the row)', () => {
+// A malformed decision row still blocks the schema 10 upgrade (fail closed, nothing skipped or deleted), but the error now names the row id (never its payload).
+it('a schema 10 database holding a malformed decision row is refused with the file unchanged and the row id named', () => {
   const path = join(directory, 'o.sqlite')
   legacy(path, undefined, true)
-  expect(() => new Store(path)).toThrow(/unchanged at schema 10: its migration to schema 11 failed: malformed JSON/)
+  expect(() => new Store(path)).toThrow(/unchanged at schema 10: its migration to schema 11 failed: decision bad: its stored value is not valid JSON$/)
   const raw = new DatabaseSync(path)
   expect(names(raw)).toEqual([])
   expect(raw.prepare("SELECT value FROM kv WHERE key='schema'").get()).toEqual({ value: '10' })
