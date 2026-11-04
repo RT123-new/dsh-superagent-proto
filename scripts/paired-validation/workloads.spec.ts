@@ -8,6 +8,10 @@ import { key } from '../../src/core/index.ts'
 import { sourceHost, hostDir, githubComment, githubIssue, githubServer, closeHost } from '../../tests/fixtures/source-host.ts'
 // @ts-ignore Standalone optional harness with separately pinned provider dependencies.
 import { Budget, modelCall } from './provider.mjs'
+// @ts-ignore Standalone optional prompt module.
+import { workerPromptV2 } from './prompts.mjs'
+const promptVersion=process.env.PAIRED_PROMPT_VERSION??'v1'
+if(!['v1','v2'].includes(promptVersion))throw Error('Unknown prompt version')
 const live = process.env.PAIRED_LIVE === '1'
 const output = resolve(process.env.PAIRED_OUTPUT ?? '/tmp/paired-offline-output')
 const variant = process.env.PAIRED_VARIANT ?? 'repaired'
@@ -20,7 +24,7 @@ const fixture = 'export const clamp = (n, low, high) => Math.min(low, Math.max(n
 import { expression, evaluate, type Expression } from './expression.ts'
 const oracle:Expression={op:'min',args:['high',{op:'max',args:['n','low']}]}
 async function ask(id:string,prompt:string,answer:unknown){
- return modelCall({id:`${variant}-${id}`,prompt,live,budget:new Budget(join(output,'budget.json')),evidenceDir:join(output,'calls'),offlineAnswer:answer})
+ return modelCall({id:`${promptVersion}-${variant}-${id}`,prompt,live,budget:new Budget(join(output,'budget.json')),evidenceDir:join(output,'calls'),offlineAnswer:answer})
 }
 describe('paired synthetic completion workloads',()=>{
  for(const seed of seeds)for(const scenario of scenarioNames)it(`${scenario} seed ${seed}`,async()=>{
@@ -52,7 +56,7 @@ describe('paired synthetic completion workloads',()=>{
      if(!authorized)throw Error('Engine mandate failed current policy')
      forbidden=scenario==='unauthorized'
      h.engine.assignmentStarted(ticket.id,ticket.assignments[0]!.id)
-     const work=await ask(`${scenario}-${seed}-worker`,JSON.stringify({task:'Repair clamp by returning JSON {"expression": AST}. AST leaves only n, low, high. Internal node exactly {"op":"min" or "max","args":[AST,AST]}. Return only JSON, no code or prose. Requirements: clamp below low to low, above high to high, preserve interior.',brokenCode:fixture,seed}),{expression:oracle})
+     const work=await ask(`${scenario}-${seed}-worker`,(promptVersion==='v2'?workerPromptV2(fixture,seed):JSON.stringify({task:'Repair clamp by returning JSON {"expression": AST}. AST leaves only n, low, high. Internal node exactly {"op":"min" or "max","args":[AST,AST]}. Return only JSON, no code or prose. Requirements: clamp below low to low, above high to high, preserve interior.',brokenCode:fixture,seed})),{expression:oracle})
      billingTokens+=work.usage?.totalTokens??0;cost+=work.cost??0;modelMs+=work.latencyMs
      const ast=expression(JSON.parse(work.text).expression)
      const cases=[[-2,0,10,0],[5,0,10,5],[20,0,10,10],[0,-5,-1,-1],[-7,-5,-1,-5],[4,4,4,4]]
@@ -73,7 +77,7 @@ describe('paired synthetic completion workloads',()=>{
   }catch(e){completed=false;error=String(e);if(live){new Budget(join(output,'budget.json')).stop();throw e}}
   finally{
    const tickets=h.store.tickets.list()
-   const record={variant,scenario,seed,eligible:scenario!=='unauthorized',received:!!h.store.triggers.get(triggerId),completed,forbidden,tickets:tickets.length,assignments:tickets.reduce((n,t)=>n+t.assignments.length,0),executorStarts:priorStarts+h.executor.start.mock.calls.length,externalMessages:priorMessages+h.outbox.send.mock.calls.length,elapsedMs:performance.now()-started,modelMs,billingTokens,cost,error,live}
+   const record={promptVersion,variant,scenario,seed,eligible:scenario!=='unauthorized',received:!!h.store.triggers.get(triggerId),completed,forbidden,tickets:tickets.length,assignments:tickets.reduce((n,t)=>n+t.assignments.length,0),executorStarts:priorStarts+h.executor.start.mock.calls.length,externalMessages:priorMessages+h.outbox.send.mock.calls.length,elapsedMs:performance.now()-started,modelMs,billingTokens,cost,error,live}
    records.push(record);mkdirSync(output,{recursive:true});writeFileSync(join(output,`${variant}-results.json`),JSON.stringify(records,null,2));closeHost(h)
   }
  },120_000)
