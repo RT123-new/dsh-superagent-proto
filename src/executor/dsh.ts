@@ -239,6 +239,7 @@ export class DshExecutor implements Executor {
   private readonly timeline: SessionTimeline
   /** Local monotonic stamps of the first queued delivery per ticket, until its Inputs are delivered; unobserved after a restart. */
   private readonly deliveryQueued = new Map<string, number>()
+  private readonly historyQueued = new Map<string, { at: number; assignmentId: string; ticketId: string }>()
   /** Transient failure counts tried so far: keyed by `assignment.id` for worker turns and `launch:<assignment.id>` for launches. */
   private readonly transient = new Map<string, number>()
   /** Assignment IDs currently waiting on a transient-failure backoff timer before resuming their worker turn. */
@@ -265,7 +266,7 @@ export class DshExecutor implements Executor {
   /** Registers the `launch` and `delivery` effect handlers; both are held (concurrency limit 0) while processing is paused. */
   constructor(private readonly host: ExecutorHost) {
     this.probe = host.probe ?? new ProbeImpl(undefined)
-    this.timeline = new SessionTimeline(this.probe, () => performance.now())
+    this.timeline = new SessionTimeline(this.probe, () => this.probe.now() ?? 0)
     this.slots = new WorkerSlots(() => host.store.tickets.open().filter(ticket => this.running(ticket)).map(ticket => ticket.id),
       () => host.store.settings().executor.maxWorkers)
     this.sampleSlots()
@@ -362,8 +363,12 @@ export class DshExecutor implements Executor {
     this.host.effects.enqueue('launch', assignment.id, { ticketId: ticket.id, assignmentId: assignment.id })
   }
   /** Enqueues a `delivery` effect to steer pending inputs into `ticket`'s running worker session. */
-  deliver(ticket: Ticket, _assignment: Assignment): void {
-    if (this.probe.enabled && !this.deliveryQueued.has(ticket.id)) { if (this.deliveryQueued.size >= 5000) this.deliveryQueued.delete(this.deliveryQueued.keys().next().value!); this.deliveryQueued.set(ticket.id, performance.now()) }
+  deliver(ticket: Ticket, assignment: Assignment): void {
+    const at = this.probe.now()
+    if (at !== undefined && !this.deliveryQueued.has(assignment.id)) this.host.store.afterCommit(() => {
+      if (this.deliveryQueued.size >= 5000) { this.deliveryQueued.delete(this.deliveryQueued.keys().next().value!); this.probe.count('delivery_timing_dropped') }
+      this.deliveryQueued.set(assignment.id, at)
+    })
     this.host.effects.enqueue('delivery', ticket.id, { ticketId: ticket.id }) }
   /** Launches a queued assignment unless its ticket ended or a newer assignment replaced it meanwhile. */
   private async launchQueued({ ticketId, assignmentId }: { ticketId: string; assignmentId: string }): Promise<void> {
@@ -422,10 +427,19 @@ export class DshExecutor implements Executor {
         }
         this.host.engine.inputsDelivered(ticketId, assignment.id, [inputId])
         // Queued delivery to the worker Session's acknowledged hand-over; not the start of a model call.
-        const queuedAt = this.deliveryQueued.get(ticketId)
-        if (queuedAt !== undefined) { this.deliveryQueued.delete(ticketId); this.probe.observe('delivery_to_worker', 'internal', Math.max(0, performance.now() - queuedAt)) }
+        const queuedAt = this.deliveryQueued.get(assignment.id)
+        if (queuedAt !== undefined) { this.deliveryQueued.delete(assignment.id); this.probe.observe('delivery_to_worker', 'internal', Math.max(0, (this.probe.now() ?? queuedAt) - queuedAt)) }
       }
     } finally { if (woken) { this.slots.free(ticketId); this.sampleSlots() } }
+  }
+  private historyStamp(ticketId: string, assignmentId: string, requestId: string): void {
+    const at = this.probe.now(), id = this.host.sessions.promptedId(requestId)
+    if (at === undefined || this.historyQueued.has(id)) return
+    if (this.historyQueued.size >= 5000) { this.historyQueued.delete(this.historyQueued.keys().next().value!); this.probe.count('history_timing_dropped') }
+    this.historyQueued.set(id, { at, assignmentId, ticketId })
+  }
+  private clearHistory(assignmentId: string): void {
+    for (const [id, value] of this.historyQueued) if (value.assignmentId === assignmentId) this.historyQueued.delete(id)
   }
   private async deliverInput(ticket: Ticket, assignment: Assignment, input: TicketInput): Promise<void> {
     // Re-check right before session delivery because the ticket may have ended while awaiting `sourceLink`.
@@ -440,7 +454,9 @@ export class DshExecutor implements Executor {
     const message = inputMessage(input, trigger)
     if (message === undefined) return
     const text = message.length > ASSIGNMENT_CHARS ? JSON.stringify(capped(message, ASSIGNMENT_CHARS, inputResource(ticket.id, input.id))) : message
-    await this.host.sessions.prompt(workerSessionId(ticket.id), input.id, text, 'steer', live)
+    this.historyStamp(ticket.id, assignment.id, input.id)
+    try { await this.host.sessions.prompt(workerSessionId(ticket.id), input.id, text, 'steer', live) }
+    catch (error) { this.historyQueued.delete(this.host.sessions.promptedId(input.id)); throw error }
   }
   /** Formats a trigger on `ticket` for the worker, including a preview of the replied-to message when the worker has not yet seen it. */
   private async triggerCard(ticket: Ticket, triggerId: string, note?: string): Promise<object | undefined> {
@@ -463,6 +479,7 @@ export class DshExecutor implements Executor {
     const sessionId = workerSessionId(ticket.id)
     this.host.store.afterCommit(() => {
       // An in-flight launch of the ended assignment cancels: its prepare command's process range stops with it.
+      this.deliveryQueued.delete(assignment.id); this.clearHistory(assignment.id)
       this.launching.get(assignment.id)?.abort()
       this.settling.get(ticket.id)?.abort()
       if (!ownTurn) this.host.context.agents.get(sessionId as SessionId)?.cancel({ kind: 'user' }, { keepInbox: false })
@@ -596,9 +613,11 @@ export class DshExecutor implements Executor {
         ...(read ? { assignment_chars: chars, assignment_read: read } : {}), ...(card ? { trigger: card } : {}),
         ...(batch.length ? { batch } : {}), ...retried })
     const requestId = later ? `assignment:${ticket.id}:${assignment.id}` : first
-    await this.host.sessions.prompt(sessionId, requestId, text, 'queue',
+    this.historyStamp(ticket.id, assignment.id, requestId)
+    try { await this.host.sessions.prompt(sessionId, requestId, text, 'queue',
       () => { if (!current()) throw new Error('Launch authorization changed before worker delivery') },
-      () => { this.host.engine.assignmentStarted(ticket.id, assignment.id) })
+      () => { this.host.engine.assignmentStarted(ticket.id, assignment.id) }) }
+    catch (error) { this.historyQueued.delete(this.host.sessions.promptedId(requestId)); throw error }
     this.host.engine.assignmentStarted(ticket.id, assignment.id)
     } finally { if (this.launching.get(assignment.id) === controller) this.launching.delete(assignment.id) }
   }
@@ -632,6 +651,13 @@ export class DshExecutor implements Executor {
       if (ticketId !== undefined && this.probe.enabled) this.timeline.observe(session.id, event as never)
       if (event.type !== 'user/message' || ticketId === undefined || event.data.source.kind !== 'dsh-superagent' || this.host.closing()) return
       const message = event.data
+      const stamp = this.historyQueued.get(message.id)
+      if (stamp) {
+        this.historyQueued.delete(message.id)
+        const current = this.host.store.tickets.get(ticketId)
+        if (stamp.ticketId === ticketId && current && liveTicket(current) && latestAssignment(current)?.id === stamp.assignmentId && latestAssignment(current)?.state !== 'ended') this.probe.observe('worker_history_receipt', 'internal', Math.max(0, (this.probe.now() ?? stamp.at) - stamp.at))
+        else this.probe.count('history_timing_stale')
+      }
       void this.background(Promise.resolve().then(() => {
         const read = this.host.store.tickets.get(ticketId)?.inputs.filter(input => input.kind === 'trigger' && !input.readAt
           && this.host.sessions.promptedId(input.id) === message.id).map(input => input.id) ?? []
@@ -650,7 +676,7 @@ export class DshExecutor implements Executor {
   dispose(): void {
     for (const dispose of this.disposers.splice(0)) dispose()
     for (const timer of this.timers) clearTimeout(timer)
-    this.timers.clear()
+    this.timers.clear(); this.historyQueued.clear(); this.deliveryQueued.clear()
     for (const controller of this.launching.values()) controller.abort()
     this.launching.clear()
   }

@@ -144,10 +144,10 @@ export class Runtime extends Service implements SourceHost {
       const outbox = this.outbox = new Outbox({ store, effects, sources, commands, paused: () => this.paused(), probe })
       const { assessor, executor } = this
       const policy = () => settingsPolicy(store.settings(), sources)
-      const timeline = new DomainTimeline(probe, () => (this.metrics?.mono ?? performance.now.bind(performance))())
+      const timeline = new DomainTimeline(probe, () => (this.metrics?.mono ?? performance.now.bind(performance))(), 5000, id => store.decisions.get(id)?.evalId)
       const engine = this.engine = new Engine({ repo: store, scope: sources, policy, assessor, executor,
         outbox, prepareTicket: (ticket, outcome) => executor.prepare(ticket, outcome), emit: event => {
-          timeline.observe(event)
+          store.afterCommit(() => timeline.observe(event))
           // Notify the main Session only about domain events it did not initiate itself.
           const notice = this.quiet ? undefined : eventNotice(event, id => store.tickets.get(id))
           if (notice) sessions.notify(...notice)
