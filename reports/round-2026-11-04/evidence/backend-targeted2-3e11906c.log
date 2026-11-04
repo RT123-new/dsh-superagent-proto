@@ -1,0 +1,45 @@
+Already up to date
+Done in 303ms using pnpm v11.7.0
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/backend-review[39m
+
+ [32m✓[39m tests/registry.spec.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+(node:2420) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/review-phase2-late-tools.spec.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 726[2mms[22m[39m
+ [32m✓[39m tests/issue-24-repository-scope.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/issue-21-context.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m tests/review-phase2-record-durability.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 1720[2mms[22m[39m
+     [33m[2m✓[22m[39m SIGKILL of a process rewriting the record never leaves a corrupt authoritative record [33m 1705[2mms[22m[39m
+(node:2544) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/review-db-link-shapes.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 49[2mms[22m[39m
+(node:2551) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/review-ordered-blocked-head.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 13[2mms[22m[39m
+(node:2558) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/review-integration-lock-dispatch.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 667[2mms[22m[39m
+   [33m[2m✓[22m[39m after the state lock is reported compromised, queued effects do not dispatch [33m 344[2mms[22m[39m
+   [33m[2m✓[22m[39m after the state lock is reported compromised, the real outbox reply effect does not send [33m 322[2mms[22m[39m
+(node:2569) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+[90mstdout[2m | tests/issue-22-http-review.spec.ts[2m > [22m[2mrecords bounded populated snapshot payload size and serialization overhead without raw queue IDs
+[22m[39m{"scenario":"48 successful + 48 failed stage/source series, 1024 samples each, 3000 tracked queue IDs","bytes":23941,"averageSerializationMs":2.4504301999999996,"visiblePayloadBytesPerSecondAt5s":4788.2}
+
+ [32m✓[39m tests/issue-22-http-review.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[33m 332[2mms[22m[39m
+(node:2580) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/final-cross-scope-review.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 155[2mms[22m[39m
+(node:2591) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/review-db-flow-snapshot.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 9[2mms[22m[39m
+(node:2598) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/review-db-malformed-reads.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m12 passed[39m[22m[90m (12)[39m
+[2m      Tests [22m [1m[32m57 passed[39m[22m[90m (57)[39m
+[2m   Start at [22m 14:04:44
+[2m   Duration [22m 6.94s[2m (transform 600ms, setup 0ms, import 2.17s, tests 3.74s, environment 1ms)[22m
+

@@ -15,7 +15,7 @@ None. This round's changes are correctness, operator-safety, transport-contract,
 | Random seeds | null |
 | P50 / P95 latency | null |
 | Throughput | null |
-| Correct completion rate | null |
+| Correct completion rate | null. Q is NOT implemented: the mandate's correct-completion-rate formula has no production measurement this round (remaining Stage C work). No correct-completion-rate claim is made anywhere in this package |
 | Missed/duplicate work | null |
 | Model/API cost | null. Zero paid model or API calls this round. The earlier spend figure ($0.001021636 against a $5 authorization) is a historical record of a prior checkpoint only; it is not current paid permission, and this round holds no paid-call authority |
 | CPU/memory/storage overhead | null |
