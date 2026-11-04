@@ -2,8 +2,8 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import { mkdir, readdir, rmdir, stat } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { mkdir, readdir, realpath, rmdir, stat } from 'node:fs/promises'
+import { dirname, join, sep } from 'node:path'
 import { key, latestAssignment, latestReport, liveTicket, runningAssignment, threadKey, waitsForPerson } from '../core/index.ts'
 import type { AssessmentOutcome, Assignment, EngineForExecutor, Execution, Executor, Mandate, PolicyEffect, Ticket, TicketInput, Trigger }
   from '../core/index.ts'
@@ -293,8 +293,25 @@ export class DshExecutor implements Executor {
    * Missing/corrupt legacy state with configured preparation fails closed when work exists: generic readiness cannot be inferred.
    * verifyDirectory checks credential safety only and cannot certify application readiness.
    */
+  /** Fail closed when an existing workspace path escapes its execution root through a symlink or other alias.
+   * Both sides are realpath-resolved, so an execution root that is itself a symlink still works; the resolved
+   * workspace must equal the resolved root or sit beneath it. This is application-level containment checked before
+   * launch, not an OS security boundary: an alias swapped in after this check (TOCTOU) is not defended.
+   */
+  private async assertWorkspaceContained(directory: string): Promise<void> {
+    if (!directory) return
+    const [realDir, realRoot] = await Promise.all([
+      realpath(directory).then(value => value, () => null),
+      realpath(dirname(directory)).then(value => value, () => null),
+    ])
+    if (realDir === null || realRoot === null) return
+    if (realDir !== realRoot && !realDir.startsWith(realRoot + sep)) {
+      throw new PrepareFailed(`The workspace ${directory} resolves outside its execution root (${realDir} is not under ${realRoot}). A symlink or alias at the workspace path points elsewhere. Files were preserved and nothing was run. Inspect the path and remove the alias before retrying.`)
+    }
+  }
   private async prepared(ticket: Ticket): Promise<boolean> {
     const directory = ticket.execution?.directory ?? ''
+    await this.assertWorkspaceContained(directory)
     if (this.uncertainPreparations.has(ticket.id)) throw new PrepareFailed('Preparation process ownership is unresolved; stop the host and inspect the workspace before retrying.')
     const inspected = await inspectPreparation(this.host.machine.stateDir, ticket.execution?.name ?? '')
     if (inspected.kind === 'unreadable') throw new PrepareFailed(`The preparation record is unreadable (${inspected.reason}). Files were preserved and the prepare command was not run. Inspect or restore the record under the state directory, or move the workspace aside, before retrying.`)
@@ -320,6 +337,7 @@ export class DshExecutor implements Executor {
    */
   private async prepareDirectory(ticket: Ticket, cancel: AbortSignal): Promise<void> {
     const directory = ticket.execution?.directory ?? ''
+    await this.assertWorkspaceContained(directory)
     const name = ticket.execution?.name ?? ''
     const identity = this.identity()
     // A lost `failed`/`cancelled` record reads as unprepared at the next launch, which is safe for ordinary failures; the

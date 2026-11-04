@@ -496,6 +496,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/review-phase2-jsonl-kill.spec.ts` | Final review: delivery history over the real JSONL backend with a real SIGKILL of the writer |
 | `tests/review-phase2-agent-loop-kill.spec.ts` | Final review: real agent loop + real JSONL backend, real SIGKILL, restart resume and delivery; prefix sweep over the log (offline model) |
 | `tests/review-phase2-delivery-requeue.spec.ts` | Final review: AgentDelivery re-queue branches (idle, running, inject, throw-after-remove retry, revoked retry) on a fake agent |
+| `tests/review-phase9-symlink-containment.spec.ts` | Final review: workspace symlink/alias containment - an existing workspace path resolving outside its execution root fails closed (ticket failed, files preserved); root-itself-symlink supported |
 | `tests/issue-4-workspace-preparation.spec.ts` | Workspace preparation state: retries after failed and interrupted preparations, configuration invalidation, fail-closed legacy migration, timeout |
 | `tests/issue-5-preparation-cancellation.spec.ts` | Cancellation of a launch at every asynchronous boundary, and the settle a replacement Assignment waits for |
 | `tests/http.spec.ts` | The same-origin and loopback checks, the status of each kind of failure, the body limit, path parameters and queries |
