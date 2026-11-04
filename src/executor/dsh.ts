@@ -263,6 +263,7 @@ export class DshExecutor implements Executor {
     this.probe = host.probe ?? new ProbeImpl(undefined)
     this.slots = new WorkerSlots(() => host.store.tickets.open().filter(ticket => this.running(ticket)).map(ticket => ticket.id),
       () => host.store.settings().executor.maxWorkers)
+    this.sampleSlots()
     // Each launch reserves a worker slot so launches run concurrently while slots are free.
     host.effects.handle('launch', payload => this.launchQueued(payload), { limit: () => host.paused() ? 0 : this.slots.launches(),
       retry: [5000, 300_000] })
@@ -500,7 +501,7 @@ export class DshExecutor implements Executor {
     return this.host.context.agents.get(workerSessionId(ticket.id) as SessionId)?.status === 'running' || this.settling.has(ticket.id)
   }
   /** Records the disjoint slot states and configured capacity; called wherever a reservation or a worker's running state changes. */
-  private sampleSlots(): void {
+  sampleSlots(): void {
     if (!this.probe.enabled) return
     try { const { capacity, busy, preparing } = this.slots.states(); this.probe.slots('worker', capacity, { busy, preparing }) } catch { this.probe.count('metrics_error') }
   }
@@ -552,7 +553,7 @@ export class DshExecutor implements Executor {
       catch (error) {
         if (error instanceof PreparationCancelled) { outcome = 'cancelled'; this.probe.count('prepare_cancelled'); return }
         throw error
-      } finally { if (outcome !== 'cancelled') stopPrepare(outcome === 'ok' ? 'ok' : 'failed'); if (this.preparing.get(ticket.id) === settle) this.preparing.delete(ticket.id) }
+      } finally { stopPrepare(outcome === 'ok' ? 'ok' : 'failed'); if (this.preparing.get(ticket.id) === settle) this.preparing.delete(ticket.id) }
       if (!current()) return
     }
     if (!current()) return

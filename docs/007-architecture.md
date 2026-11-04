@@ -429,6 +429,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/followups.spec.ts` | A person's follow-up on a Ticket's Thread: its notice to the main Session, the tools that act on it, what a burst costs; a worker's hand-back and context follow, and the main Session's note |
 | `tests/health.spec.ts` | One health entry per part, each cleared by its own next success |
 | `tests/issue-9-adversarial.spec.ts` | Independent metric reconciliation, validation, bounds and snapshot tests |
+| `tests/issue-9-hooks-adversarial.spec.ts` | Independent production metric hook boundaries and isolation tests. |
 | `tests/issue-9-hooks.spec.ts` | The metrics hooks: failure isolation, disjoint slot states, effect timings, intake timing and usage attribution |
 | `tests/issue-9-metrics.spec.ts` | The metrics collector's quantiles, bounded labels, monotonic timing, slot integrals, queue gauge and unknown-stays-unknown token accounting |
 | `tests/delivery.spec.ts` | `AgentDelivery` |

@@ -130,7 +130,7 @@ export class Runtime extends Service implements SourceHost {
         closing: () => this.closing(), environment,
         tools: (agent, ticket) => ticket ? executorTools(this.toolHost, ticket) : mainTools(this.toolHost, agent) })
       const policyChanged: EngineForSettings['policyChanged'] = (from, to, effects) => { this.engine.policyChanged(from, to, effects) }
-      this.settings = new Settings({ store, sources, engine: { policyChanged }, health: board, context: ctx, lifetime: this.lifetime, sessions,
+      this.settings = new Settings({ executorChanged: () => this.executor.sampleSlots(), store, sources, engine: { policyChanged }, health: board, context: ctx, lifetime: this.lifetime, sessions,
         sourceHost: this, setup, requestPass: () => { this.passes.request() } })
       this.executor = new DshExecutor({ context: ctx, get engine() { return runtime.engine }, store, effects, health: board.claim('worker'), machine,
         lifetime: this.lifetime, probe, sessions, closing: () => this.closing(), paused: () => this.paused(),
@@ -181,8 +181,8 @@ export class Runtime extends Service implements SourceHost {
   /** A point-in-time metrics snapshot, or undefined when instrumentation is off. Reconciles authoritative queue lengths just before reading. */
   metricsSnapshot(): MetricsSnapshot | undefined {
     if (!this.metrics) return undefined
-    this.effects.measure()
-    return this.metrics.snapshot()
+    try { this.effects.measure(); return this.metrics.snapshot() }
+    catch { this.probe.count('metrics_error'); return undefined }
   }
   get health(): Readonly<Record<string, Health>> { return this.board.all }
   /** Aborted when dsh-superagent stops or loses its state directory lock, cancelling running reads and subprocesses. */

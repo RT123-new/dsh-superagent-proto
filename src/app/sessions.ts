@@ -117,15 +117,25 @@ export class Sessions {
     })
     // Provider-reported usage of each committed assistant message, by component. Only this terminal event carries usage (no stream
     // deltas), and each message object is counted once; a message missing usage is counted as an unknown report.
-    const counted = new WeakSet<object>()
+    // Bounded stable settlement identities, not object identities: reconstructed/replayed events must not bill twice.
+    // Once full, stop collecting new usage rather than silently evict old identities and double count replays.
+    const counted = new Set<string>()
     ctx.on('session/event', (session, event) => {
-      if (event.type === 'assistant/message' && this.host.probe?.enabled && !counted.has(event.data.message)) {
-        counted.add(event.data.message)
+      if (event.type === 'assistant/message' && this.host.probe?.enabled) {
         const known = ctx.agents.get(session.id)
         const bound = known ? this.bindings.get(known) : undefined
-        const component = session.id === this.host.masterId ? 'coordinator' : !bound ? 'unknown' : bound.subagent ? 'subagent' : 'worker'
-        const usage = event.data.usage
-        this.host.probe.usage(component, usage && { inputCacheMiss: usage.inputTokens, inputCacheHit: usage.cacheReadTokens, output: usage.outputTokens, cacheWrite: usage.cacheWriteTokens, reasoning: usage.reasoningTokens })
+        const component = session.id === this.host.masterId ? 'coordinator' : bound?.subagent ? 'subagent' : bound && known && this.ticketOf(known) ? 'worker' : undefined
+        if (component) {
+          const identity = JSON.stringify([session.id, event.data.turn, event.data.step, event.data.message.id])
+          if (!counted.has(identity)) {
+            if (counted.size >= 10_000) this.host.probe.count('usage_identity_overflow')
+            else {
+              counted.add(identity)
+              const usage = event.data.usage
+              this.host.probe.usage(component, usage && { inputCacheMiss: usage.inputTokens, inputCacheHit: usage.cacheReadTokens, output: usage.outputTokens, cacheWrite: usage.cacheWriteTokens, reasoning: usage.reasoningTokens })
+            }
+          }
+        }
       }
       const agent = ctx.agents.get(session.id)
       const binding = agent && agent.session === session ? this.bindings.get(agent) : undefined

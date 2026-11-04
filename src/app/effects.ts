@@ -38,7 +38,7 @@ interface Handler<K extends EffectKind> {
 type Options<K extends EffectKind> = Partial<Pick<Handler<K>, 'limit' | 'retry' | 'ordered' | 'quiet'>>
 /** `seq` preserves the row's queue position; `generation` increments on payload updates so a running attempt does not delete a newer payload. */
 interface Row { key: string; value: string; seq: number; generation: number; attempts: number; due: number; since?: string }
-type Task = { kind: EffectKind; key: string; done: Promise<void> }
+type Task = { kind: EffectKind; key: string; generation: number; done: Promise<void> }
 
 /**
  * Durable SQLite-backed queue that persists side effects inside command transactions and dispatches them after commit.
@@ -76,7 +76,12 @@ export class Effects {
   /** Reports the authoritative number of waiting effect rows (all kinds) to the metrics collector; call immediately before reading a snapshot. */
   measure(): void {
     if (!this.probe.enabled) return
-    try { this.probe.queueLength('effect', Number((this.store.db.prepare('SELECT COUNT(*) AS total FROM effect').get() as { total?: number } | undefined)?.total ?? 0)) } catch { this.probe.count('metrics_error') }
+    try {
+      const total = Number(this.store.db.prepare('SELECT COUNT(*) AS total FROM effect').get()?.total ?? 0)
+      const exists = this.store.db.prepare('SELECT 1 FROM effect WHERE kind = ? AND key = ? AND generation = ?')
+      const running = [...this.tasks].filter(task => exists.get(task.kind, task.key, task.generation)).length
+      this.probe.queueLength('effect', Math.max(0, total - running))
+    } catch { this.probe.count('metrics_error') }
   }
   pending(kind: EffectKind, key?: string): boolean {
     return key === undefined ? !!this.store.db.prepare('SELECT 1 FROM effect WHERE kind = ? LIMIT 1').get(kind) : !!this.store.db.prepare('SELECT 1 FROM effect WHERE kind = ? AND key = ?').get(kind, key)
@@ -127,7 +132,7 @@ export class Effects {
     }
   }
   private run(kind: EffectKind, handler: Handler<never>, row: Row): void {
-    const task: Task = { kind, key: row.key, done: Promise.resolve() }
+    const task: Task = { kind, key: row.key, generation: row.generation, done: Promise.resolve() }
     task.done = this.attempt(kind, handler, row)
       .catch((error: unknown) => { this.failed(kind, error) })
       .finally(() => { this.tasks.delete(task); this.kick() })
