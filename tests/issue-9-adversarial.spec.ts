@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { Metrics, QueueGauge, SlotIntegrator } from '../src/infra/metrics.ts'
 
 const pricing = {inputCacheHitPerM: 0.006, inputCacheMissPerM: 0.3, outputPerM: 1.2}
-const usage = {inputCacheHit: 0, inputCacheMiss: 100, output: 10}
+const usage = {inputCacheHit: 0, inputCacheMiss: 100, output: 10,cacheWrite:0}
 describe('independent collector review', () => {
   it('invalidates reconciled depth after tracked or untracked queue changes', () => {
     const q = new QueueGauge(() => 0,1)
@@ -52,4 +52,20 @@ describe('independent collector review', () => {
     for (const n of [NaN,Infinity,-1,1.5]) expect(()=>m.count('requests',n)).toThrow()
     expect(m.snapshot().counters.requests).toBeUndefined()
   })
+  it('separates failed timers from success quantiles and keeps completion idempotent', () => {
+    let now=0; const m=new Metrics({mono:()=>now})
+    const stop=m.timer('tool_run','github'); now=100; stop('failure'); now=200; stop('success')
+    m.observe('tool_run','github',10)
+    expect(m.snapshot().durations['tool_run|github']?.p95Ms).toBe(10)
+    expect(m.snapshot().failedDurations['tool_run|github']?.p95Ms).toBe(100)
+    expect(m.snapshot().failedDurations['tool_run|github']?.count).toBe(1)
+  })
+  it('treats absent cache-write usage as unknown instead of inventing zero', () => {
+    const m=new Metrics()
+    expect(m.recordUsage({inputCacheHit:0,inputCacheMiss:100,output:1},pricing).costUsd).toBeNull()
+  })
+  it('bounds pool label length', () => {
+    expect(()=>new Metrics().slotPool('x'.repeat(100000),1)).toThrow()
+  })
+
 })

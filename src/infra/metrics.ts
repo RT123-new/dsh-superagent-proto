@@ -72,6 +72,7 @@ export class SlotIntegrator {
   private cap: number
   constructor(private readonly mono: MonoClock, capacity: number, states: readonly string[] = ['preparing', 'busy']) {
     if (!Number.isInteger(capacity) || capacity < 0) throw new RangeError(`capacity ${capacity} must be a non-negative integer`)
+    if (!states.length || states.length > 8 || new Set(states).size !== states.length || states.some(s => !/^[a-z][a-z0-9_]{0,47}$/.test(s))) throw new RangeError('slot states must be 1-8 distinct bounded labels')
     this.states = [...states]; this.cap = capacity
     for (const s of this.states) { this.counts.set(s, 0); this.activeSlotMs.set(s, 0) }
     this.begin = this.last = mono()
@@ -118,21 +119,26 @@ export class SlotIntegrator {
  * tracked cannot be deduplicated or dequeued, so the gauge becomes `incomplete`: `trackedDepth` and `oldestAgeMs` (over tracked
  * ids) are lower bounds / partial. A hook can restore exactness by passing the authoritative queue length to
  * `reconcile(n)`: if n equals the tracked count no untracked ids exist and the gauge is complete again; otherwise `depth` reports n
- * and stays incomplete. `dropped` counts dropped enqueue attempts (informational only, never added to depth).
+ * and stays incomplete. Membership changes invalidate a reconciled length. Smaller reconciled counts discard stale
+ * identities whose current membership cannot be recovered from length alone. `dropped` counts dropped enqueue attempts (informational only, never added to depth).
  */
 export class QueueGauge {
   private readonly live = new Map<string, number>()
   private dropped_ = 0
   private incomplete_ = false
   private authoritative: number | undefined
-  constructor(private readonly mono: MonoClock, private readonly cap = 10_000) {}
+  constructor(private readonly mono: MonoClock, private readonly cap = 10_000) {
+    if (!Number.isInteger(cap) || cap < 1 || cap > 10_000) throw new RangeError('queue capacity must be an integer from 1 to 10000')
+  }
   enqueue(id: string): void {
     if (this.live.has(id)) return
+    this.authoritative = undefined
     if (this.live.size >= this.cap) { this.dropped_++; this.incomplete_ = true; return }
     this.live.set(id, this.mono())
   }
   /** Returns the wait in ms, or undefined if id is not tracked (never seen, dropped, or already dequeued). */
   dequeue(id: string): number | undefined {
+    this.authoritative = undefined
     const at = this.live.get(id)
     if (at === undefined) return undefined
     this.live.delete(id)
@@ -141,11 +147,14 @@ export class QueueGauge {
   /** Supply the authoritative current queue length from the owning queue (read time). */
   reconcile(authoritativeLength: number): void {
     if (!Number.isInteger(authoritativeLength) || authoritativeLength < 0) throw new RangeError('authoritative length must be a non-negative integer')
-    if (authoritativeLength === this.live.size) { this.incomplete_ = false; this.authoritative = undefined } else if (this.incomplete_ || authoritativeLength > this.live.size) { this.incomplete_ = true; this.authoritative = authoritativeLength } else { this.authoritative = authoritativeLength }
+    // A length cannot identify stale members. Discard their identities and ages rather than claim a false bound.
+    if (authoritativeLength < this.live.size) this.live.clear()
+    if (authoritativeLength === this.live.size) { this.incomplete_ = false; this.authoritative = undefined }
+    else { this.incomplete_ = true; this.authoritative = authoritativeLength }
   }
   get trackedDepth(): number { return this.live.size }
   /** Exact only when `complete` or after reconcile(n); otherwise a lower bound equal to the tracked count. */
-  get depth(): number { return this.authoritative !== undefined ? Math.max(this.authoritative, this.live.size) : this.live.size }
+  get depth(): number { return this.authoritative !== undefined ? this.authoritative : this.live.size }
   get complete(): boolean { return !this.incomplete_ && this.authoritative === undefined }
   get dropped(): number { return this.dropped_ }
   /** Oldest tracked age; null when nothing tracked. When not complete this is only the oldest TRACKED item. */
@@ -176,6 +185,7 @@ export class Metrics {
   readonly wall: WallClock
   private readonly window: number
   private readonly series = new Map<string, Series>()
+  private readonly failedSeries = new Map<string, Series>()
   private readonly started: number
   private readonly counters = new Map<string, number>()
   private readonly tokens = { sums: { inputCacheHit: 0, inputCacheMiss: 0, output: 0 }, known: { inputCacheHit: 0, inputCacheMiss: 0, output: 0 }, unknown: { inputCacheHit: 0, inputCacheMiss: 0, output: 0 }, reports: 0, costUsd: 0, costKnown: 0, costUnknown: 0, extra: { cacheWrite: 0, reasoning: 0 }, extraKnown: { cacheWrite: 0, reasoning: 0 } }
@@ -185,7 +195,9 @@ export class Metrics {
   constructor(opts: MetricsOptions = {}) {
     this.mono = opts.mono ?? (() => performance.now())
     this.wall = opts.wall ?? (() => Date.now())
-    this.window = Math.max(1, opts.window ?? 1024)
+    const window = opts.window ?? 1024
+    if (!Number.isInteger(window) || window < 1 || window > 10_000) throw new RangeError('sample window must be an integer from 1 to 10000')
+    this.window = window
     this.started = this.wall()
   }
 
@@ -193,22 +205,24 @@ export class Metrics {
   static source(s: string | undefined): Source { return s !== undefined && sourceSet.has(s) ? (s as Source) : 'other' }
 
   /** Record a measured local duration (ms). Negative/NaN values are rejected and counted as `invalid_duration`. */
-  observe(stage: string, source: string | undefined, ms: number): void {
+  observe(stage: string, source: string | undefined, ms: number, outcome: 'success' | 'failure' = 'success'): void {
     if (!Number.isFinite(ms) || ms < 0) { this.count('invalid_duration'); return }
     const key = `${Metrics.stage(stage)}|${Metrics.source(source)}`
-    let s = this.series.get(key)
-    if (!s) { s = new Series(this.window); this.series.set(key, s) }
+    const series = outcome === 'failure' ? this.failedSeries : this.series
+    let s = series.get(key)
+    if (!s) { s = new Series(this.window); series.set(key, s) }
     s.add(ms)
   }
 
   /** Start a timer; the returned function stops it, records, and returns the duration. Idempotent: second call returns the first result. */
-  timer(stage: string, source?: string): () => number {
+  timer(stage: string, source?: string): (outcome?: 'success' | 'failure') => number {
     const t0 = this.mono()
     let done: number | undefined
-    return () => { if (done === undefined) { done = Math.max(0, this.mono() - t0); this.observe(stage, source, done) } return done }
+    return (outcome = 'success') => { if (done === undefined) { done = Math.max(0, this.mono() - t0); this.observe(stage, source, done, outcome) } return done }
   }
 
   count(name: string, by = 1): void {
+    if (!Number.isSafeInteger(by) || by < 0) throw new RangeError('counter increment must be a non-negative safe integer')
     const key = /^[a-z][a-z0-9_]{0,47}$/.test(name) ? name : 'other'
     if (!this.counters.has(key) && this.counters.size >= 64) { this.counters.set('other', (this.counters.get('other') ?? 0) + by); return }
     this.counters.set(key, (this.counters.get(key) ?? 0) + by)
@@ -221,6 +235,7 @@ export class Metrics {
   }
 
   slotPool(name: string, capacity: number, states?: readonly string[]): SlotIntegrator {
+    if (!/^[a-z][a-z0-9_]{0,47}$/.test(name)) throw new RangeError('pool name must be a bounded label')
     let p = this.slots.get(name); if (!p) { if (this.slots.size >= 8) throw new RangeError('too many slot pools'); p = new SlotIntegrator(this.mono, capacity, states); this.slots.set(name, p) }
     return p
   }
@@ -240,10 +255,11 @@ export class Metrics {
     for (const c of EXTRA) { const v = usage[c]; if (valid(v)) { t.extra[c] += v; t.extraKnown[c]++ } }
     const writes = usage.cacheWrite
     const writeOk = valid(writes) ? (writes === 0 || pricing?.cacheWritePerM !== undefined) : writes === undefined || writes === null ? true : false
-    // A report that says nothing about cache writes is treated as billed-unknown only when the caller set cacheWrite to null explicitly.
-    const writeUnknown = writes === null
-    if (!pricing || !allKnown || !writeOk || writeUnknown) { t.costUnknown++; return { costUsd: null } }
+    // Absent cache writes are unknown. Provider-backed normalization must pass an explicit zero when absence means no billing.
+    const writeUnknown = writes === null || writes === undefined
+    if (!pricing || ![pricing.inputCacheHitPerM, pricing.inputCacheMissPerM, pricing.outputPerM].every(valid) || (pricing.cacheWritePerM !== undefined && !valid(pricing.cacheWritePerM)) || !allKnown || !writeOk || writeUnknown) { t.costUnknown++; return { costUsd: null } }
     const cost = (usage.inputCacheHit! * pricing.inputCacheHitPerM + usage.inputCacheMiss! * pricing.inputCacheMissPerM + usage.output! * pricing.outputPerM + (valid(writes) ? writes * (pricing.cacheWritePerM ?? 0) : 0)) / 1e6
+    if (!valid(cost)) { t.costUnknown++; return { costUsd: null } }
     t.costUsd += cost; t.costKnown++
     return { costUsd: cost }
   }
@@ -251,13 +267,19 @@ export class Metrics {
   snapshot(): MetricsSnapshot {
     const durations: Record<string, DurationSummary> = {}
     for (const [k, s] of [...this.series].sort(([a], [b]) => (a < b ? -1 : 1))) durations[k] = s.summary()
+    const failedDurations: Record<string, DurationSummary> = {}
+    for (const [k, s] of this.failedSeries) failedDurations[k] = s.summary()
     const queues: MetricsSnapshot['queues'] = {}
     for (const [k, q] of this.queues) queues[k] = { depth: q.depth, trackedDepth: q.trackedDepth, depthComplete: q.complete, oldestAgeMs: q.oldestAgeMs(), oldestAgeIsLowerBound: !q.complete, dropped: q.dropped }
     const slots: MetricsSnapshot['slots'] = {}
-    for (const [k, p] of this.slots) slots[k] = { capacity: p.capacity, integrals: p.integrals(), utilization: p.utilization() }
+    for (const [k, p] of this.slots) {
+      const integrals = p.integrals()
+      const active = Object.values(integrals.activeSlotMs).reduce((sum, value) => sum + value, 0)
+      slots[k] = { capacity: p.capacity, integrals, utilization: integrals.capacitySlotMs > 0 ? active / integrals.capacitySlotMs : null }
+    }
     const t = this.tokens, anyKnown = CATS.map((c) => t.known[c])
     return {
-      version: 1, sinceWallMs: this.started, atWallMs: this.wall(), window: this.window, durations, queues, slots,
+      version: 1, sinceWallMs: this.started, atWallMs: this.wall(), window: this.window, durations, failedDurations, queues, slots,
       counters: Object.fromEntries([...this.counters].sort(([a], [b]) => (a < b ? -1 : 1))),
       tokens: {
         reports: t.reports,
@@ -277,6 +299,7 @@ export class Metrics {
 export interface MetricsSnapshot {
   version: 1; sinceWallMs: number; atWallMs: number; window: number
   durations: Record<string, DurationSummary>
+  failedDurations: Record<string, DurationSummary>
   queues: Record<string, { depth: number; trackedDepth: number; depthComplete: boolean; oldestAgeMs: number | null; oldestAgeIsLowerBound: boolean; dropped: number }>
   slots: Record<string, { capacity: number; integrals: ReturnType<SlotIntegrator['integrals']>; utilization: number | null }>
   counters: Record<string, number>
