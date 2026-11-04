@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -58,8 +58,10 @@ it('upgrades an existing stale link table once and catches direct REPLACE and id
 
 for(const mode of ['uncommitted','committed'])it(`SIGKILL after ${mode} save preserves decision/link atomicity`,()=>{
  let s=setup();s.decisions.save(decision(['a']));s.close();store=undefined
- const killed=spawnSync('pnpm',['exec','tsx','scripts/storage/review-crash.ts',join(root,'db'),mode],{cwd:process.cwd(),encoding:'utf8'})
- expect(killed.signal === 'SIGKILL' || killed.status !== 0).toBe(true)
+ const tsx=realpathSync(spawnSync('pnpm',['exec','which','tsx'],{cwd:process.cwd(),encoding:'utf8'}).stdout.trim())
+ const killed=spawnSync(process.execPath,['--import',tsx.replace(/cli\.mjs$/, 'loader.mjs'),'scripts/storage/review-crash.ts',join(root,'db'),mode],{cwd:process.cwd(),encoding:'utf8'})
+ expect(killed.stdout).toContain(`SAVE_BOUNDARY:${mode}\n`)
+ expect(killed.signal).toBe('SIGKILL')
  s=new Store(join(root,'db'));store=s
  const expected=mode==='committed'?'b':'a'
  expect(s.decisions.get('d')?.triggerIds).toEqual([expected])
@@ -77,4 +79,14 @@ it('flow forces the time-window index even after adding a decision-side maintena
   expect(plan).toMatch(/SEARCH t USING INDEX trigger_at/)
   expect(plan).not.toMatch(/SCAN d/)
  }
+})
+
+it('helper setup failure cannot satisfy the SIGKILL boundary evidence',()=>{
+ const s=setup();s.close();store=undefined
+ const tsx=realpathSync(spawnSync('pnpm',['exec','which','tsx'],{cwd:process.cwd(),encoding:'utf8'}).stdout.trim())
+ const failed=spawnSync(process.execPath,['--import',tsx.replace(/cli\.mjs$/, 'loader.mjs'),'scripts/storage/review-crash.ts',join(root,'db'),'helper-failure'],{cwd:process.cwd(),encoding:'utf8'})
+ expect(failed.status).not.toBe(0)
+ expect(failed.signal).not.toBe('SIGKILL')
+ expect(failed.stdout).not.toContain('SAVE_BOUNDARY:')
+ expect(failed.stderr).toContain('Deliberate helper failure')
 })
