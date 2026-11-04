@@ -157,3 +157,13 @@ it('characterization: after stopTicket with no ensure in flight the worker Sessi
   await h.runtime.idle()
   expect(names(sessionId).length).toBe(before)
 })
+it('a report made while the replacement assignment is still pending (no worker turn of it can exist yet) is refused and records nothing', async () => {
+  h = await startRuntime()
+  const { ticket, sessionId } = await h.acceptedTicket(feishu('1', '@bot fix'))
+  const first = h.runtime.store.tickets.get(ticket.id)!.assignments.at(-1)!
+  h.runtime.engine.assignmentInterrupted(ticket.id, first.id)
+  expect(h.runtime.store.tickets.get(ticket.id)!.assignments.map(a => a.state)).toEqual(['ended', 'pending'])
+  const outcome = await h.runTool(sessionId, 'orchestrator_report', { state: 'progress', summary: 'old turn while pending' }).then(() => 'recorded', (e: Error) => `refused: ${e.message}`)
+  expect(JSON.stringify(h.runtime.store.tickets.get(ticket.id))).not.toContain('old turn while pending')
+  expect(outcome).toMatch(/^refused/)
+})
