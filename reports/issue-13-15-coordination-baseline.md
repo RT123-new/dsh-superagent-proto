@@ -37,12 +37,20 @@ pairs, 10 000-sample paired bootstrap on P95 queue age:
 
 **Relative improvement 85.6 %, CI95 [85.4 %, 85.8 %]** — far above the 15 % adoption threshold (9.3).
 
-Proposed boundary (needs integrator design sign-off, not implemented): relay payloads already carry the ticket/request
-they concern — thread that identity into the effect key at enqueue (`relay:<ticketId>:<requestId>`) and partition on it.
-Notices partition by name (they already coalesce by name). `reply` already has a per-ticket+conversation boundary
-(outbox receipts.behind) and stays as is. All relays target one main Session; partitioning changes delivery interleave
-order across conversations, not within one. If the main Session truly requires a single global order, the fallback is
-failure isolation: skip-and-dead-letter a repeatedly failing head (visible, never silent) instead of partitioning.
+Decision (after AgentDelivery boundary investigation, integrator and mandate ruling): **no partitioning of the shared
+main-Session stream.** src/app/delivery.ts shows each relay/notice is an independent idempotent append keyed
+`dsh-superagent:<requestId>`, deduped across live inbox and persisted history, individually flushed before ack, so
+parallel writes cannot corrupt the Session transport — but relays and settings-revision notices are context the
+coordinator model reads in order, and transport safety does not prove decision-quality safety. The mandate's rule
+("keep a single ordered stream wherever the underlying DeepSeek Session requires one; do not parallelise writes to one
+Session without proving its delivery semantics support that") is therefore kept for relay/notice. The 85.6 % partition
+result above stands as the measured cost of head-of-line blocking, motivating failure isolation instead:
+the Issue 15 seam (branch review/issue-15-retry-seam) parks permanently-failing rows visibly instead of letting them
+hold the stream. Remaining gap for a later proposal: a transiently failing head still blocks its ordered kind for its
+backoff schedule — options are faster failure classification at the source and a visible blocked-item surface with
+explicit person/policy rearm authority, never auto-discard. The partition candidate remains available should an actual
+per-Session consistency proof ever justify it. `reply` keeps its existing per-ticket+conversation boundary
+(outbox receipts.behind). External conversations and the shared coordinator are distinct boundaries.
 
 ## Issue 15 — retry backoff: three faults proven, candidate verified
 
@@ -63,8 +71,15 @@ and burst desynchronization (50 correlated failures spread over [0.5·a, a]; wor
 0.75·a, no systematic added delay). Idempotency is unchanged: at-least-once handler runs remain protected by the
 existing idempotency keys (requestId / receipts); classification only stops retries that can never succeed.
 
-Production seam proposal (not implemented): classify in `attempt()`'s failure path; store `serverNotBefore` when a
-handler throws an error carrying one; keep configured `[base, max]` per kind as d_base/d_max per the mandate.
+Production seam: **implemented** on branch review/issue-15-retry-seam @ 6ae148f (base e50b32b): src/app/retry-policy.ts
++ the attempt() failure path, exactly this formula with per-kind configured base/max preserved, injectable seeded RNG,
+structured error records on the row (class/message/status/retryAfter), and transport-only retryAfter authority.
+Blocked-park semantics (integrator clarification): a parked permanent/unauthorised row must NOT re-run its operation on
+a timer — no hourly re-execution without changed authority. The merged seam's hourly recheck is superseded by:
+park until explicit rearm (re-enqueue of the key resets attempts/due through the existing upsert; a config/policy
+rearm path to be documented with the dashboard surface). Parked rows stay in the table, carry `blocked:<class>`,
+surface an immediate error health entry, and are never silently discarded; policy-transition effects are named
+explicitly in this rule. (Patch held while the independent reviewer tests the seam hunks.)
 
 ## Issue 13 — coordinator load: baseline profiled
 
@@ -93,7 +108,8 @@ by name; relay reports are per-event) is a candidate for later measurement, not 
 
 ## Not done / next
 
-- No production edits anywhere; candidates await integrator clearance (hooks integration in flight).
+- Issue 15 production seam implemented on review/issue-15-retry-seam (see above); other areas: no production edits,
+  candidates await integrator clearance.
 - Token-cost measurement needs the live worker's reviewed-tag runs; offline bytes are the proxy only.
 - Issue 13 batching variant (coalescing relays/notices per main-Session turn) not yet simulated.
 - Mandate adversarial checks for these areas: partitioned dispatch must not reorder within a conversation (tested),
