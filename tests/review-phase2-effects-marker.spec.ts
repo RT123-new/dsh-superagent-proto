@@ -43,6 +43,7 @@ describe('effect attempt marker sequences', () => {
     const restarted = open(first.file); restarted.effects.start()    // crash recovery on the same database file
     expect(restarted.effects.attemptUnknown('reply', 'k')).toBe(true)
     expect(row(restarted.store)?.error).toContain('503'); expect(row(restarted.store)?.error).toContain(ATTEMPT_UNKNOWN)
+    expect(restarted.effects.blocked('reply').map(item => item.key)).toEqual(['k'])
   })
 
   it('unknown is sticky across later failures and repeated crashes, and appears exactly once; success clears the row', async () => {
@@ -51,16 +52,25 @@ describe('effect attempt marker sequences', () => {
     const b = open(a.file); b.effects.start()
     expect(b.effects.attemptUnknown('reply', 'k')).toBe(true)
     drive(b.effects, ['fail'])
-    await advance(b.effects)                                        // attempt after unknown fails
+    await advance(b.effects)
+    expect(row(b.store)?.error).toContain('blocked:unknown_outcome') // no replay without operator consent
+    expect(b.effects.rearm('reply', 'k')).toBe(true)
+    await advance(b.effects)                                        // explicit rearm permits a retry
     expect(row(b.store)?.error).toContain('503')
     expect((row(b.store)?.error.match(/\[attempt-unknown\]/g) ?? []).length).toBe(1)   // still unknown: the earlier attempt's outcome is not known
     expect(row(b.store)?.error).not.toContain(ATTEMPT_STARTED)
     const hung: (() => void)[] = []
-    const c = open(a.file); drive(c.effects, ['hang'], hung); c.effects.start(); await advance(c.effects)
+    const c = open(a.file); drive(c.effects, ['hang'], hung); c.effects.start()
+    expect(c.effects.blocked('reply')).toHaveLength(1)
+    expect(c.effects.rearm('reply', 'k')).toBe(true)
+    await advance(c.effects)
     const d = open(a.file); d.effects.start()                        // second crash during another attempt
     expect((row(d.store)?.error.match(/\[attempt-unknown\]/g) ?? []).length).toBe(1)
     expect(row(d.store)?.error).not.toContain(ATTEMPT_STARTED)
     drive(d.effects, ['ok']); await advance(d.effects)
+    expect(row(d.store)?.error).toContain('blocked:unknown_outcome')
+    expect(d.effects.rearm('reply', 'k')).toBe(true)
+    await advance(d.effects)
     expect(row(d.store)).toBeUndefined()                             // a recorded success clears it
   })
 
@@ -86,6 +96,23 @@ describe('effect attempt marker sequences', () => {
     drive(a.effects, ['ok']); a.effects.start(); await a.effects.idle('reply')
     expect(row(a.store)).toBeUndefined()
     expect(a.effects.attemptUnknown('reply', 'k')).toBe(false)
+  })
+
+  it.each([ATTEMPT_STARTED, ATTEMPT_UNKNOWN])('restart parks a %s reply; dispatch is impossible until explicit rearm', async marker => {
+    const a = open()
+    a.store.db.prepare("INSERT INTO effect (kind, key, value, seq, due, since, attempts, error) VALUES ('reply','k','{}',1,0,?,0,?)")
+      .run(new Date(clock).toISOString(), marker)
+    const sent: string[] = []
+    a.effects.handle('reply', async () => { sent.push('sent') }, { markAttempt: true })
+    a.effects.start()
+    await advance(a.effects)
+    expect(sent).toEqual([])
+    expect(a.effects.blocked('reply').map(item => item.key)).toEqual(['k'])
+    expect(a.effects.attemptUnknown('reply', 'k')).toBe(true)
+    expect(a.effects.rearm('reply', 'k')).toBe(true)
+    await a.effects.idle('reply')
+    expect(sent).toEqual(['sent'])
+    expect(row(a.store)).toBeUndefined()
   })
 
   it('remote failure text containing marker strings cannot spoof unknown or suppress the started marker', async () => {
