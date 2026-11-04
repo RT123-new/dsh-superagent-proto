@@ -100,3 +100,18 @@ it('ensure failing for a ticket that ended releases the tools it registered', as
   expect(ended).toBe(true)
   expect(names(sessionId)).toEqual([])
 })
+it('characterization: on a LIVE ticket whose assignment was replaced, a report from the old turn lands on the new assignment (tools bind to the ticket and its one worker Session, not to an assignment)', async () => {
+  h = await startRuntime()
+  const { ticket, sessionId } = await h.acceptedTicket(feishu('1', '@bot fix'))
+  const first = h.runtime.store.tickets.get(ticket.id)!.assignments.at(-1)!
+  h.runtime.engine.assignmentInterrupted(ticket.id, first.id)
+  await h.runtime.idle()
+  const after = h.runtime.store.tickets.get(ticket.id)!
+  expect(after.assignments.length).toBe(2)
+  expect(after.assignments[0]!.state).toBe('ended')
+  await h.runTool(sessionId, 'orchestrator_report', { state: 'progress', summary: 'from the old turn' })
+  const stored = h.runtime.store.tickets.get(ticket.id)!
+  expect(stored.assignments[0]!.state).toBe('ended')
+  expect(JSON.stringify(stored)).toContain('from the old turn')
+  expect(JSON.stringify(stored.assignments[0])).not.toContain('from the old turn')
+})
