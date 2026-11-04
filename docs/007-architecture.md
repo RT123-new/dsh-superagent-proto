@@ -453,6 +453,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/issue-24-repository-scope.spec.ts` | Foreign same-number URL isolation through candidate cards, local shorthand and one-repository identity limits |
 | `tests/issue-20-adversarial.spec.ts` | Independent decision-link index, SQL-write, migration, rollback, reopen and process-kill proofs |
 | `tests/issue-19-20-storage.spec.ts` | Windowed triggerStats/flow equal the previous full-scan queries; decision link rebuild; index-range plans |
+| `tests/issue-19-retention-review.spec.ts` | Adversarial retention references, archive integrity, alias and race proofs. |
 | `tests/issue-19-retention.spec.ts` | Opt-in retention: eligibility, archive-before-delete, tombstone dedupe, restore, backup and SIGKILL safety |
 | `tests/issue-4-5-adversarial.spec.ts` | Independent regressions for legacy/corrupt state, cancellation during verification, config-change races and descendant quiescence |
 | `tests/issue-4-workspace-preparation.spec.ts` | Workspace preparation state: retries after failed and interrupted preparations, configuration invalidation, fail-closed legacy migration, timeout |
