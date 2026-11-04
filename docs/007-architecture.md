@@ -468,6 +468,8 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/review-db-flow-snapshot.spec.ts` | flow reads judged and accepted from one snapshot while another connection commits |
 | `tests/issue-19-20-storage.spec.ts` | Windowed triggerStats/flow equal the previous full-scan queries; decision link rebuild; index-range plans |
 | `tests/issue-4-5-adversarial.spec.ts` | Independent regressions for legacy/corrupt state, cancellation during verification, config-change races and descendant quiescence |
+| `tests/review-phase2-workspace.spec.ts` | Final review: preparation record unwritable/unreadable/corrupt fail closed before any command runs |
+| `tests/review-phase2-delivery.spec.ts` | Final review: flush failure after acceptance retries without duplicates; revoked authorization never reaches the inbox |
 | `tests/issue-4-workspace-preparation.spec.ts` | Workspace preparation state: retries after failed and interrupted preparations, configuration invalidation, fail-closed legacy migration, timeout |
 | `tests/issue-5-preparation-cancellation.spec.ts` | Cancellation of a launch at every asynchronous boundary, and the settle a replacement Assignment waits for |
 | `tests/http.spec.ts` | The same-origin and loopback checks, the status of each kind of failure, the body limit, path parameters and queries |

@@ -6,7 +6,7 @@
  * and each write is a temporary file atomically renamed over the record, so a crash cannot leave half a record.
  */
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { mkdir, open, readFile, rename } from 'node:fs/promises'
 import { join } from 'node:path'
 
 /**
@@ -57,11 +57,31 @@ export async function readPreparation(stateDir: string, name: string): Promise<P
   } catch { return undefined }
 }
 
+/**
+ * Like `readPreparation`, but distinguishes "no record" (ENOENT) from an unreadable, corrupt or malformed record.
+ * Callers that gate reuse must fail closed on `unreadable`: the record may have said `quiescence: unknown`.
+ */
+export async function inspectPreparation(stateDir: string, name: string):
+  Promise<{ kind: 'absent' } | { kind: 'unreadable'; reason: string } | { kind: 'record'; record: PreparationRecord }> {
+  let text: string
+  try { text = await readFile(recordPath(stateDir, name), 'utf8') }
+  catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'ENOENT' ? { kind: 'absent' } : { kind: 'unreadable', reason: String(error) }
+  }
+  const record = await readPreparation(stateDir, name)
+  return record ? { kind: 'record', record } : { kind: 'unreadable', reason: `malformed record (${text.length} bytes)` }
+}
+
 /** Persists preparation state atomically: a temporary file renamed over the record. */
 export async function writePreparation(stateDir: string, name: string, record: PreparationRecord): Promise<void> {
   const file = recordPath(stateDir, name)
   await mkdir(join(stateDir, 'workspaces'), { recursive: true })
   const temporary = `${file}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`
-  await writeFile(temporary, JSON.stringify({ version: 1, ...record }, null, 2) + '\n')
+  // Flush file contents before the rename so a crash cannot expose an empty or partial authoritative record.
+  const handle = await open(temporary, 'w')
+  try { await handle.writeFile(JSON.stringify({ version: 1, ...record }, null, 2) + '\n'); await handle.sync() }
+  finally { await handle.close() }
   await rename(temporary, file)
+  // Synchronise the directory entry where the platform supports it (not supported on Windows: best effort, untested there).
+  try { const dir = await open(join(stateDir, 'workspaces'), 'r'); try { await dir.sync() } finally { await dir.close() } } catch { /* unsupported */ }
 }

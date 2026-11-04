@@ -18,7 +18,7 @@ import { WorktreeNameSchema } from '../app/assessment.ts'
 import { resultRelay } from '../app/notices.ts'
 import type { HealthEntry } from '../infra/health.ts'
 import { cancelled, collectJob, killJobs, runningJobs, stopBackground, stopSubagents, until, untilQuiet } from './background.ts'
-import { preparationIdentity, readPreparation, writePreparation, type PreparationRecord } from './workspace.ts'
+import { inspectPreparation, preparationIdentity, writePreparation, type PreparationRecord } from './workspace.ts'
 import { Probe as ProbeImpl, type Probe } from '../infra/metrics-probe.ts'
 import { SessionTimeline } from '../infra/metrics-lifecycle.ts'
 import { PreparationQuiescenceUnknown, runPreparationCommand } from './preparation-command.ts'
@@ -294,7 +294,10 @@ export class DshExecutor implements Executor {
   private async prepared(ticket: Ticket): Promise<boolean> {
     const directory = ticket.execution?.directory ?? ''
     if (this.uncertainPreparations.has(ticket.id)) throw new PrepareFailed('Preparation process ownership is unresolved; stop the host and inspect the workspace before retrying.')
-    const record = await readPreparation(this.host.machine.stateDir, ticket.execution?.name ?? '')
+    const inspected = await inspectPreparation(this.host.machine.stateDir, ticket.execution?.name ?? '')
+    const exists = await stat(directory).then(value => value.isDirectory(), () => false)
+    if (inspected.kind === 'unreadable' && exists) throw new PrepareFailed(`The preparation record is unreadable (${inspected.reason}). Files were preserved and the prepare command was not run. Inspect or restore the record under the state directory, or move the workspace aside, before retrying.`)
+    const record = inspected.kind === 'record' ? inspected.record : undefined
     if (record?.quiescence === 'unknown') throw new PrepareFailed('Preparation process ownership is unresolved. Stop the host, confirm the prior managed process range has stopped, and inspect the workspace before clearing its preparation record.')
     if (!await stat(directory).then(value => value.isDirectory(), () => false)) return false
     if (record?.directory === directory) return record.state === 'prepared' && record.identity === this.identity()
@@ -317,15 +320,19 @@ export class DshExecutor implements Executor {
     const directory = ticket.execution?.directory ?? ''
     const name = ticket.execution?.name ?? ''
     const identity = this.identity()
-    // A lost `preparing`/`failed`/`cancelled` record reads as unprepared at the next launch, which is safe; the
-    // `prepared` record below must not be lost, so its write failure fails the preparation instead.
+    // A lost `failed`/`cancelled` record reads as unprepared at the next launch, which is safe for ordinary failures; the
+    // `preparing` record (written first, before the command runs) and the `prepared` record must not be lost, so their
+    // write failures fail the preparation. A lost `quiescence: unknown` record is a known residual (see review report).
     const mark = (record: PreparationRecord): Promise<void> =>
       writePreparation(this.host.machine.stateDir, name, record).catch(() => {})
     await mkdir(dirname(directory), { recursive: true })
+    if (cancel.aborted) throw new PreparationCancelled()
+    // Do not start a process range whose ownership cannot be recorded: fail closed before the command runs.
+    await writePreparation(this.host.machine.stateDir, name, { state: 'preparing', identity, directory, at: now() })
+      .catch((error: unknown) => { throw new PrepareFailed(`The preparation state could not be persisted, so the prepare command was not run: ${String(error)}`) })
     const command = this.host.store.settings().executor.prepare.trim()
     const env = Object.fromEntries(this.host.environment(ticket).map(variable => [variable.key, variable.value]))
     if (cancel.aborted) throw new PreparationCancelled()
-    await mark({ state: 'preparing', identity, directory, at: now() })
     // Enforce a timeout so a hung prepare command (such as on a credential prompt) fails the ticket instead of holding a worker slot indefinitely.
     const timeout = AbortSignal.timeout(this.host.prepareTimeoutMs ?? PREPARE_TIMEOUT_MS)
     const signal = AbortSignal.any([this.host.lifetime, timeout, cancel])
