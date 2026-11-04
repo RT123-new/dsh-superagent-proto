@@ -80,17 +80,36 @@ describe('slot integrals', () => {
 })
 
 describe('queue gauge', () => {
-  it('reports depth and oldest age; dequeue returns wait', () => {
+  it('reports exact depth and oldest age while every id is tracked; dequeue returns wait', () => {
     const c = clock(), q = new QueueGauge(c.now, 3)
     expect(q.oldestAgeMs()).toBeNull()
     q.enqueue('a'); c.adv(10); q.enqueue('b'); c.adv(5); q.enqueue('b')
-    expect([q.depth, q.oldestAgeMs()]).toEqual([2, 15])
-    expect(q.dequeue('a')).toBe(15); expect(q.oldestAgeMs()).toBe(5); expect(q.dequeue('zzz')).toBeUndefined()
+    expect([q.depth, q.oldestAgeMs(), q.complete]).toEqual([2, 15, true])
+    expect(q.dequeue('a')).toBe(15); expect(q.oldestAgeMs()).toBe(5); expect(q.dequeue('zzz')).toBeUndefined(); expect(q.dequeue('a')).toBeUndefined()
+    expect(q.depth).toBe(1)
   })
-  it('is bounded: overflow still counts in depth but not stored', () => {
+  it('duplicate untracked ids and unknown dequeues never inflate depth', () => {
     const c = clock(), q = new QueueGauge(c.now, 2)
-    for (const id of ['a', 'b', 'c', 'd']) q.enqueue(id)
-    expect(q.depth).toBe(4); expect(q.overflow).toBe(2); expect(q.dequeue('c')).toBeUndefined()
+    q.enqueue('a'); q.enqueue('b')
+    for (let i = 0; i < 100; i++) q.enqueue('overflow-same-id')
+    expect(q.depth).toBe(2); expect(q.trackedDepth).toBe(2); expect(q.complete).toBe(false); expect(q.dropped).toBe(100)
+    expect(q.dequeue('overflow-same-id')).toBeUndefined(); expect(q.depth).toBe(2)
+    q.dequeue('a'); q.dequeue('b'); expect(q.depth).toBe(0)
+  })
+  it('is flagged incomplete after drops and snapshot marks age as a lower bound', () => {
+    const c = clock(), m = new Metrics({ mono: c.now }), q = m.queue('eval', 1)
+    q.enqueue('a'); q.enqueue('b'); c.adv(7)
+    expect(m.snapshot().queues.eval).toEqual({ depth: 1, trackedDepth: 1, depthComplete: false, oldestAgeMs: 7, oldestAgeIsLowerBound: true, dropped: 1 })
+  })
+  it('reconcile with authoritative length restores exactness or reports it, never adds to it', () => {
+    const c = clock(), q = new QueueGauge(c.now, 1)
+    q.enqueue('a'); q.enqueue('b'); q.enqueue('c')
+    q.reconcile(3); expect(q.depth).toBe(3); expect(q.complete).toBe(false)
+    q.reconcile(3); expect(q.depth).toBe(3)            // idempotent, not accumulated
+    q.dequeue('a'); q.reconcile(0)                      // owner queue drained: nothing untracked remains
+    expect([q.depth, q.complete]).toEqual([0, true])
+    q.enqueue('d'); expect([q.depth, q.complete]).toEqual([1, true])
+    expect(() => q.reconcile(-1)).toThrow()
   })
 })
 
