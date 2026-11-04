@@ -12,7 +12,8 @@ import { feishuRef, feishuTime, feishuTrigger, HistoricalMessageSchema, historyE
   from './feishu-trigger.ts'
 import { health, type SourceContext } from './host.ts'
 import { KV } from '../kv.ts'
-import { cursorAt, POLL_HORIZON_MS, polled, pollThreads as pollEach } from './poll.ts'
+import { cursorAt, POLL_HORIZON_MS, polled, pollThreads as pollEach, reconcileDue, recoverySince } from './poll.ts'
+export { reconcileDue, recoverySince } from './poll.ts'
 import type { FeishuConfig } from './feishu.ts'
 
 export const runFeishu = (ctx: SourceContext, signal: AbortSignal): Promise<unknown> =>
@@ -147,8 +148,16 @@ async function backfillLoop(ctx: SourceContext, signal: AbortSignal): Promise<vo
       const since = ctx.state.get(cursorKey)
       if (since === undefined) { ctx.state.set(cursorKey, started); continue }
       try {
-        await backfillChat(ctx, chatId, direct, since, started, signal, tally)
-        if (!signal.aborted) ctx.state.set(cursorKey, cursorAt(started))
+        // The cursor trails each completed scan by the configured replay window so a message Feishu indexes late is
+        // still scanned; when the reconciliation cadence is due, the round scans the wider horizon instead.
+        const reconcile = reconcileDue(ctx.state.get(KV.feishu.reconcile(chatId)), started, config.reconcileMinutes)
+        const window = recoverySince(since, started, reconcile, config.reconcileHorizonSeconds)
+        await backfillChat(ctx, chatId, direct, window, started, signal, tally)
+        if (!signal.aborted) {
+          // The checkpoint advances only after the whole chat (and its active topics) completed durably.
+          ctx.state.set(cursorKey, cursorAt(started, (config.replaySeconds + 1) * 1000))
+          if (reconcile) ctx.state.set(KV.feishu.reconcile(chatId), started)
+        }
       } catch (error) { if (!signal.aborted) errors.push(`${chatId}: ${String(error)}`) }
     }
     await pollThreads(ctx, signal, tally)
