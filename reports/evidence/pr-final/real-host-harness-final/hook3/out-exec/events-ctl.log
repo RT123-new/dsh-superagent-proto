@@ -1,0 +1,8 @@
+2026-11-04T10:56:28.257Z pid=66082 overlay2 active
+2026-11-04T10:56:28.672Z pid=66082 permissionPresets.set orchestrator-281edc2db75e10ebf7a2d5dcd617f5db danger-full-access
+2026-11-04T10:56:28.773Z pid=66082 permissionPresets.set worker-40d46690dddf0879766992257610385a danger-full-access
+2026-11-04T10:56:28.878Z pid=66082 llm/stream requested #1 signalAborted=false
+2026-11-04T10:56:31.281Z pid=66082 release seen signalAborted=false
+2026-11-04T10:56:31.282Z pid=66082 tool-call chunks emitted signalAborted=false
+2026-11-04T10:56:43.316Z pid=66082 llm/stream requested #2 signalAborted=false
+2026-11-04T10:56:43.316Z pid=66082 release seen signalAborted=false

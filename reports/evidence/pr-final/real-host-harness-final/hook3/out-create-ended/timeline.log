@@ -1,0 +1,6 @@
+2026-11-04T11:02:14.360Z boot1 launched (hang after create)
+2026-11-04T11:02:17.400Z SIGKILL host pids: 67059 
+2026-11-04T11:02:18.408Z after kill, remaining pids: []
+2026-11-04T11:02:53.577Z boot2 launched
+2026-11-04T11:03:15.614Z SIGKILL host pids: 67222 
+2026-11-04T11:03:16.623Z after kill, remaining pids: []

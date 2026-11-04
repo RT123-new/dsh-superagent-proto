@@ -1,0 +1,4 @@
+2026-11-04T11:01:11.903Z pid=66877 overlay2 active
+2026-11-04T11:01:12.071Z pid=66877 permissionPresets.set orchestrator-db1d8c8e10371c7bc3ab0d9331f373ca danger-full-access
+2026-11-04T11:01:12.159Z pid=66877 permissionPresets.set worker-16cb500c279aefc3d6c12631e25caf12 danger-full-access
+2026-11-04T11:01:12.271Z pid=66877 llm/stream requested #1 signalAborted=false

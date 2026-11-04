@@ -1,0 +1,3 @@
+- insert:
+    - id: review-overlay2
+      name: /tmp/overlay2/index.mjs

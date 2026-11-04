@@ -1,0 +1,11 @@
+#!/bin/sh
+echo "$(date -u +%T.%3N) pid=$$ $*" >> /tmp/shim/calls.log
+case "$*" in
+  "api user") echo '{"id":1,"login":"agent-bot"}';;
+  api\ repos/*--jq*) echo '{"name":"acme/widgets","push":true}';;
+  *--paginate*) echo '[[]]';;
+  *pulls/42*)
+    [ -f /tmp/shim/slow ] && { echo "$(date -u +%T.%3N) pid=$$ slow pull lookup begins" >> /tmp/shim/calls.log; sleep 12; echo "$(date -u +%T.%3N) pid=$$ slow pull lookup finished" >> /tmp/shim/calls.log; }
+    echo "{\"state\":\"open\",\"user\":{\"login\":\"agent-bot\"},\"html_url\":\"https://github.com/acme/widgets/pull/42\",\"head\":{\"ref\":\"agent/$(cat /tmp/shim/branch)\",\"sha\":\"h1\",\"repo\":{\"full_name\":\"acme/widgets\"}}}";;
+  *) echo '{}';;
+esac

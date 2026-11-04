@@ -1,0 +1,7 @@
+2026-11-04T11:02:15.679Z pid=67059 overlay2 active
+2026-11-04T11:02:15.799Z pid=67059 sessionController.create begin orchestrator-d0e8b086d87dfe34b598f3110e540d96
+2026-11-04T11:02:15.834Z pid=67059 sessionController.create returned orchestrator-d0e8b086d87dfe34b598f3110e540d96
+2026-11-04T11:02:15.835Z pid=67059 permissionPresets.set orchestrator-d0e8b086d87dfe34b598f3110e540d96 danger-full-access
+2026-11-04T11:02:15.923Z pid=67059 sessionController.create begin worker-672bd97d2146396f1c0611ece83d94fe
+2026-11-04T11:02:15.937Z pid=67059 sessionController.create returned worker-672bd97d2146396f1c0611ece83d94fe
+2026-11-04T11:02:15.937Z pid=67059 hanging after create (kill point) worker-672bd97d2146396f1c0611ece83d94fe

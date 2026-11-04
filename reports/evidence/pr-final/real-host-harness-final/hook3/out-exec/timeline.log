@@ -1,0 +1,13 @@
+2026-11-04T10:56:27.224Z ctl boot launched
+2026-11-04T10:56:31.234Z release (scripted report with pr_number 42, shim lookup sleeps 12 s)
+2026-11-04T10:56:35.238Z tool executing: 1 lookup(s) begun
+2026-11-04T10:56:51.241Z after 16 s
+2026-11-04T10:56:51.270Z SIGKILL host pids: 66082 
+2026-11-04T10:56:52.278Z after kill, remaining pids: []
+2026-11-04T10:57:31.188Z stop boot launched
+2026-11-04T10:57:35.198Z release (scripted report with pr_number 42, shim lookup sleeps 12 s)
+2026-11-04T10:57:39.202Z tool executing: 1 lookup(s) begun
+2026-11-04T10:57:39.244Z stop route http=200
+2026-11-04T10:57:55.247Z after 16 s
+2026-11-04T10:57:55.276Z SIGKILL host pids: 66283 
+2026-11-04T10:57:56.285Z after kill, remaining pids: []
