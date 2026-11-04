@@ -23,3 +23,23 @@ Reviewed candidate: branch review/db-links on PR head de50174 (main 8c32a9d). Al
 
 ## Not verified
 Own schema-10 upgrade matrix and rollback during migrateTo11 combined with the new triggers (existing specs cover some), recomputation of saved scripts/storage raw evidence, clustered paired analysis, full-suite rerun on this candidate. Retention remains held and untouched.
+
+## Addendum: fresh clustered paired analysis (exploratory, one machine)
+Raw: reports/evidence/db-review/paired-100k-seed6.json; harness: reports/evidence/db-review/harness/ (_rev_paired.ts, _rev_cluster.py). Candidate = review/db-links code (v2 triggers, one-statement flow), baseline = main 8c32a9d, 100k triggers per seed, 6 independent seeds (separate databases), 40 paired windows per seed, alternating run order, 0 result mismatches in 240 pairs. Uncertainty: 10,000-draw bootstrap that resamples whole seeds (clusters), keeping all pairs within a seed. The saved evidence (paired-query, 200 pairs, 5 seeds) was re-analysed with the same cluster bootstrap; the earlier report used a pair-level bootstrap, which understates uncertainty because pairs within a seed are correlated. With 5-6 clusters the intervals are themselves coarse.
+
+My windows were drawn uniformly over the whole history (`since` anywhere from 1% to 99% of it).
+| query | stat | gain, cluster CI | per-seed gains |
+|---|---|---|---|
+| triggerStats | P50 | 73.6% [69.9, 76.5] | 69-79% |
+| triggerStats | P95 | 49.6% [47.4, 53.9] | 47-55% |
+| flow | P50 | 39.2% [33.7, 44.2] | 32-47% |
+| flow | P95 | -3.0% [-6.0, -1.1] | -7.6 to +8.6% |
+
+The saved evidence windows covered only the most recent 1-20% of history (frac 0.011-0.196). Re-analysed with clusters: triggerStats P95 gain 91.0% [90.8, 92.7]; flow P95 gain 76.9% [76.0, 79.8]; no slower pair.
+
+Finding (workload dependence): the gain shrinks as the window covers more of the history, because both queries then read most of it. flow P95 gain by window width in my data: under 25% of history 63.9%; 25-50% 38.8%; 50-75% 24.0%; over 75% -4.5% (slightly slower). triggerStats stays positive (50.6% even at over 75%). Production callers use `since` = last 24 h (src/app/views/overview.ts, sources.ts), so the real gain depends on how many days of history a deployment holds: a store with about a day or less of history sees no flow benefit. The 15% adoption gate is met for flow only when the 24 h window is at most about three quarters of the stored history; the earlier "gate met" statement should carry that condition.
+
+## Compatibility and migration checks (own runs)
+- Opening a PR-upgraded schema 11 database with main's Store and writing a decision keeps the link table correct (the v2 triggers live in the file); reopening with the PR store gives identical flow and triggerStats. No generated column was dropped.
+- Supported schemas: OLDEST_SCHEMA 10 to SCHEMA_VERSION 11. Older is refused (tooOld) and newer is refused ("Unsupported orchestrator database version"), both before any change. Schema 10 upgrades once; repeat opens are idempotent; a failed upgrade rolls back the link DDL (tests/review-db-migrate-links.spec.ts).
+- A schema 10 database with a malformed decision row is still refused, fail closed, nothing skipped or deleted. The error now names the decision id and never its payload (src/app/migration.ts; red first).
