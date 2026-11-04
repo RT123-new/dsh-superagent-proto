@@ -1,0 +1,28 @@
+diff --git a/src/executor/dsh.ts b/src/executor/dsh.ts
+index adce1fb..caaff3e 100644
+--- a/src/executor/dsh.ts
++++ b/src/executor/dsh.ts
+@@ -487,7 +487,9 @@ export class DshExecutor implements Executor {
+   /** Fail closed until the ticket's Source kind is registered: its policy cannot be judged before. Later retries durably. */
+   private async policyKnown(ticketId: string, signal?: AbortSignal): Promise<void> {
+     const ticket = this.host.store.tickets.get(ticketId)
+-    if (ticket && this.host.sourceInstalled && !await this.host.sourceInstalled(ticket, signal)) throw new Later('The ticket\'s Source is not installed yet; no privileged Session is granted before its policy is known')
++    const probe = ticket && this.host.sourceInstalled ? await this.host.sourceInstalled(ticket, signal) : 'n/a'
++    console.error('PROBE', new Date().toISOString(), 'pid='+process.pid, 'policyKnown sourceInstalled='+String(probe))
++    if (ticket && this.host.sourceInstalled && !probe) throw new Later('The ticket\'s Source is not installed yet; no privileged Session is granted before its policy is known')
+   }
+   private async deliverInput(ticket: Ticket, assignment: Assignment, input: TicketInput): Promise<void> {
+     // Re-check right before session delivery because the ticket may have ended while awaiting `sourceLink`.
+diff --git a/src/sources/feishu.ts b/src/sources/feishu.ts
+index 6f770e4..94004d3 100644
+--- a/src/sources/feishu.ts
++++ b/src/sources/feishu.ts
+@@ -133,7 +133,7 @@ export const feishuSettings = (sources: SourceRegistry): FeishuConfig => sources
+ export const name = 'dsh-superagent-feishu'
+ export const inject = ['orchestrator']
+ export function apply(ctx: Context): void {
+-  ctx.effect(() => ctx.orchestrator.sources.register(feishuKind), 'feishu: source kind')
++  ctx.effect(() => { console.error('PROBE', new Date().toISOString(), 'pid='+process.pid, 'sources.register feishu'); return ctx.orchestrator.sources.register(feishuKind) }, 'feishu: source kind')
+   ctx.effect(() => {
+     const controller = new AbortController()
+     const running = runFeishu(sourceContext(ctx.orchestrator, feishuKind), controller.signal)

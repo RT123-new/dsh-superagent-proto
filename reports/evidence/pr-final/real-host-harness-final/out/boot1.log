@@ -1,0 +1,18 @@
+(node:65013) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+dsh: warning: 3 entries did not activate
+dsh-superagent (dsh-superagent): Error: Lock file is already being held
+    at /tmp/rp3/node_modules/.pnpm/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/lockfile.js:68:47
+    at newFs.<computed> [as stat] (/tmp/rp3/node_modules/.pnpm/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/adapter.js:20:13)
+    at /tmp/rp3/node_modules/.pnpm/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/lockfile.js:56:20
+    at newFs.<computed> [as mkdir] (/tmp/rp3/node_modules/.pnpm/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/adapter.js:17:24)
+    at acquireLock (/tmp/rp3/node_modules/.pnpm/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/lockfile.js:29:16)
+    at RetryOperation._fn (/tmp/rp3/node_modules/.pnpm/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/lockfile.js:233:13)
+    at RetryOperation.attempt (/tmp/rp3/node_modules/.pnpm/retry@0.12.0/node_modules/retry/lib/retry_operation.js:112:8)
+    at /tmp/rp3/node_modules/.pnpm/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/lockfile.js:232:19
+    at newFs.<computed> [as realpath] (/tmp/rp3/node_modules/.pnpm/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/adapter.js:20:13)
+    at resolveCanonicalPath (/tmp/rp3/node_modules/.pnpm/proper-lockfile@4.1.2/node_modules/proper-lockfile/lib/lockfile.js:22:16)
+dsh-superagent-github (dsh-superagent/github-watch): pending (waiting for service: orchestrator)
+dsh-superagent-feishu (dsh-superagent/feishu-watch): pending (waiting for service: orchestrator)
+dsh web: http://127.0.0.1:3991/?token=REDACTED
+Killed

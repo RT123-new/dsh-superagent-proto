@@ -1,0 +1,84 @@
+10:15:52 auth status
+10:15:52 config strict-mode
+10:15:52 api GET /open-apis/bot/v3/info --as bot --format ndjson
+10:16:59 auth status
+10:16:59 config strict-mode
+10:16:59 api GET /open-apis/bot/v3/info --as bot --format ndjson
+10:16:59 im +chat-members-list --chat-id oc_team --member-types user --page-all --page-limit 0 --as bot --format json
+10:16:59 event consume im.message.receive_v1 --as bot
+10:16:59 api GET /open-apis/im/v1/messages/mget --params {"message_ids":["om_1"]} --as bot --format json
+10:16:59 im +chat-list --page-all --page-size 100 --as bot --format json
+10:16:59 im +messages-mget --message-ids om_1 --no-reactions --as bot --format json
+10:17:00 event consume im.message.receive_v1 --as bot
+10:17:02 event consume im.message.receive_v1 --as bot
+10:17:06 event consume im.message.receive_v1 --as bot
+10:17:50 auth status
+10:17:50 config strict-mode
+10:17:50 api GET /open-apis/bot/v3/info --as bot --format ndjson
+10:17:50 im +chat-members-list --chat-id oc_team --member-types user --page-all --page-limit 0 --as bot --format json
+10:17:50 event consume im.message.receive_v1 --as bot
+10:17:50 api GET /open-apis/im/v1/messages --params {"container_id_type":"chat","container_id":"oc_team","start_time":"1793787419","end_time":"1793787470","sort_type":"ByCreateTimeAsc","page_size":50} --as bot --format json
+10:17:50 im +chat-list --page-all --page-size 100 --as bot --format json
+10:17:50 api GET /open-apis/im/v1/messages/mget --params {"message_ids":["om_1"]} --as bot --format json
+10:17:50 im +messages-mget --message-ids om_1 --no-reactions --as bot --format json
+10:17:51 event consume im.message.receive_v1 --as bot
+10:17:53 event consume im.message.receive_v1 --as bot
+10:17:57 event consume im.message.receive_v1 --as bot
+10:18:48 auth status
+10:18:48 config strict-mode
+10:18:48 api GET /open-apis/bot/v3/info --as bot --format ndjson
+10:18:48 im +chat-members-list --chat-id oc_team --member-types user --page-all --page-limit 0 --as bot --format json
+10:18:48 event consume im.message.receive_v1 --as bot
+10:18:48 api GET /open-apis/im/v1/messages --params {"container_id_type":"chat","container_id":"oc_team","start_time":"1793787419","end_time":"1793787528","sort_type":"ByCreateTimeAsc","page_size":50} --as bot --format json
+10:18:48 im +chat-list --page-all --page-size 100 --as bot --format json
+10:18:48 api GET /open-apis/im/v1/messages/mget --params {"message_ids":["om_1"]} --as bot --format json
+10:18:49 event consume im.message.receive_v1 --as bot
+10:18:51 event consume im.message.receive_v1 --as bot
+10:18:55 event consume im.message.receive_v1 --as bot
+10:19:03 event consume im.message.receive_v1 --as bot
+10:35:36 auth status
+10:35:36 config strict-mode
+10:35:36 api GET /open-apis/bot/v3/info --as bot --format ndjson
+10:39:39 auth status
+10:39:39 config strict-mode
+10:39:39 api GET /open-apis/bot/v3/info --as bot --format ndjson
+10:40:29 auth status
+10:40:29 config strict-mode
+10:40:29 api GET /open-apis/bot/v3/info --as bot --format ndjson
+10:40:29 im +chat-members-list --chat-id oc_team --member-types user --page-all --page-limit 0 --as bot --format json
+10:40:29 event consume im.message.receive_v1 --as bot
+10:40:29 api GET /open-apis/im/v1/messages/mget --params {"message_ids":["om_1"]} --as bot --format json
+10:40:29 im +chat-list --page-all --page-size 100 --as bot --format json
+10:40:29 im +messages-mget --message-ids om_1 --no-reactions --as bot --format json
+10:40:30 event consume im.message.receive_v1 --as bot
+10:40:32 event consume im.message.receive_v1 --as bot
+10:40:36 event consume im.message.receive_v1 --as bot
+10:40:44 event consume im.message.receive_v1 --as bot
+10:42:06 auth status
+10:42:06 config strict-mode
+10:42:06 api GET /open-apis/bot/v3/info --as bot --format ndjson
+10:43:57 auth status
+10:43:57 config strict-mode
+10:43:57 api GET /open-apis/bot/v3/info --as bot --format ndjson
+10:43:57 im +chat-members-list --chat-id oc_team --member-types user --page-all --page-limit 0 --as bot --format json
+10:43:57 event consume im.message.receive_v1 --as bot
+10:43:57 api GET /open-apis/im/v1/messages/mget --params {"message_ids":["om_1"]} --as bot --format json
+10:43:57 im +chat-list --page-all --page-size 100 --as bot --format json
+10:43:57 im +messages-mget --message-ids om_1 --no-reactions --as bot --format json
+10:43:58 event consume im.message.receive_v1 --as bot
+10:44:00 event consume im.message.receive_v1 --as bot
+10:44:04 event consume im.message.receive_v1 --as bot
+10:44:12 event consume im.message.receive_v1 --as bot
+10:44:54 auth status
+10:44:54 config strict-mode
+10:44:54 api GET /open-apis/bot/v3/info --as bot --format ndjson
+10:44:54 im +chat-members-list --chat-id oc_team --member-types user --page-all --page-limit 0 --as bot --format json
+10:44:54 event consume im.message.receive_v1 --as bot
+10:44:54 api GET /open-apis/im/v1/messages --params {"container_id_type":"chat","container_id":"oc_team","start_time":"1793789037","end_time":"1793789094","sort_type":"ByCreateTimeAsc","page_size":50} --as bot --format json
+10:44:54 im +chat-list --page-all --page-size 100 --as bot --format json
+10:44:54 api GET /open-apis/im/v1/messages/mget --params {"message_ids":["om_1"]} --as bot --format json
+10:44:54 im +messages-mget --message-ids om_1 --no-reactions --as bot --format json
+10:44:55 event consume im.message.receive_v1 --as bot
+10:44:57 event consume im.message.receive_v1 --as bot
+10:45:01 event consume im.message.receive_v1 --as bot
+10:45:09 event consume im.message.receive_v1 --as bot

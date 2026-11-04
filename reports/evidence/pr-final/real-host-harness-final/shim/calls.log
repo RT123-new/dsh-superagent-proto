@@ -1,0 +1,30 @@
+10:15:52 api user
+10:15:52 api repos/acme/widgets --jq {name: .full_name, push: .permissions.push}
+10:15:52 api repos/acme/widgets/notifications?all=true&per_page=50&since=2026-11-04T10%3A15%3A52.359Z --include
+10:16:59 api user
+10:16:59 api repos/acme/widgets --jq {name: .full_name, push: .permissions.push}
+10:16:59 api repos/acme/widgets/notifications?all=true&per_page=50&since=2026-11-04T10%3A15%3A52.359Z --include
+10:17:50 api user
+10:17:50 api repos/acme/widgets --jq {name: .full_name, push: .permissions.push}
+10:17:50 api repos/acme/widgets/notifications?all=true&per_page=50&since=2026-11-04T10%3A15%3A52.359Z --include
+10:18:48 api user
+10:18:48 api repos/acme/widgets --jq {name: .full_name, push: .permissions.push}
+10:18:48 api repos/acme/widgets/notifications?all=true&per_page=50&since=2026-11-04T10%3A15%3A52.359Z --include
+10:35:36 api user
+10:35:36 api repos/acme/widgets --jq {name: .full_name, push: .permissions.push}
+10:35:36 api repos/acme/widgets/notifications?all=true&per_page=50&since=2026-11-04T10%3A35%3A36.408Z --include
+10:39:39 api user
+10:39:39 api repos/acme/widgets --jq {name: .full_name, push: .permissions.push}
+10:39:39 api repos/acme/widgets/notifications?all=true&per_page=50&since=2026-11-04T10%3A35%3A36.408Z --include
+10:40:29 api user
+10:40:29 api repos/acme/widgets --jq {name: .full_name, push: .permissions.push}
+10:40:29 api repos/acme/widgets/notifications?all=true&per_page=50&since=2026-11-04T10%3A35%3A36.408Z --include
+10:42:06 api user
+10:42:06 api repos/acme/widgets --jq {name: .full_name, push: .permissions.push}
+10:42:06 api repos/acme/widgets/notifications?all=true&per_page=50&since=2026-11-04T10%3A42%3A06.603Z --include
+10:43:57 api user
+10:43:57 api repos/acme/widgets --jq {name: .full_name, push: .permissions.push}
+10:43:57 api repos/acme/widgets/notifications?all=true&per_page=50&since=2026-11-04T10%3A42%3A06.603Z --include
+10:44:54 api user
+10:44:54 api repos/acme/widgets --jq {name: .full_name, push: .permissions.push}
+10:44:54 api repos/acme/widgets/notifications?all=true&per_page=50&since=2026-11-04T10%3A42%3A06.603Z --include
