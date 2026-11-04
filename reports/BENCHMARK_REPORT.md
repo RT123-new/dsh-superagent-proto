@@ -43,3 +43,7 @@ Review repair06ad576 and strict crash proof71c1b8f were integrated before adopti
 Exact scope, oracle conservation, rejected fixtures and remaining checks live in stage-d-issues-10-12.md, issue-13-15-coordination-baseline.md, issue-16-18-executor-baseline.md and issue-17-independent-review.md. Raw own independent outputs are separated under evidence/integration; normal tests no longer overwrite archived evidence.
 
 Latest collector single-process microbench rerun:1Mobserve143.1ns/call,1Mtimerpair216.7ns,50serializationP501.544ms/max2.247ms,3294bytes,heap9.3MB. Not loaded panel/API overhead and not an end-to-end improvement estimate.
+
+### Production pool final evaluation: held
+
+Independent4newred→repaired27fast checks/full1411 on candidateb270676 plus author fresh28check/80round rerun prove conditional fixture behavior. Exact repaired virtualclock80round/16kread paired data retained under pool-independent: lowlatency~13%belowtarget,ratebound0,slow~49/72/80% forC2/4/8, five independent seedpairs/profile exploratory only. Production integration DOES NOT adopt this code: restart loses known server embargo/rate budget, scope excludes other account phases, uncertain outcomes retain reservations and self-throttle. The safety/restart gates are not satisfied merely because optional/defaultabsent. Keep sequential path; candidate and review reports remain reviewable, no new persistence architecture or real-network speed claim.

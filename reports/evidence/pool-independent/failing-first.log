@@ -1,0 +1,83 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/review/repo[39m
+
+ [31m❯[39m scripts/pool-candidate/adversarial.spec.ts [2m([22m[2m5 tests[22m[2m | [22m[31m4 failed[39m[2m)[22m[32m 13[2mms[22m[39m
+[31m   [31m×[31m recomputes the next permit after learning a slower primary rate[39m[32m 6[2mms[22m[39m
+[31m   [31m×[31m never silently treats valid next relation variants as pagination complete[39m[32m 1[2mms[22m[39m
+[31m   [31m×[31m accepts repeated harmless HTTP headers without ignoring ambiguous rate headers[39m[32m 1[2mms[22m[39m
+   [32m✓[39m refuses malformed Link metadata rather than silently checkpointing an incomplete list[32m 1[2mms[22m[39m
+[31m   [31m×[31m honors a server poll interval when supplied on a response[39m[32m 3[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 4 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m scripts/pool-candidate/adversarial.spec.ts[2m > [22mrecomputes the next permit after learning a slower primary rate
+[31m[1mAssertionError[22m: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m scripts/pool-candidate/adversarial.spec.ts:[2m13:57[22m[39m
+    [90m 11|[39m  b.after(response({'x-ratelimit-remaining':'11','x-ratelimit-limit':'1…
+    [90m 12|[39m  [35mlet[39m granted[33m=[39m[35mfalse[39m[33m;[39m[35mconst[39m next[33m=[39mb[33m.[39m[34mbefore[39m(signal)[33m.[39m[34mthen[39m(()[33m=>[39m{granted[33m=[39m[35mtrue[39m})
+    [90m 13|[39m  [35mawait[39m vi[33m.[39m[34madvanceTimersByTimeAsync[39m([34m100[39m)[33m;[39m[34mexpect[39m(granted)[33m.[39m[34mtoBe[39m([35mfalse[39m)
+    [90m   |[39m                                                         [31m^[39m
+    [90m 14|[39m  [35mawait[39m vi[33m.[39m[34madvanceTimersByTimeAsync[39m([34m9900[39m)[33m;[39m[35mawait[39m next
+    [90m 15|[39m  }[35mfinally[39m{vi[33m.[39m[34museRealTimers[39m()}
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m scripts/pool-candidate/adversarial.spec.ts[2m > [22mnever silently treats valid next relation variants as pagination complete
+[31m[1mAssertionError[22m: expected undefined to be 'issues/2/comments?page=2' // Object.is equality[39m
+
+[32m- Expected:[39m
+"issues/2/comments?page=2"
+
+[31m+ Received:[39m
+undefined
+
+[36m [2m❯[22m scripts/pool-candidate/adversarial.spec.ts:[2m19:123[22m[39m
+    [90m 17|[39m it('never silently treats valid next relation variants as pagination c…
+    [90m 18|[39m  [35mfor[39m([35mconst[39m rel [35mof[39m [[32m'rel=next'[39m[33m,[39m[32m'rel="prev next"'[39m[33m,[39m[32m'rel="next prev"'[39m]){
+    [90m 19|[39m  expect(githubNext({link:`<https://api.github.com/repos/acme/widgets/i…
+    [90m   |[39m                                                                                                                           [31m^[39m
+    [90m 20|[39m  }
+    [90m 21|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m scripts/pool-candidate/adversarial.spec.ts[2m > [22maccepts repeated harmless HTTP headers without ignoring ambiguous rate headers
+[31m[1mError[22m: GitHub returned duplicate HTTP headers[39m
+[36m [2m❯[22m githubResponse src/infra/github-response.ts:[2m15:31[22m[39m
+    [90m 13|[39m     [35mconst[39m name[33m=[39mmatch[[34m1[39m][33m![39m[33m.[39m[34mtoLowerCase[39m()[33m,[39m value[33m=[39mmatch[[34m2[39m][33m![39m[33m.[39m[34mtrim[39m()
+    [90m 14|[39m     // Ambiguous rate/security metadata must not silently take the las…
+    [90m 15|[39m     if(name in headers) throw new Error('GitHub returned duplicate HTT…
+    [90m   |[39m                               [31m^[39m
+    [90m 16|[39m     headers[name][33m=[39mvalue
+    [90m 17|[39m   }
+[90m [2m❯[22m scripts/pool-candidate/adversarial.spec.ts:[2m23:9[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m scripts/pool-candidate/adversarial.spec.ts[2m > [22mhonors a server poll interval when supplied on a response
+[31m[1mAssertionError[22m: expected true to be false // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- false[39m
+[31m+ true[39m
+
+[36m [2m❯[22m scripts/pool-candidate/adversarial.spec.ts:[2m31:238[22m[39m
+
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m4 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (5)[39m
+[2m   Start at [22m 07:33:08
+[2m   Duration [22m 159ms[2m (transform 40ms, setup 0ms, import 51ms, tests 13ms, environment 0ms)[22m
+

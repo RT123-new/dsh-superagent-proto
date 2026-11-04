@@ -63,3 +63,5 @@ Issue20 selective stats/flow index optimization adopted for tested large-history
 * Remaining HOL characterization repairedb52a683 with seeded midpoint RNG and currentjitter schedule; no production rollback. Lastfull119abf4 failedonlythatstaleassertion(1486/1487), not finalgreen.
 * Issue17slotwake generaladoptiondeferred: cap3below15%,cap6/12uncertainty. Reviewreport/pairedarms retained unenabled. Disposal correctness separately2red beforefourguardrepair,2greenafter; no slotFreed/kick added.
 * NormalStageDtests no longer overwrite tracked timingevidence. Explicit STAGE_D_EVIDENCE_DIR enables freshcapture to a chosen directory; archived measurements stay unchanged bypnpmcheck.
+
+* Poolcandidate774278e reviewed35728cf fourred, repairedbf136ef, finalb270676. Reports/rawevidenceonlyimported. No productionpool/parser/gateadoption because restartdiscardsknownembargo/accountscopeincomplete; defaultoffnotproof. Candidate actualstdout429→typedretrypolicycompositiongreen, not claimedcurrentproduction. Conditionalrepairedbenchmarkretained, notoldgainreuse.
