@@ -77,4 +77,21 @@ describe('3.1 remaining faults', () => {
     expect(h.store.triggers.get(commentId(12, 12, at))).toBeDefined()
     closeHost(h)
   })
+
+  it('CHARACTERIZATION: after 24h of 401 the retry record is deleted, health reads ready, and the event is not stored even once access returns', async () => {
+    const h = sourceHost(hostDir('f31-'))
+    const at = ago(26 * 3_600_000)
+    h.store.set('github-since', ago(60_000))
+    h.store.set('github-retry', { '12': { since: ago(27 * 3_600_000), pr: false, failedAt: ago(25 * 3_600_000), attempts: 50 } })
+    const feed: GithubServer = { notifications: [], issues: { 12: commandError({ stderr: 'gh: Bad credentials (HTTP 401)', code: 1 }) as unknown as Record<string, unknown> }, comments: { 12: [githubComment(12, 12, at)] } }
+    githubServer(h, feed)
+    await pollRound(h)
+    expect(h.store.get<Record<string, unknown>>('github-retry')).toEqual({})
+    expect(h.health.github?.state).toBe('ready')
+    feed.issues[12] = githubIssue(12)
+    await pollRound(h)
+    await pollRound(h)
+    expect(h.store.triggers.get(commentId(12, 12, at))).toBeUndefined()
+    closeHost(h)
+  })
 })
