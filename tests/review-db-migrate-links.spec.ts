@@ -46,10 +46,11 @@ it('a failed schema 10 migration rolls back the link table and triggers with it,
 })
 
 // A malformed decision row still blocks the schema 10 upgrade (fail closed, nothing skipped or deleted), but the error now names the row id (never its payload).
-it('a schema 10 database holding a malformed decision row is refused with the file unchanged and the row id named', () => {
+it('a schema 10 database holding a malformed decision row is refused with the file unchanged and the row located by rowid and hash', () => {
   const path = join(directory, 'o.sqlite')
   legacy(path, undefined, true)
-  expect(() => new Store(path)).toThrow(/unchanged at schema 10: its migration to schema 11 failed: decision "bad": its stored value is not valid JSON$/)
+  expect(() => new Store(path)).toThrow(/unchanged at schema 10: its migration to schema 11 failed: decision row \d+ \(id 3 characters, sha256 [0-9a-f]{12}\): its stored value is not valid JSON$/)
+  expect(() => new Store(path)).not.toThrow(/\bbad\b/)
   const raw = new DatabaseSync(path)
   expect(names(raw)).toEqual([])
   expect(raw.prepare("SELECT value FROM kv WHERE key='schema'").get()).toEqual({ value: '10' })
@@ -57,17 +58,18 @@ it('a schema 10 database holding a malformed decision row is refused with the fi
   raw.close()
 })
 
-it('a hostile decision id is escaped and bounded in the migration error, never interpolated raw', () => {
-  const path = join(directory, 'o.sqlite')
-  legacy(path)
-  const hostile = `x\u001b[31m\nTOKEN=ghp_${'A'.repeat(80)}`
-  const raw = new DatabaseSync(path)
-  raw.prepare('INSERT INTO decision VALUES (?,?,?)').run(hostile, 'th', '{bad'); raw.close()
-  let message = ''
-  try { new Store(path) } catch (error) { message = (error as Error).message }
-  expect(message).toMatch(/unchanged at schema 10/)
-  expect(message).not.toMatch(/[\u0000-\u001f]/)
-  expect(message).not.toContain('A'.repeat(70))
-  expect(message).toMatch(/sha256 [0-9a-f]{12}/)
-  expect(message).not.toContain('{bad')
-})
+for (const hostile of [`x\u001b[31m\nTOKEN=ghp_${'A'.repeat(80)}`, 'ghp_' + 'B'.repeat(36), 'sk-short1234', 'AKIAIOSFODNN7EXAMPLE']) {
+  it(`a decision id is never interpolated in the migration error, whatever its shape or length (${hostile.length} chars)`, () => {
+    const path = join(directory, 'o.sqlite')
+    legacy(path)
+    const raw = new DatabaseSync(path)
+    raw.prepare('INSERT INTO decision VALUES (?,?,?)').run(hostile, 'th', '{bad'); raw.close()
+    let message = ''
+    try { new Store(path) } catch (error) { message = (error as Error).message }
+    expect(message).toMatch(/unchanged at schema 10/)
+    expect(message).not.toMatch(/[\u0000-\u001f]/)
+    expect(message).not.toContain(hostile.slice(0, 8))
+    expect(message).toMatch(/sha256 [0-9a-f]{12}/)
+    expect(message).not.toContain('{bad')
+  })
+}
