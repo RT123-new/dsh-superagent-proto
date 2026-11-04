@@ -181,9 +181,11 @@ export class Sessions {
     authorize()
     await this.decorate(result.agent, authorize)
     authorize()
-    ctx.permissionPresets.set(result.agent.session, 'danger-full-access')
     await ctx.sessionController.rename({ sessionId: id as SessionId, title })
     authorize()
+    // Grant the privileged preset only after the last asynchronous boundary has re-authorized this assignment, so a
+    // cancelled or revoked assignment never leaves danger-full-access applied (final review, phase 2.2).
+    ctx.permissionPresets.set(result.agent.session, 'danger-full-access')
     return result.agent
   }
   /** Returns whether `sessionId` already holds the message delivered under `requestId`, or `false` if the session does not exist. */
