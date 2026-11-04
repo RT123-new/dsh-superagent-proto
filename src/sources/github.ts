@@ -145,6 +145,10 @@ export function pollPauseSeconds(configured: number, failures: number, error: un
   const backoff = decision.retry ? Math.ceil(decision.delay / 1000) : 0
   return Math.max(base, backoff, server)
 }
+/** Clears a stored embargo once a round has succeeded; a failed write leaves the older, longer-or-equal value, which at worst waits once more. */
+function clearEmbargo(ctx: SourceContext): void {
+  try { if (ctx.state.get(KV.github.notBefore) !== undefined) ctx.state.set(KV.github.notBefore, undefined) } catch { /* retained until the next success */ }
+}
 /** Rearm: switching the Source back on makes every parked read eligible again, keeping its original `since`. A restart does not. */
 export function rearmParked(ctx: SourceContext): number {
   const retries = { ...ctx.state.get(KV.github.retries) }
@@ -161,25 +165,35 @@ async function watch(ctx: SourceContext, signal: AbortSignal): Promise<void> {
   // Setup restarts dsh-superagent once it resolves the accounts; until then nothing is polled.
   if (!ctx.configured()) { ctx.report('github', health('paused', 'setupPending')); return }
   // A plain start or restart never rearms: a parked read stays blocked until the owner switches the Source off and on.
-  // A trusted server not-before from a failure survives a restart: nothing is read inside a known embargo.
-  const embargo = Number(ctx.state.get(KV.github.notBefore))
-  if (Number.isFinite(embargo) && embargo > Date.now()) await pause(embargo - Date.now(), signal)
+  // A trusted server not-before from a failure survives a restart: nothing is read inside a known embargo, yet the loop stays responsive to the Source setting and to stopping.
+  let embargo = Number(ctx.state.get(KV.github.notBefore))
+  if (!Number.isFinite(embargo)) embargo = 0
   let wasOn = true
   while (!signal.aborted) {
     const config = ctx.config<GithubConfig>(SOURCE)
     if (config && !wasOn) rearmParked(ctx)
     wasOn = !!config
+    if (config && embargo > Date.now()) {
+      ctx.report('github', { state: 'paused', detail: `Waiting for the server's not-before (${new Date(Math.min(embargo, 8.64e15)).toISOString()}); nothing is read until then`, at: new Date().toISOString() })
+      await pause(Math.min(embargo - Date.now(), 60_000), signal)
+      continue
+    }
     try {
-      if (config) interval = await pollRound(ctx, signal)
+      if (config) { interval = await pollRound(ctx, signal); embargo = 0; clearEmbargo(ctx) }
       else ctx.report('github', health('paused', 'sourceOff'))
       failures = 0; lastError = undefined
-      if (ctx.state.get(KV.github.notBefore) !== undefined) ctx.state.set(KV.github.notBefore, undefined)
     } catch (error) {
       failures += 1; lastError = error
       const notBefore = serverNotBeforeOf(error)
-      if (notBefore !== undefined && Number.isFinite(notBefore) && notBefore > Date.now()) ctx.state.set(KV.github.notBefore, String(Math.min(Math.floor(notBefore), 8.64e15)))
+      let saveFailure: unknown
+      if (notBefore !== undefined && Number.isFinite(notBefore) && notBefore > embargo) embargo = Math.min(notBefore, 8.64e15)
+      if (notBefore !== undefined && Number.isFinite(notBefore) && notBefore > Date.now()) {
+        try { ctx.state.set(KV.github.notBefore, String(Math.min(Math.floor(notBefore), 8.64e15))) } catch (writeError) { saveFailure = writeError }
+      }
       const failed = pollFailure(failures, config?.failuresBeforeError ?? 1, error)
       if (!signal.aborted && failed) ctx.report('github', failed)
+      // The embargo is still honoured in this process; only its survival across a restart is lost, so say so.
+      if (saveFailure !== undefined && !signal.aborted) ctx.report('github', { state: 'error', detail: `The server's not-before could not be saved and a restart would forget it: ${String(saveFailure).slice(0, 200)}`, at: new Date().toISOString() })
     }
     await pause(pollPauseSeconds(Math.max(interval, ctx.config<GithubConfig>(SOURCE)?.pollSeconds ?? 60), failures, lastError) * 1000, signal)
   }

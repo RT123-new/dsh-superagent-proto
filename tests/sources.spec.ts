@@ -811,18 +811,97 @@ describe('github source', () => {
       await run.stop(); run.value.store.close()
     } finally { vi.useRealTimers() }
   })
-  it('a typed server embargo holds across a restart: the second watch on the same store reads nothing inside it and polls after it', async () => {
+  it('a long stored embargo keeps the Source responsive: off is reported, on still reads nothing inside the embargo, and stopping is immediate', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     try {
+      let settings = SettingsSchema.parse({ sources: { github: { enabled: true, config: {} } } })
+      const board = new HealthBoard()
+      const sources = new SourceRegistry(() => settings, board)
+      healthOf.set(sources, board)
+      const value = host({ sources })
+      value.store.set('github-not-before', String(Date.now() + 365 * 86_400_000))
+      let calls = 0
+      vi.spyOn(Commands.prototype, 'run').mockImplementation(async () => { calls += 1; return 'HTTP/2.0 200 OK\r\n\r\n[]' })
+      const disposers: (() => unknown)[] = []
+      applyGithub({ orchestrator: value, effect: (effect: () => () => unknown) => { disposers.push(effect()) } } as never)
+      await vi.advanceTimersByTimeAsync(1)
+      await vi.waitFor(() => expect(value.health.github).toMatchObject({ state: 'paused', detail: expect.stringContaining('not-before') }))
+      settings = SettingsSchema.parse({ sources: { github: { enabled: false, config: {} } } })
+      await vi.advanceTimersByTimeAsync(60_000)
+      await vi.waitFor(() => expect(value.health.github).toMatchObject({ code: 'sourceOff' }))
+      settings = SettingsSchema.parse({ sources: { github: { enabled: true, config: {} } } })
+      await vi.advanceTimersByTimeAsync(120_000)
+      await vi.waitFor(() => expect(value.health.github).toMatchObject({ state: 'paused', detail: expect.stringContaining('not-before') }))
+      expect(calls).toBe(0)
+      for (const dispose of disposers) await dispose()
+      value.store.close()
+    } finally { vi.useRealTimers() }
+  })
+  it('through the real watch loop, an oversized check-runs read keeps the Source in error round after round, and a recovered read returns it to ready', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const board = new HealthBoard()
+      const settings = SettingsSchema.parse({ sources: { github: { enabled: true, config: {} } } })
+      const sources = new SourceRegistry(() => settings, board)
+      healthOf.set(sources, board)
+      const value = host({ sources })
+      value.store.tickets.save({ ...openTicket('t9'), ...pulled(9) })
+      value.store.threads.save({ key: 'github:9', ref: { source: 'github', id: '9' }, createdAt: '', lastAt: new Date().toISOString(),
+        subscriptions: ['t9'], correlated: [], pending: [], meta: { number: 9, isPr: true, title: 'Fix' } })
+      const pr = { number: 9, title: 'Fix', state: 'open', html_url: 'https://github.com/acme/widgets/pull/9', user: { login: 'agent-bot' },
+        head: { sha: 'abc', ref: 'agent/nine', repo: { full_name: 'acme/widgets' } } }
+      let broken = true
+      let checks = 0
+      vi.spyOn(Commands.prototype, 'run').mockImplementation(async (_program, args) => {
+        const path = args[1]!.replace(/^repos\/acme\/widgets\//, '').split('?')[0]!
+        let body: unknown = []
+        if (path === 'pulls/9') body = pr
+        else if (path.endsWith('/check-runs')) {
+          checks += 1
+          if (broken) throw commandError({ code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' })
+          body = [{ check_runs: [] }]
+        } else if (!args.includes('--include') && args.includes('--slurp')) body = [[]]
+        if (args.includes('--include')) return 'HTTP/2.0 200 OK\r\nX-Poll-Interval: 60\r\n\r\n[]'
+        return JSON.stringify(body)
+      })
+      const disposers: (() => unknown)[] = []
+      applyGithub({ orchestrator: value, effect: (effect: () => () => unknown) => { disposers.push(effect()) } } as never)
+      const expectError = () => expect(value.health.github).toMatchObject({ state: 'error', detail: expect.stringContaining('printed more output than it may') })
+      // The default threshold is three consecutive failed rounds before the Source reports an error.
+      await vi.waitFor(() => expect(checks).toBeGreaterThanOrEqual(1))
+      for (let round = 2; round <= 5; round++) {
+        expect(value.health.github?.state).not.toBe('ready')
+        await vi.advanceTimersByTimeAsync(60_000)
+        await vi.waitFor(() => expect(checks).toBeGreaterThanOrEqual(round))
+        if (round >= 3) await vi.waitFor(expectError)
+      }
+      broken = false
+      await vi.advanceTimersByTimeAsync(60_000)
+      await vi.waitFor(() => expect(value.health.github).toMatchObject({ state: 'ready' }))
+      for (const dispose of disposers) await dispose()
+      value.store.close()
+    } finally { vi.useRealTimers() }
+  })
+  describe('embargo clock and persistence faults, with a faked clock', () => {
+    const arrange = async (fail?: { writes: boolean }) => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+      vi.setSystemTime(new Date('2026-09-09T00:00:00Z'))
       const { TransportFailure } = await import('../src/infra/transport-failure.ts')
       const board = new HealthBoard()
       const settings = SettingsSchema.parse({ sources: { github: { enabled: true, config: {} } } })
       const sources = new SourceRegistry(() => settings, board)
       healthOf.set(sources, board)
       const value = host({ sources })
-      let calls = 0
+      if (fail) {
+        const set = value.store.set.bind(value.store)
+        vi.spyOn(value.store, 'set').mockImplementation(((name: string, v: unknown) => {
+          if (name === 'github-not-before' && fail.writes) throw new Error('disk full')
+          return set(name, v as never)
+        }) as typeof value.store.set)
+      }
+      const calls: number[] = []
       vi.spyOn(Commands.prototype, 'run').mockImplementation(async () => {
-        calls += 1
+        calls.push(Date.now())
         throw new TransportFailure('rate limited', { status: 429, retryAfter: '3600' }, Date.now())
       })
       const launch = () => {
@@ -830,18 +909,44 @@ describe('github source', () => {
         applyGithub({ orchestrator: value, effect: (effect: () => () => unknown) => { disposers.push(effect()) } } as never)
         return async () => { for (const dispose of disposers) await dispose() }
       }
-      const first = launch()
-      await vi.waitFor(() => expect(calls).toBe(1))
-      await vi.advanceTimersByTimeAsync(600_000)
-      expect(calls).toBe(1)
-      await first()
-      const second = launch()
-      await vi.advanceTimersByTimeAsync(1_000_000)
-      expect(calls).toBe(1)
-      await vi.advanceTimersByTimeAsync(2_700_000)
-      await vi.waitFor(() => expect(calls).toBe(2))
-      await second(); value.store.close()
-    } finally { vi.useRealTimers() }
+      return { value, calls, launch }
+    }
+    it('uses an absolute expiry: a restart inside the embargo reads only at the original deadline, one after it reads at once', async () => {
+      try {
+        const { value, calls, launch } = await arrange()
+        const t0 = Date.now()
+        const first = launch()
+        await vi.waitFor(() => expect(calls).toHaveLength(1))
+        await first()
+        await vi.advanceTimersByTimeAsync(1_000_000)
+        const second = launch()
+        await vi.advanceTimersByTimeAsync(2_500_000)
+        expect(calls).toHaveLength(1)
+        await vi.advanceTimersByTimeAsync(200_000)
+        await vi.waitFor(() => expect(calls).toHaveLength(2))
+        expect(calls[1]! - t0).toBeGreaterThanOrEqual(3_600_000)
+        expect(calls[1]! - t0).toBeLessThan(3_700_000)
+        await second()
+        // A restart after the deadline needs no wait.
+        await vi.advanceTimersByTimeAsync(10_000_000)
+        const third = launch()
+        await vi.waitFor(() => expect(calls.length).toBeGreaterThanOrEqual(3))
+        await third(); value.store.close()
+      } finally { vi.useRealTimers() }
+    })
+    it('a failed embargo write keeps the in-process embargo, reports it as an error, and the loop keeps running', async () => {
+      try {
+        const { value, calls, launch } = await arrange({ writes: true })
+        const first = launch()
+        await vi.waitFor(() => expect(calls).toHaveLength(1))
+        await vi.waitFor(() => expect(value.health.github).toMatchObject({ state: 'error', detail: expect.stringContaining('disk full') }))
+        await vi.advanceTimersByTimeAsync(3_000_000)
+        expect(calls).toHaveLength(1)
+        await vi.advanceTimersByTimeAsync(700_000)
+        await vi.waitFor(() => expect(calls).toHaveLength(2))
+        await first(); value.store.close()
+      } finally { vi.useRealTimers() }
+    })
   })
   it('waits for setup, pauses while the Source is off, and counts only consecutive failed polls towards an error', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
