@@ -18,3 +18,10 @@ Classifications: CONFIRMED / SOURCE-SUPPORTED / HYPOTHESIS / REFUTED / NOT TESTE
 | Issue 7 settings notices | config changes lost/stale | NOT TESTED | — | — | workstream 6-8: A→B→A→B, rapid updates |
 | Issue 8 subagent depth-8 limit | nested agents escape restrictions | SOURCE-SUPPORTED | — | sessions.ts:303-311 depth<8 bound; unresolved ancestry returns UNRESTRICTED (fails open) | W68: depth 1/8/9/20 ancestry tests |
 | Issues 9-24 | instrumentation/perf/storage/UX | NOT TESTED | — | — | later stages per mandate |
+
+## Verified integration checkpoints
+
+- 8c20a1c: typecheck +1227/1227 tests +build PASS after workspace review repair and PRE-1 fix.
+- f32c506: typecheck +1271/1271 tests +build PASS after ensure gates and ingestion review repair.
+- Independent local-provider experiment rerun: SIGTERM-resistant child stopped, heartbeat stopped, managed range empty, unrelated sleep alive. Raw result: reports/evidence/integration/provider45-result.json.
+- No additional paid calls. Conservative cumulative live spend $0.0001 /$5; direct probe only, not end-to-end model validation.

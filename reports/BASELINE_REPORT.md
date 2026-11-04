@@ -36,7 +36,7 @@ Programme baseline for RT123-new/dsh-superagent-proto, recorded before any modif
 
 ## Metrics that could NOT be baselined (NOT TESTED, with reason)
 
-- Task throughput/latency, worker utilisation, queue delays, GitHub polling behaviour, model requests/token consumption, failure/retry/recovery behaviour: require a running deployment (dsh service + configured model provider + GitHub agent account + tmux). None available offline. To be baselined with deterministic offline fixtures in Stage C/D, and with the live-model rig (DeepSeek `deepseek-flash`, $5 total cap) once the key arrives.
+- Task throughput/latency, worker utilisation, queue delays, GitHub polling behaviour, model requests/token consumption, failure/retry/recovery behaviour: were not measured at the initial baseline. Deterministic offline fixtures can measure local lifecycle behavior without a deployed service; live end-to-end provider workflows need separate setup. tmux is a service-launch convenience, not proof that direct harness execution is impossible. To be baselined with deterministic offline fixtures in Stage C/D, and with the live-model rig (DeepSeek `deepseek-flash`, $5 total cap) once the key arrives.
 - CPU/memory/database performance: offline fixtures planned in Stage E (Issue 19/20 harness).
 
 ## Methodology notes

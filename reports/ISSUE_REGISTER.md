@@ -15,7 +15,7 @@ Legend for workstream ownership: W13 = ingestion (1-3), W45 = workspace/cancella
 - Root cause: pending W13 confirmation.
 - Implementation approach: TBD by W13 (adjacent to Issue 3).
 - Tests added: existing test already fails at baseline.
-- Final status: OPEN.
+- Final status: REPAIRED (`11457b0` failing-first, `cd5258e` fix). Controlled stdout-error / delayed stderr-readiness test proves the race and preserves diagnostics. Source suite passes; included in green full integration.
 - Remaining risk: malformed-line visibility lost in production health panel.
 
 ## ISSUE 1 — GitHub notifications can be missed
@@ -24,7 +24,7 @@ Legend for workstream ownership: W13 = ingestion (1-3), W45 = workspace/cancella
 - Source: src/sources/github.ts, src/sources/poll.ts, src/kv.ts.
 - Classification: NOT TESTED. Owner: W13.
 - Plan: durable replay-safe ingestion; watermark/replay-window (120s initial); stable event identity dedupe; reconciliation scan; checkpoint after durable processing; late/out-of-order/repeated/restart/API-failure tests.
-- Status: OPEN. Remaining risk: TBD.
+- Status: REPAIRED within bounded scan coverage. Independent six-case adversarial failure reproduced before repair; integrated `pnpm check` at f32c506 passes 1271/1271 tests. See reports/independent-ingestion-review.md for exact recovery bounds and remaining remote pagination limits.
 
 ## ISSUE 2 — GitHub pagination can lose events
 
@@ -32,7 +32,7 @@ Legend for workstream ownership: W13 = ingestion (1-3), W45 = workspace/cancella
 - Source evidence (INT, 2026-11-04): readStream issues ONE `api(listed, '--include')` call with per_page=100 and NO pagination following (commands.pages() with --paginate exists at src/infra/commands.ts:89-93 but is unused here). Cursor advances to cursorAt(newest item on the FIRST page) = newest-5s (poll.ts cursorAt). With sort=updated asc, >100 items inside the same ~5s timestamp window re-fetch the same first page every round: items beyond page 1 are never reached (timestamp-only cursor, no stable identity ordering). Notifications and per-thread comment reads DO paginate via commands.pages.
 - Classification: SOURCE-SUPPORTED (mechanism verified in code; executable loss/stall tests owed by W13).
 - Plan: full Link-header pagination; checkpoint never past unread pages; page-limit continuation; identical-timestamp ordering by stable identity; synthetic streams 0/1/99/100/101/201/1000 + identical timestamps + mid-pagination failures.
-- Status: OPEN.
+- Status: REPAIRED in integrated f32c506; author and adversarial suites pass. See reports/independent-ingestion-review.md.
 
 ## ISSUE 3 — Feishu history recovery can skip messages
 
@@ -40,7 +40,7 @@ Legend for workstream ownership: W13 = ingestion (1-3), W45 = workspace/cancella
 - Source evidence (INT, 2026-11-04): per-chat history cursor advances to cursorAt(started) = started-5s ONLY after backfillChat completes (good checkpoint-after-completion), BUT the same 5s-only overlap as GitHub applies: a message delivered to the history API later than 5s after its create_time, once the cursor passed, is skipped. A never-before-seen chat initialises its cursor to `started` with NO backfill (messages before first observation skipped by design). Mid-backfill page failure leaves earlier pages' triggers created and cursor unmoved, so at-most-once depends entirely on deterministic trigger-ID dedupe. See also PRE-1.
 - Classification: SOURCE-SUPPORTED (executable page-failure/restart tests owed by W13).
 - Plan: checkpoint-after-completion; stable identity; idempotent replay; first/middle/final page failure injection; disconnect/restart tests.
-- Status: OPEN.
+- Status: REPAIRED in integrated f32c506; author and adversarial suites pass. See reports/independent-ingestion-review.md.
 
 ## ISSUE 4 — Workspace preparation falsely considered successful
 
@@ -147,3 +147,19 @@ Legend for workstream ownership: W13 = ingestion (1-3), W45 = workspace/cancella
 ## ISSUE 24 — Single-repository architecture limit
 
 - Owner: stage E. Classification: NOT TESTED (documented product limitation). Plan: review isolation of repository assumptions; document multi-repo changes needed; do NOT implement multi-repo without failing requirement + baseline.
+
+## Integration acceptance ledger (supersedes earlier work-in-progress statuses above)
+
+| Issue | Disposition as of f32c506 | Executed evidence | Remaining risk |
+| --- | --- | --- | --- |
+| PRE-1 | Repaired | Delayed-ready regression red before fix, 72/72 source tests green after | Per-run diagnostic intentionally sticky until restart |
+| 1 | Repaired, bounded recovery | Author baseline15red/16green; reviewer6red/0green before repair; final ingestion40/40 | H=3600/C=1800 does not guarantee3600s delay; outages/mutable pages/endpoint visibility limit coverage |
+| 2 | Repaired | 101/201/1000-event and identical-time pagination, page failures and multipage ETag proof | Mutable page-number pagination is not remote snapshot isolation |
+| 3 | Existing page checkpoint behavior retained; late indexing and first-seen floor repaired | First/middle/final page failure replay; exact-time floor and restart evidence | Legacy first-seen floor adopted from cursor can exclude older missed messages |
+| 4 | Repaired within filesystem limitations | Author17 +reviewer12 +integration full check | No power-loss/fsync proof; prepared record cannot certify arbitrary later manual edits |
+| 5 | Partially repaired | Assignment cancellation, owned-range probe, four ensure-boundary regressions | In-flight framework create cannot be interrupted; provider observability + failed disk persistence +crash compound gap; ensure follow-up independent review pending |
+| 6–8 | Repair under independent review, not integrated | Original branch checks reproduced separately | Await reviewer changes and integrated validation |
+| 9 | Collector implementation under way separately | No optimization adopted | Production hooks pending correctness stabilization |
+| 10–24 | Not yet evaluated beyond issue register/source leads | No benchmark or improvement claims | Later staged work remains |
+
+Final integrated checkpoint f32c506: `pnpm check` PASS: typecheck +1271 tests /67 files +build. Main/default branch unchanged. This is Stage B progress, NOT final programme acceptance.
