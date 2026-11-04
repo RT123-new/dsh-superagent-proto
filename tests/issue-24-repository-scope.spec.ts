@@ -5,6 +5,9 @@ import { SourceRegistry } from '../src/sources/registry.ts'
 import { SettingsSchema } from '../src/policy.ts'
 import { Commands } from '../src/infra/commands.ts'
 import { testDeployment } from './fixtures/deployment.ts'
+import { candidateCard, type LinkHost } from '../src/app/links.ts'
+import type { Ticket, Trigger } from '../src/core/index.ts'
+import { TextCache } from '../src/app/cache.ts'
 import { preparationIdentity } from '../src/executor/workspace.ts'
 
 function registry() {
@@ -45,4 +48,24 @@ it('documents why one shared Store cannot host two repositories without namespac
   expect(a.threads).toEqual(b.threads)
   expect(preparationIdentity({ repository: 'acme/widgets', prepareCommand: 'prepare' }))
     .not.toBe(preparationIdentity({ repository: 'other/project', prepareCommand: 'prepare' }))
+})
+
+
+it('actual candidateCard never recommends a local ticket for a foreign same-number PR', async () => {
+  const ticket: Ticket = { id: 'local-ticket', title: 'Local request', decisionId: 'decision', channels: [], inputs: [], undelivered: [],
+    mandate: { strength: 'explicit', policyVersion: 'v1', basis: { via: 'listed', sender: 'alice' }, actor: { source: 'github', id: 'alice' }, scope: 'local' },
+    assignments: [], createdAt: '', updatedAt: '', origin: { triggerId: 'origin', triggerIds: ['origin'] } }
+  const sources = registry()
+  const host = { store: { settings: () => SettingsSchema.parse({}), triggers: { disposition: () => undefined },
+    threads: { get: (key: string) => key === 'github:12' ? { subscriptions: [ticket.id] } : undefined },
+    tickets: { get: (id: string) => id === ticket.id ? ticket : undefined } }, sources, links: new TextCache(1000),
+    lifetime: new AbortController().signal } as unknown as LinkHost
+  const trigger: Trigger = { id: 'new-request', source: 'github', threads: [{ source: 'github', id: '99' }],
+    actor: { source: 'github', id: 'alice' }, human: true, at: '', text: '', meta: {}, url: 'https://github.com/acme/widgets/issues/99' }
+  const card = (text: string) => candidateCard(host, { evalId: 'eval', policyVersion: 'v1', tickets: [], strength: 'explicit',
+    thread: { key: 'github:99', ref: trigger.threads[0]!, createdAt: '', subscriptions: [], correlated: [], pending: [], meta: {} },
+    triggers: [{ ...trigger, text }] })
+  expect(await card('https://github.com/other/project/pull/12')).not.toHaveProperty('referenced_tickets')
+  expect(await card('https://github.com/acme/widgets/pull/12')).toMatchObject({ referenced_tickets: [{ ticket_id: ticket.id }] })
+  expect(await card('#12')).toMatchObject({ referenced_tickets: [{ ticket_id: ticket.id }] })
 })
