@@ -22,6 +22,15 @@ describe('real gh wire shape (paginate --slurp --include)', () => {
     vi.spyOn(value, 'run').mockResolvedValue(REAL_WIRE)
     await expect(value.pages(z.looseObject({ id: z.number() }), 'issues')).resolves.toEqual([{ id: 1 }, { id: 2 }])
   })
+  it('survives page content that literally contains the header-block text (real 91bac4d commit message case)', async () => {
+    // The real failure that proved regex boundary scanning unsafe: a commit message on the live branch contains the
+    // literal text `[HTTP/2.0 200 OK\\n<headers>...` (JSON-escaped). A boundary REGEX matches inside that JSON string and
+    // corrupts the body; only a structural scan (gh bodies are single-line JSON, so raw newlines are always structural) is safe.
+    const poisoned = '[HTTP/2.0 200 OK\nContent-Type: application/json\n\n[{"id":1,"message":"fix: wrap [HTTP/2.0 200 OK\\n<headers>\\n\\n[page1]\\n,HTTP/2.0 200 OK\\n<headers>\\n\\n[page2]\\n] literally"}]\n,HTTP/2.0 200 OK\nContent-Type: application/json\n\n[{"id":2}]\n]'
+    const value = commands()
+    vi.spyOn(value, 'run').mockResolvedValue(poisoned)
+    await expect(value.pages(z.looseObject({ id: z.number(), message: z.string().optional() }), 'issues')).resolves.toHaveLength(2)
+  })
   it('parses the same real shape with CRLF endings', async () => {
     const value = commands()
     vi.spyOn(value, 'run').mockResolvedValue(REAL_WIRE_CRLF)

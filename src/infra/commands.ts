@@ -28,25 +28,54 @@ export class CliError extends Error {
 /** Splits `gh api --include` response-header blocks from the body (`--paginate` interleaves one per page); the LAST block's values describe the final response and stay raw for the typed transport parser. */
 function splitResponseHeaders(output: string): { status?: number; retryAfter?: string; body: string } {
   const normalized = output.replace(/\r\n/g, '\n')
-  let rest = normalized
   let status: number | undefined
   let retryAfter: string | undefined
   let body = ''
-  for (;;) {
-    // A header block can start at position 0, after a line boundary, or - real gh --paginate --slurp --include
-    // (2.103.2) - INSIDE the slurp array text: after the opening `[` or a page-separating `,`. The slurp
-    // brackets and commas are body structure and stay; only the header text is stripped. JSON strings hold no
-    // raw newlines, and a block is only recognized at one of those boundaries.
-    const boundary = /(^|[\n[,])HTTP\//.exec(rest)
-    if (!boundary) { body += rest; break }
-    const start = boundary.index + boundary[1].length
-    const end = rest.indexOf('\n\n', start)
-    if (end < 0) { body += rest; break }
-    const head = rest.slice(start, end)
-    status = Number(/^HTTP\/\S+ (\d{3})\b/.exec(head)?.[1]) || status
-    retryAfter = /^Retry-After:[ \t]*(.*?)[ \t]*$/im.exec(head)?.[1] ?? retryAfter
-    body += rest.slice(0, start)
-    rest = rest.slice(end + 2)
+  // Structural scan, never a boundary regex: gh emits page bodies as single-line JSON, so every raw newline is
+  // structural (header line end, the blank line ending a block, or a `--paginate --slurp` page joiner). A regex for
+  // `[`/` `,`/newline + `HTTP/` is NOT safe: page content can literally contain that text (the live branch's own
+  // commit message documents this wire shape, and it poisoned the regex version). Header blocks are recognized only
+  // at scan positions the structure places them: stream start, after the slurp `[`, or right after a joiner newline.
+  const isBlockAt = (position: number) => /^HTTP\/\S+ \d{3}\b/.test(normalized.slice(position, position + 30))
+  let position = 0
+  if (normalized.startsWith('[') && isBlockAt(1)) {
+    body = '['
+    position = 1
+  }
+  while (position < normalized.length) {
+    if (isBlockAt(position)) {
+      const end = normalized.indexOf('\n\n', position)
+      if (end < 0) {
+        body += normalized.slice(position)
+        position = normalized.length
+        break
+      }
+      const head = normalized.slice(position, end)
+      status = Number(/^HTTP\/\S+ (\d{3})\b/.exec(head)?.[1]) || status
+      retryAfter = /^Retry-After:[ \t]*(.*?)[ \t]*$/im.exec(head)?.[1] ?? retryAfter
+      position = end + 2
+      continue
+    }
+    const newline = normalized.indexOf('\n', position)
+    if (newline < 0) {
+      body += normalized.slice(position)
+      break
+    }
+    body += normalized.slice(position, newline)
+    const next = newline + 1
+    // `--slurp` joins pages as `pageBody\n,HTTP/...`; the comma belongs to the body, the block is stripped.
+    if (normalized[next] === ',' && isBlockAt(next + 1)) {
+      body += ','
+      position = next + 1
+      continue
+    }
+    // Legacy shape joins as `pageBody,\nHTTP/...`; the comma already rode with the piece.
+    if (isBlockAt(next)) {
+      position = next
+      continue
+    }
+    body += '\n'
+    position = next
   }
   return { status, retryAfter, body }
 }
