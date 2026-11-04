@@ -19,7 +19,7 @@ V2normal worker prompt bytes identical between source variants. Provider samplin
 
 ## Not yet accepted
 
-Storage20 query plan is adopted for its declared tested workload (below). Retry15 safety/jitter changes are reviewed correctness/operational repairs, not a demonstrated speed/cost improvement. Optional subscriptionpool and destructive retention remain under independent review. Webhooks, HTTP replacement, queue partition, generic background-slot release, capacity increase, extra caches and broad slotwake are not adopted. Production hooks/dashboard actual RuntimeHTTP proof now passes, but loaded runtime/panel overhead and full lifecycle completion denominators remain unmeasured.
+Storage20 query plan is adopted for its declared tested workload (below). Retry15 safety/jitter changes are reviewed correctness/operational repairs, not a demonstrated speed/cost improvement. Optional subscriptionpool and destructive retention reviews are complete; both production candidates are held. Webhooks, HTTP replacement, queue partition, generic background-slot release, capacity increase, extra caches and broad slotwake are not adopted. Production hooks/dashboard actual RuntimeHTTP proof now passes, but loaded runtime/panel overhead and full lifecycle completion denominators remain unmeasured.
 
 ## Accepted storage20 scope
 

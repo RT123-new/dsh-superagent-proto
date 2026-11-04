@@ -71,3 +71,5 @@ Issue20 selective stats/flow index optimization adopted for tested large-history
 * Retention19review2c34c5f→8e2cef9fiveconfirmedred→f921a28repair24focused/1447fullgreenonisolatedcandidate. Reports/evidenceonlyimported: no destructiveAPI/tombstones/Intakechangesadopted. Fresh10krun1639msinvarianttrue,differentcohortnotpairedbenefit; oldfiguresstale. Powerloss/hostilearchive operationalgapsremain. Originalmandatepreferssimplerimplementationwhenbenefitunsupported.
 
 * Frozen finalimplementation candidatea4f1812 source/test/scripts/package/lock/config isbyte-equivalenttotested90e6d47; diffexit0, no falselyclaimedrerun. All subsequentchanges reports/evidenceonly. FinalindependentreportdispositionrefreshandactualunmergedPRstillawaited.
+
+* Finalindependentcode/reportsubstance8696143accepted. Publicationcleanupcorrects2staleheld-reviewcells, noimplementationchange. Sourcefrozen90e6d47, own+independent1498green/typecheck/build. All24dispositionsclosedasrepaired/partial/refuted/heldwithrisks; actualunmergedPRpublicationnext.
