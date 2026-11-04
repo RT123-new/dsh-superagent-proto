@@ -1839,3 +1839,42 @@ it('final review 2.2: a pause that lands while the worker Session is being creat
   expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(0)
   await runtime.settings.pause(false, 'panel')
 }, 20000)
+
+let stopping: Promise<void> | undefined
+for (const [reason, interrupt] of [
+  ['the ticket is stopped (replacement/ended assignment)', (ticketId: string) => { runtime.engine.stopTicket(ticketId) }],
+  ['the host shuts down', () => { stopping = runtime.stop() }],
+] as const) {
+  it(`final review 2.2: ${reason} while the worker Session is being created leaves no danger-full-access (real launch path)`, async () => {
+    const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+    const entered = Promise.withResolvers<void>(), release = Promise.withResolvers<void>()
+    const original = controller.create.getMockImplementation() as (...a: unknown[]) => Promise<unknown>
+    controller.create.mockImplementation((async (...args: unknown[]) => {
+      if ((args[0] as { sessionId: string }).sessionId.startsWith('worker-')) { entered.resolve(); await release.promise }
+      return original(...args)
+    }) as never)
+    presets.mockClear()
+    const trigger = feishu('1', '@bot 修一下回归')
+    await receive(trigger)
+    const accepted = route({ kind: 'accept', trigger_id: trigger.id, title: '修复回归', worktree_name: worktreeName, acknowledgement: '收到，修复回归。' })
+    await Promise.race([entered.promise, new Promise((_r, reject) => setTimeout(() => reject(new Error('worker create never started')), 5000))])
+    const ticketId = runtime.store.tickets.list()[0]!.id
+    interrupt(ticketId)
+    release.resolve()
+    await stopping
+    await accepted.catch(() => {})
+    await new Promise(resolve => setTimeout(resolve, 300))
+    expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(0)
+  }, 30000)
+}
+
+it('final review 2.2: stopping a ticket cancels its active worker turn (real stop path)', async () => {
+  const { ticket, sessionId } = await acceptedTicket()
+  await vi.waitFor(() => expect(agents.get(sessionId)).toBeDefined())
+  const agent = agents.get(sessionId)! as unknown as { cancel: ReturnType<typeof vi.fn>; status: string }
+  agent.status = 'running'
+  agent.cancel.mockClear()
+  runtime.engine.stopTicket(ticket.id)
+  await vi.waitFor(() => expect(agent.cancel).toHaveBeenCalled())
+  expect(agent.cancel.mock.calls[0]![1]).toMatchObject({ keepInbox: false })
+}, 20000)

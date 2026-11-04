@@ -120,6 +120,8 @@ export class Effects {
   rearm(kind: EffectKind, key: string): boolean {
     const row = this.store.db.prepare("SELECT error FROM effect WHERE kind = ? AND key = ? AND error LIKE 'blocked:%'").get(kind, key)
     if (typeof row?.error !== 'string') return false
+    // Refuse while an attempt is (or may be) in flight: rearming would drop its started marker and could run a concurrent duplicate.
+    if (hasMarker(row.error, ATTEMPT_STARTED) || [...this.tasks].some(task => task.kind === kind && task.key === key)) return false
     const error = hasMarker(row.error, ATTEMPT_UNKNOWN) ? ATTEMPT_UNKNOWN : ''
     this.store.db.prepare('UPDATE effect SET error = ?, attempts = 0, due = ?, generation = generation + 1 WHERE kind = ? AND key = ?').run(error, this.now(), kind, key)
     this.kick()

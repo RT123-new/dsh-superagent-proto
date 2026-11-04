@@ -46,3 +46,20 @@ it('rearm refuses a row that is not blocked; explicit cancel (discard) releases 
   effects.cancel('relay', 'head'); await tick()
   expect(ran).toEqual(['next'])
 })
+
+it('rearm refuses a blocked row whose recheck attempt is in flight, keeping its started marker and generation', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'rearm2-')); dirs.push(dir)
+  const store = new Store(join(dir, 'o.sqlite'), () => {}); stores.push(store)
+  let clock = 1_000_000
+  const effects = new Effects(store, new HealthBoard(), () => clock)
+  const hung: (() => void)[] = []; let n = 0
+  effects.handle('relay', async () => { n++; if (n === 1) throw Object.assign(new Error('bad'), { status: 400 }); await new Promise<void>(r => hung.push(r)) }, { ordered: true, markAttempt: true })
+  store.atomic(() => effects.enqueue('relay', 'head', { text: 'a' }))
+  effects.start(); await new Promise(r => setTimeout(r, 40))
+  expect(effects.blocked('relay')).toHaveLength(1)
+  // Simulate an in-flight attempt on the parked row (as a recheck would be): marker present and a task running.
+  store.db.prepare("UPDATE effect SET error = error || ' [attempt-started]' WHERE key = 'head'").run()
+  const before = store.db.prepare("SELECT error, generation FROM effect WHERE key = 'head'").get()
+  expect(effects.rearm('relay', 'head')).toBe(false)
+  expect(store.db.prepare("SELECT error, generation FROM effect WHERE key = 'head'").get()).toEqual(before)
+})
