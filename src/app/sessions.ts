@@ -179,7 +179,11 @@ export class Sessions {
       const ticketId = ticketOfSession(id)
       if (existing && ticketId !== undefined) {
         const stored = this.host.store.tickets.get(ticketId)
-        if (!stored || !liveTicket(stored)) this.ctx.permissionPresets.set(existing.session, this.ctx.permissionPresets.defaultPreset)
+        if (!stored || !liveTicket(stored)) {
+          this.ctx.permissionPresets.set(existing.session, this.ctx.permissionPresets.defaultPreset)
+          // Its tools, prompt section and skills were granted for the ended ticket. A later authorized ensure decorates afresh.
+          this.release(existing)
+        }
       }
       throw error
     }
