@@ -1952,3 +1952,55 @@ for (const enabled of [true, false]) {
     expect(grants).toBe(enabled ? 1 : 0)
   }, 30000)
 }
+
+async function recreateAfter(sessionId: string, ticketId: string, id: string) {
+  const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+  agents.delete(sessionId); presets.mockClear()
+  const follow = feishu(id, '再加一个', { root_id: undefined, mentions: [{ id: 'ou_bot' }] })
+  await receive(follow).catch(() => {})
+  await route({ kind: 'attach', ticket_id: ticketId, trigger_id: follow.id, note: 'x' }).catch(() => {})
+  await new Promise(resolve => setTimeout(resolve, 500)); await runtime.idle()
+  return presets.mock.calls.filter(call => call[1] === 'danger-full-access').length
+}
+
+it('final review 2.2: a chat removed from the Source configuration denies a recreated worker Session grant (real runtime)', async () => {
+  const { ticket, sessionId } = await acceptedTicket()
+  await runtime.idle()
+  const settings = runtime.store.settings()
+  runtime.store.saveSettings({ ...settings, sources: { ...settings.sources, feishu: { ...settings.sources.feishu!, config: { ...(settings.sources.feishu!.config as object), chats: [], directMessages: false } } } })
+  expect(await recreateAfter(sessionId, ticket.id, '24')).toBe(0)
+}, 20000)
+
+it('final review 2.2: an inferred (auto mode) Mandate gets no recreated worker grant once auto mode is off (real runtime)', async () => {
+  const observe = (mode: 'observe' | 'auto' | 'off') => runtime.settings.save('eval', { ...runtime.store.settings().eval, mode }, runtime.store.blockRevision('eval'), 'panel')
+  await observe('auto')
+  const trigger = feishu('25', '这个文案好奇怪，改成“浏览网页”吧', { mentions: [] })
+  await receive(trigger)
+  vi.spyOn(Commands.prototype, 'lark').mockResolvedValue({ items: [{ message_id: 'om_25', chat_id: CHAT }] })
+  await runTool(runtime.masterId, 'orchestrator_eval', { trigger_id: trigger.id })
+  const accepted = await runTool(runtime.masterId, 'orchestrator_eval_decide', { trigger_id: trigger.id, decision: 'accept', title: '文案修订', worktree_name: 'copy-fix', scope: '改副标题', reason: 'explicit copy change', intent_evidence: 'quoted', acknowledgement: '收到。',
+    rule_assessments: [{ rule_id: 'copy', matched: true, reason: 'copy change' }, { rule_id: 'visual', matched: false, reason: 'not visual' }],
+    direction: { implementation_requested: true, target_basis: 'specified', requires_design_decision: false, evidence: 'the message names the replacement' } })
+  const ticket = runtime.store.tickets.get((accepted.ticket as { ticket_id: string }).ticket_id)!
+  expect(ticket.mandate.strength).toBe('inferred')
+  await runtime.idle()
+  await observe('off')
+  expect(await recreateAfter(`worker-${ticket.id}`, ticket.id, '26')).toBe(0)
+}, 30000)
+
+it('final review 2.2: a requester removed while the grant waits for the plugin gets no grant when the plugin registers (revocation during wait)', async () => {
+  const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+  const { ticket, sessionId } = await acceptedTicket()
+  await runtime.idle()
+  unregisterFeishu()
+  agents.delete(sessionId); presets.mockClear()
+  const follow = feishu('27', '再加一个', { root_id: undefined, mentions: [{ id: 'ou_bot' }] })
+  await receive(follow).catch(() => {})
+  void route({ kind: 'attach', ticket_id: ticket.id, trigger_id: follow.id, note: 'x' }).catch(() => {})
+  await new Promise(resolve => setTimeout(resolve, 400))
+  const current = runtime.store.settings().policy
+  runtime.store.saveSettings({ ...runtime.store.settings(), policy: { ...current, sources: { ...current.sources, feishu: { ...current.sources.feishu!, allowed: [] } } } })
+  unregisterFeishu = runtime.sources.register(feishuKind)
+  await new Promise(resolve => setTimeout(resolve, 800)); await runtime.idle()
+  expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(0)
+}, 30000)
