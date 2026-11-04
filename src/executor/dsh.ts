@@ -92,6 +92,8 @@ export interface ExecutorHost {
   closing(): boolean
   /** Current policy permission for a new automated retry; does not revoke already active work. */
   authorized(ticket: Ticket): boolean
+  /** Current policy permission for a NEW privileged Session grant; an uninstalled Source kind (startup) is not a denial. Falls back to `authorized`. */
+  grantAuthorized?(ticket: Ticket): boolean
   /** Whether processing is paused, which holds launches and input deliveries. */
   paused(): boolean
   /** Execution environment variables for `ticket`, passed to its workspace prepare command. */
@@ -439,7 +441,7 @@ export class DshExecutor implements Executor {
         try {
           // Recreate the worker session if it was externally deleted.
           if (!this.host.context.agents.get(sessionId as SessionId)) {
-            await this.host.sessions.ensure(sessionId, ticket.execution?.directory ?? '', ticket.title, 'worker', () => this.deliveryCurrent(ticket.id, assignment.id))
+            await this.host.sessions.ensure(sessionId, ticket.execution?.directory ?? '', ticket.title, 'worker', () => { this.deliveryCurrent(ticket.id, assignment.id); this.privilegeCurrent(ticket.id) })
           }
           if (input) await this.deliverInput(ticket, assignment, input)
         } catch (error) {
@@ -472,6 +474,14 @@ export class DshExecutor implements Executor {
     const current = this.host.store.tickets.get(ticketId)
     if (!current || !liveTicket(current) || runningAssignment(current)?.id !== assignmentId) throw new Error('The ticket ended or another Assignment took it over')
     if (this.stopping.has(ticketId)) throw new Later('The worker background work is stopping')
+  }
+  /**
+   * A new privileged Session grant needs the CURRENT policy to still authorize the ticket's mandate. A live worker whose requester
+   * was removed keeps going and is told (see policyEffects); only creating or re-granting a Session is refused (final review 2.2).
+   */
+  private privilegeCurrent(ticketId: string): void {
+    const ticket = this.host.store.tickets.get(ticketId)
+    if (ticket && !(this.host.grantAuthorized ?? this.host.authorized)(ticket)) throw new Error('The requester is no longer authorized under the current policy; no new privileged Session is granted')
   }
   private async deliverInput(ticket: Ticket, assignment: Assignment, input: TicketInput): Promise<void> {
     // Re-check right before session delivery because the ticket may have ended while awaiting `sourceLink`.
@@ -615,6 +625,7 @@ export class DshExecutor implements Executor {
     const agent = await this.host.sessions.ensure(sessionId, workspace, ticket.title, 'worker', () => {
       controller.signal.throwIfAborted()
       if (!current()) throw new PreparationCancelled()
+      this.privilegeCurrent(ticket.id)
     })
     if (!current()) return
     // The background work of the Assignment this one replaces stops first, so its end does not clear this one's message.

@@ -1878,3 +1878,20 @@ it('final review 2.2: stopping a ticket cancels its active worker turn (real sto
   await vi.waitFor(() => expect(agent.cancel).toHaveBeenCalled())
   expect(agent.cancel.mock.calls[0]![1]).toMatchObject({ keepInbox: false })
 }, 20000)
+
+it('final review 2.2: a requester removed from the allowed list cannot get a recreated worker Session granted danger-full-access', async () => {
+  const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+  const { ticket, sessionId } = await acceptedTicket()
+  await runtime.idle()
+  const current = runtime.store.settings().policy
+  await runtime.settings.save('policy', { ...current, sources: { ...current.sources, feishu: { ...current.sources.feishu!, allowed: [] } } }, runtime.store.blockRevision('policy'), 'panel')
+  await runtime.idle()
+  expect(runtime.store.tickets.get(ticket.id)!.ended).toBeUndefined()      // by design the ticket goes on and the live worker is told
+  agents.delete(sessionId)                                                 // the Session is deleted externally
+  presets.mockClear()
+  const follow = feishu('20', '再加一个', { root_id: undefined, mentions: [{ id: 'ou_bot' }] })
+  await receive(follow)
+  await route({ kind: 'attach', ticket_id: ticket.id, trigger_id: follow.id, note: 'x' }).catch(() => {})
+  await new Promise(resolve => setTimeout(resolve, 500)); await runtime.idle()
+  expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(0)
+}, 20000)
