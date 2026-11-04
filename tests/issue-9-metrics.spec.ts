@@ -50,18 +50,32 @@ describe('timers use monotonic clock, not wall clock', () => {
 })
 
 describe('slot integrals', () => {
-  it('are exact and sum to accounted time', () => {
-    const c = clock(), p = new SlotIntegrator(c.now, 2)
-    p.transition(0, 'idle'); p.transition(1, 'idle')
-    c.adv(10); p.transition(0, 'preparing'); c.adv(5); p.transition(0, 'busy'); c.adv(20); p.transition(1, 'busy'); c.adv(5)
-    // slot0: idle10 prep5 busy25 ; slot1: idle35 busy5 (open interval counted)
-    expect(p.integrals()).toEqual({ idle: 45, preparing: 5, busy: 30 })
-    expect(Object.values(p.integrals()).reduce((a, b) => a + b)).toBe(80)
-    expect(p.utilization()).toBeCloseTo(35 / 80, 12)
+  it('counts never-used capacity as idle from observation start (denominator = capacity x interval)', () => {
+    const c = clock(), p = new SlotIntegrator(c.now, 4)
+    c.adv(100)
+    expect(p.utilization()).toBe(0); expect(p.integrals().idleSlotMs).toBe(400)
+    p.setCount('busy', 1); c.adv(100); p.setCount('preparing', 1); c.adv(100)
+    // active: 0*100 + 1*100 + 2*100 = 300 ; capacity: 4*300 = 1200
+    const i = p.integrals()
+    expect(i.observedMs).toBe(300); expect(i.capacitySlotMs).toBe(1200); expect(i.activeSlotMs).toEqual({ preparing: 100, busy: 200 })
+    expect(i.idleSlotMs).toBe(900); expect(p.utilization()).toBe(300 / 1200)
   })
-  it('null utilization before any time and rejects bad slots/states', () => {
-    const c = clock(), p = new SlotIntegrator(c.now, 1)
-    expect(p.utilization()).toBeNull(); expect(() => p.transition(1, 'idle')).toThrow(); expect(() => p.transition(0, 'nope')).toThrow()
+  it('integrates configured capacity over time and keeps over-limit reservations visible', () => {
+    const c = clock(), p = new SlotIntegrator(c.now, 3)
+    p.setCount('busy', 3); c.adv(10)
+    p.setCapacity(1); c.adv(10)   // 3 active against capacity 1: over limit by 2
+    p.setCount('busy', 1); c.adv(10)
+    p.setCapacity(1)               // unchanged: not a change
+    const i = p.integrals()
+    expect(i.capacitySlotMs).toBe(3 * 10 + 1 * 10 + 1 * 10); expect(i.overLimitSlotMs).toBe(2 * 10)
+    expect(i.activeSlotMs.busy).toBe(30 + 30 + 10); expect(i.capacityChanges).toBe(1)
+    expect(p.utilization()).toBe(70 / 50)  // >1 is the honest signal of over-limit reservations
+  })
+  it('zero capacity gives null utilization; rejects bad input; clock going backwards never subtracts', () => {
+    let t = 100; const p = new SlotIntegrator(() => t, 0)
+    t += 50; expect(p.utilization()).toBeNull()
+    expect(() => p.setCount('nope', 1)).toThrow(); expect(() => p.setCount('busy', -1)).toThrow(); expect(() => p.setCapacity(1.5)).toThrow()
+    p.setCapacity(2); t -= 30; expect(p.integrals().capacitySlotMs).toBe(0)
   })
 })
 
@@ -98,6 +112,31 @@ describe('tokens and cost: unknown stays unknown', () => {
   it('a never-reported category stays null even when others are known', () => {
     const m = new Metrics(); m.recordUsage({ output: 7 }); const t = m.snapshot().tokens
     expect([t.output, t.inputCacheHit, t.inputCacheMiss]).toEqual([7, null, null])
+  })
+})
+
+describe('cache write and reasoning tokens', () => {
+  const base = { inputCacheHit: 0, inputCacheMiss: 1_000_000, output: 0 }
+  const pricing = { inputCacheHitPerM: 0.006, inputCacheMissPerM: 0.3, outputPerM: 1.2 }
+  it('billed cache-write tokens with no rate make the cost unknown, not a complete-looking total', () => {
+    const m = new Metrics()
+    expect(m.recordUsage({ ...base, cacheWrite: 500 }, pricing).costUsd).toBeNull()
+    expect(m.recordUsage({ ...base, cacheWrite: null }, pricing).costUsd).toBeNull()
+    const t = m.snapshot().tokens
+    expect(t.costUsd).toBeNull(); expect(t.costKnownReports).toBe(0); expect(t.costUnknownReports).toBe(2); expect(t.cacheWrite).toBe(500)
+  })
+  it('zero or absent cache-write needs no rate; a resolved rate is charged', () => {
+    const m = new Metrics()
+    expect(m.recordUsage({ ...base, cacheWrite: 0 }, pricing).costUsd).toBeCloseTo(0.3, 12)
+    expect(m.recordUsage(base, pricing).costUsd).toBeCloseTo(0.3, 12)
+    expect(m.recordUsage({ ...base, cacheWrite: 1_000_000 }, { ...pricing, cacheWritePerM: 0.5 }).costUsd).toBeCloseTo(0.8, 12)
+  })
+  it('reasoning is its own non-additive field: never added to output or cost', () => {
+    const m = new Metrics()
+    const r = m.recordUsage({ inputCacheHit: 0, inputCacheMiss: 0, output: 100, reasoning: 60 }, pricing)
+    expect(r.costUsd).toBeCloseTo(100 * 1.2 / 1e6, 15)
+    const t = m.snapshot().tokens; expect([t.output, t.reasoning]).toEqual([100, 60])
+    expect(new Metrics().snapshot().tokens.reasoning).toBeNull()
   })
 })
 
