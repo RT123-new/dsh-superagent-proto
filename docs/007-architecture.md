@@ -430,6 +430,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/final-source-retry-review.spec.ts` | Final review: numeric safety of retry delays, bounded server waits, gh rate-limit 403 class, oversized and unreadable gh output through a real subprocess |
 | `tests/final-source-event-matrix.spec.ts` | Final review: stream pagination boundaries 49, 50 and 10,000 events |
 | `tests/final-source-faults.spec.ts` | Final review: comment edits, checkpoint write failure, revoked credentials and a two-day outage through pollRound |
+| `tests/final-feishu-matrix.spec.ts` | Final review of Feishu recovery: concurrent live and backfill delivery, the first-seen admission boundary, pagination that does not advance, duplicates within a page |
 | `tests/effects.spec.ts` | The effect queue: coalescing, limits, retries with backoff, health and shutdown |
 | `tests/passes.spec.ts` | Passes: one at a time, the ones asked for during a pass run as one after it, and the runtime health a failed pass reports |
 | `tests/outbox.spec.ts` | The Outbox on a running Runtime: messages wait while processing is paused or their Source is not installed |
