@@ -15,7 +15,7 @@ function run(pairs: unknown) {
 }
 const pair = (i: number) => ({ id: `task-${i}`,
   baseline: { resumeMs: 1000, endToEndMs: 6000, tokens: 1000, correct: true, totalCost: 1 },
-  snapshot: { resumeMs: 600, endToEndMs: 5900, tokens: 700, correct: true, totalCost: .8,
+  snapshot: { resumeMs: 600, endToEndMs: 5900, tokens: 700, correct: true, totalCost: .75,
     safetyFailures: 0, staleErrors: 0, usedSnapshot: true },
 })
 describe('resume benchmark calculation', () => {
