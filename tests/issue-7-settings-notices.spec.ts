@@ -6,10 +6,10 @@
  */
 import { afterEach, expect, it, vi } from 'vitest'
 import type { UserMessage } from '@deepseek-ai/dsh-llm'
-import { startRuntime, type Host } from './fixtures/host.ts'
+import { feishu, startRuntime, type Host } from './fixtures/host.ts'
 
 let h: Host | undefined
-afterEach(async () => { await h?.stop(); h = undefined })
+afterEach(async () => { vi.useRealTimers(); await h?.stop(); h = undefined })
 
 /** JSON payloads of the `settings:eval` notices injected into the main Session so far. */
 const notices = () => {
@@ -45,4 +45,28 @@ it('delivers a redelivered revision only once', async () => {
   h.runtime.sessions.notify('settings:eval', notice, 'Settings saved: eval')
   await h.runtime.idle()
   expect(notices().filter(payload => payload.revision === 41)).toHaveLength(1)
+})
+
+it('keeps a durable settings notice pending while the main Session is unavailable', async () => {
+  h = await startRuntime()
+  h.controller.resolveAgent.mockImplementation(async id => id === h!.runtime.masterId
+    ? { error: { code: 'session/not-found' } } : h!.resolveDefault(id))
+  const result = await saveEval(75)
+  expect(result.context_delivery).toBe('pending')
+  expect(h.runtime.effects.pending('notice', 'settings:eval')).toBe(true)
+})
+it('retains every required policy transition even when A-B-A-B occurs in one millisecond', async () => {
+  h = await startRuntime()
+  const { ticket } = await h.acceptedTicket(feishu('1', '@agent fix regression'))
+  const stamp = Date.now(); vi.spyOn(Date, 'now').mockReturnValue(stamp)
+  vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(stamp)
+  const original = h.runtime.settings.block('policy').value as Record<string, unknown>
+  const revoked = { ...original, sources: {} }
+  for (const value of [revoked, original, revoked]) {
+    const { revision } = h.runtime.settings.block('policy')
+    await h.runtime.settings.save('policy', value, revision, 'panel')
+  }
+  const transitions = h.runtime.store.tickets.get(ticket.id)!.inputs.filter(input => input.kind === 'policy-changed')
+  expect(transitions.filter(input => input.effect.requesterAllowed === false)).toHaveLength(2)
+  vi.useRealTimers()
 })
