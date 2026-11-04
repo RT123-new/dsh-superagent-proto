@@ -1,0 +1,80 @@
+{
+  "limit": 0.9997723,
+  "charged": 0.0006939359999999999,
+  "pending": null,
+  "calls": [
+    {
+      "id": "v2-baseline-normal-11-route",
+      "maximum": 0.6012288,
+      "usage": {
+        "inputTokens": 105,
+        "outputTokens": 94,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 199
+      },
+      "cost": 0.0001443
+    },
+    {
+      "id": "v2-baseline-normal-11-worker",
+      "maximum": 0.6012288,
+      "usage": {
+        "inputTokens": 319,
+        "outputTokens": 26,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 345
+      },
+      "cost": 0.0001269
+    },
+    {
+      "id": "v2-repaired-normal-11-route",
+      "maximum": 0.6012288,
+      "usage": {
+        "inputTokens": 105,
+        "outputTokens": 76,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 181
+      },
+      "cost": 0.0001227
+    },
+    {
+      "id": "v2-repaired-normal-11-worker",
+      "maximum": 0.6012288,
+      "usage": {
+        "inputTokens": 191,
+        "outputTokens": 26,
+        "cacheReadTokens": 128,
+        "cacheWriteTokens": 0,
+        "totalTokens": 345
+      },
+      "cost": 0.000089268
+    },
+    {
+      "id": "v2-repaired-late-30s-11-route",
+      "maximum": 0.6012288,
+      "usage": {
+        "inputTokens": 105,
+        "outputTokens": 75,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "totalTokens": 180
+      },
+      "cost": 0.0001215
+    },
+    {
+      "id": "v2-repaired-late-30s-11-worker",
+      "maximum": 0.6012288,
+      "usage": {
+        "inputTokens": 191,
+        "outputTokens": 26,
+        "cacheReadTokens": 128,
+        "cacheWriteTokens": 0,
+        "totalTokens": 345
+      },
+      "cost": 0.000089268
+    }
+  ],
+  "stopped": true
+}
