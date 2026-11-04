@@ -135,9 +135,10 @@ export function pollFailure(failures: number, threshold: number, error: unknown)
  * Seconds to wait before the next poll. A rate-limited failure backs off exponentially with jitter (via the shared retry policy, capped at one hour)
  * instead of re-polling every interval into the same limit; no delay is ever read from error text, and other outcomes keep the configured interval.
  */
-export function pollPauseSeconds(base: number, failures: number, error: unknown, rng: () => number = Math.random): number {
+export function pollPauseSeconds(configured: number, failures: number, error: unknown, rng: () => number = Math.random): number {
+  const base = Number.isFinite(configured) && configured > 0 ? configured : 60
   if (!error || classifyError(error) !== 'rate_limited') return base
-  const decision = retryDecision(error, Math.max(0, failures - 1), base * 1000, 3600_000, rng, Date.now())
+  const decision = retryDecision(error, Number.isFinite(failures) ? Math.max(0, failures - 1) : 0, base * 1000, 3600_000, rng, Date.now())
   return decision.retry ? Math.max(base, Math.ceil(decision.delay / 1000)) : base
 }
 async function watch(ctx: SourceContext, signal: AbortSignal): Promise<void> {

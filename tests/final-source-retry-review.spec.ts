@@ -154,3 +154,31 @@ describe('4.3 polling loop backs off under a rate limit', () => {
     expect(pollPauseSeconds(60, 3, limited, () => 0)).toBeGreaterThanOrEqual(60)
   })
 })
+
+describe('3.4 downstream policy: a user-less comment never gains authorisation', () => {
+  it('is not an allowed sender under default settings, addressed or not, and does not differ from a null-user comment', async () => {
+    const { SettingsSchema, settingsPolicy } = await import('../src/policy.ts')
+    const { SourceRegistry } = await import('../src/sources/registry.ts')
+    const { githubKind } = await import('../src/sources/github.ts')
+    const { CommentSchema, commentTrigger } = await import('../src/sources/github-trigger.ts')
+    const settings = SettingsSchema.parse({})
+    const sources = new SourceRegistry(() => settings); sources.register(githubKind)
+    const policy = settingsPolicy(settings, sources)
+    const ref = { number: 1, isPr: true, url: 'https://github.com/o/r/pull/1' } as never
+    const none = { ...commentTrigger(CommentSchema.parse({ id: 1, body: '@agent-bot please fix' }), ref, 'conversation', 'agent-bot'), addressed: 'mention' as const }
+    const nul = { ...commentTrigger(CommentSchema.parse({ id: 1, body: '@agent-bot please fix', user: null }), ref, 'conversation', 'agent-bot'), addressed: 'mention' as const }
+    const a = policy.gate(none as never, { subscriptions: [] } as never, [] as never), b = policy.gate(nul as never, { subscriptions: [] } as never, [] as never)
+    expect(a).toEqual(b)
+    expect(a.admissible && a.strength === 'explicit').toBe(false)
+  })
+})
+describe('4.3 poll pause numeric validation', () => {
+  it('returns a finite positive interval for any invalid input', async () => {
+    const { pollPauseSeconds } = await import('../src/sources/github.ts')
+    const limited = failure('gh: API rate limit exceeded for user ID 1. (HTTP 403)')
+    for (const [base, failures, rng] of [[NaN, 2, () => 0.5], [Infinity, 2, () => 0.5], [-1, 2, () => 0.5], [60, NaN, () => 0.5], [60, -3, () => 0.5], [60, 1e9, () => 0.5], [60, 3, () => NaN], [60, 3, () => 9]] as const) {
+      const w = pollPauseSeconds(base, failures, limited, rng)
+      expect(Number.isFinite(w)).toBe(true); expect(w).toBeGreaterThan(0); expect(w).toBeLessThanOrEqual(Math.max(3600, Number.isFinite(base) && base > 0 ? base : 60))
+    }
+  })
+})
