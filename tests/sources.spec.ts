@@ -8,7 +8,7 @@ import { runFeishu } from '../src/sources/feishu-loops.ts'
 import { commentTrigger, githubAddress, githubChannel, issueTrigger, type GithubComment, type GithubIssue } from '../src/sources/github-trigger.ts'
 import { claimPull, observePull, pullEndNotices, pullOf, ticketBranch, type Pull } from '../src/sources/github-pull.ts'
 import { ciCounts, ciFact, ciSummary } from '../src/sources/github-read.ts'
-import { apply as applyGithub, githubKind, pollFailure, pollRound } from '../src/sources/github.ts'
+import { apply as applyGithub, githubKind, pollFailure, pollRound, rearmParked } from '../src/sources/github.ts'
 import { pollThreads as pollGithubThreads } from '../src/sources/github.ts'
 import { SourceRegistry } from '../src/sources/registry.ts'
 import { cursorAt, POLL_HORIZON_MS } from '../src/sources/poll.ts'
@@ -83,8 +83,10 @@ function github(h: ReturnType<typeof host>, routes: Record<string, unknown>): st
     const route = routes[path] ?? (path.endsWith('/check-runs') ? { check_runs: [] } : list)
     const value: unknown = typeof route === 'function' ? (route as () => unknown)() : route
     if (value instanceof Error) throw value
-    if (args.includes('--include')) return `HTTP/2.0 200 OK\r\nX-Poll-Interval: 60\r\n\r\n${JSON.stringify(value)}`
-    return JSON.stringify(args.includes('--slurp') ? [value] : value)
+    // Paginated calls carry --include too: gh prints the header block, then exactly the body it would print without --include.
+    const body = JSON.stringify(args.includes('--slurp') ? [value] : value)
+    if (args.includes('--include')) return `HTTP/2.0 200 OK\r\nX-Poll-Interval: 60\r\n\r\n${body}`
+    return body
   })
   return reads
 }
@@ -572,6 +574,24 @@ describe('github source', () => {
     expect(h.store.tickets.get('t9')).toMatchObject({ ended: { outcome: 'merged' } })
     h.store.close()
   })
+  it('an oversized check-runs read for a ticket PR makes the round fail with a visible, permanent error each round (no bounded-page fallback exists)', async () => {
+    const h = host()
+    h.store.tickets.save({ ...openTicket('t9'), ...pulled(9) })
+    h.store.threads.save({ key: 'github:9', ref: { source: 'github', id: '9' }, createdAt: '', lastAt: new Date().toISOString(),
+      subscriptions: ['t9'], correlated: [], pending: [], meta: { number: 9, isPr: true, title: 'Fix' } })
+    const pr = { number: 9, title: 'Fix', state: 'open', html_url: 'https://github.com/acme/widgets/pull/9', user: { login: 'agent-bot' },
+      head: { sha: 'abc', ref: 'agent/nine', repo: { full_name: 'acme/widgets' } } }
+    const oversized = commandError({ code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' })
+    github(h, { notifications: [], 'pulls/9': pr, 'commits/abc/check-runs': oversized })
+    for (let round = 0; round < 2; round++) {
+      const error = await pollRound(h).catch((e: unknown) => e)
+      expect(error).toBeInstanceOf(Error)
+      expect(String(error)).toContain('GitHub reads failed')
+      expect(String(error)).toContain('printed more output than it may')
+    }
+    expect((oversized as { oversized?: boolean }).oversized).toBe(true)
+    h.store.close()
+  })
   it('reads each notified Issue alone and reads a failed one again next round, from where it was', async () => {
     const h = host()
     h.store.set('github-since', '2026-09-08T00:00:00.000Z')
@@ -630,7 +650,7 @@ describe('github source', () => {
       'issues/12/comments': [comment, { body: 'no id' }] })
     await pollRound(h)
     expect(h.receive.mock.calls.map(([trigger]) => trigger.text)).toEqual(['@agent-bot please fix'])
-    expect(h.health.github).toMatchObject({ state: 'ready', detail: '1 notifications; next poll ≥ 60s; 2 unreadable items skipped' })
+    expect(h.health.github).toMatchObject({ state: 'ready', detail: '1 notifications; next poll ≥ 60s; 2 unreadable items skipped (sha256:7090638800bd: repository, ?: id)' })
     h.store.close()
   })
   it('reads every page of the notifications when GitHub says there are more, and waits as long as GitHub asks', async () => {
@@ -640,6 +660,11 @@ describe('github source', () => {
     vi.spyOn(h.commands, 'run').mockImplementation(async (_program, args) => {
       calls.push(args)
       const path = args[1]!.replace(/^repos\/acme\/widgets\//, '').split('?')[0]!
+      if (path === 'notifications' && args.includes('--paginate')) {
+        // Real gh --include --paginate --slurp: one header block per page, interleaved between the outer-array parts (cli/cli processResponse + jsonArrayWriter).
+        return 'HTTP/2.0 200 OK\r\nLink: <https://api.github.com/notifications?page=2>; rel="next"\r\nX-Poll-Interval: 120\r\n\r\n[\n' + JSON.stringify([notification(12)])
+          + '\nHTTP/2.0 200 OK\r\nX-Poll-Interval: 120\r\n\r\n,\n' + JSON.stringify([notification(13)]) + '\n]'
+      }
       if (path === 'notifications' && args.includes('--include')) {
         return 'HTTP/2.0 200 OK\r\nLink: <https://api.github.com/notifications?page=2>; rel="next"\r\nX-Poll-Interval: 120\r\n\r\n[]'
       }
@@ -655,7 +680,7 @@ describe('github source', () => {
     expect(h.health.github).toMatchObject({ state: 'ready', detail: '2 notifications; next poll ≥ 120s' })
     h.store.close()
   })
-  it('drops a notified Issue whose reads fail for a day, so the Source leaves the error, and keeps its read position', async () => {
+  it('parks a notified Issue whose reads fail for a day: the record and read position stay, and the health stays error until rearmed', async () => {
     const h = host()
     h.store.set('github-since', '2026-09-08T00:00:00.000Z')
     h.store.threads.save({ key: 'github:16', ref: { source: 'github', id: '16' }, createdAt: '', subscriptions: [], correlated: [], pending: [],
@@ -669,15 +694,14 @@ describe('github source', () => {
     h.store.set('github-retry', { 16: { ...first, attempts: 99 } })
     github(h, { notifications: [] })
     await expect(pollRound(h)).rejects.toThrow('#16')
-    // A day after the first failed read, it is dropped: its Thread keeps the error, the health names it, and the round does not
-    // fail. Its read position stays, so a later read takes in what the failed reads missed.
+    // A day after the first failed read, it is parked: the record keeps its boundary, the Thread keeps the error, the health is an error that names it, and the round does not fail.
     h.store.set('github-retry', { 16: { ...first, failedAt: new Date(Date.now() - 25 * 3600_000).toISOString() } })
     await pollRound(h)
-    expect(h.store.get('github-retry')).toEqual({})
+    expect(h.store.get<Record<string, { parked?: boolean; since: string }>>('github-retry')![16]).toMatchObject({ parked: true, since: expect.any(String) })
     expect(h.store.get('github-cursor:16')).toBe('2026-09-01T00:00:00.000Z')
     expect(h.store.threads.get('github:16')?.meta.pollError).toContain('Not Found')
-    expect(h.health.github).toMatchObject({ state: 'ready',
-      detail: '0 notifications; next poll ≥ 60s; dropped after their reads kept failing: #16' })
+    expect(h.health.github).toMatchObject({ state: 'error',
+      detail: '0 notifications; next poll ≥ 60s; parked, not retried until the source is rearmed: #16' })
     h.store.close()
   })
   it('polls the PRs of open tickets and subscribed Threads although the notifications fail, and then fails the round', async () => {
@@ -758,6 +782,188 @@ describe('github source', () => {
     await pollRound(h)
     expect(h.health.github).toMatchObject({ state: 'ready', detail: expect.stringContaining('deleted on GitHub: #5, #7, #8') })
     h.store.close()
+  })
+  it('parked reads survive a restart and are rearmed only when the owner switches the Source off and on', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      let settings = SettingsSchema.parse({ sources: { github: { enabled: true, config: {} } } })
+      const begin = (parked: boolean) => {
+        const board = new HealthBoard()
+        const sources = new SourceRegistry(() => settings, board)
+        healthOf.set(sources, board)
+        const value = host({ sources })
+        value.store.set('github-retry', { 16: { since: '2026-09-01T00:00:00.000Z', pr: false, failedAt: '2026-09-01T00:00:00.000Z', attempts: 9, ...parked ? { parked: true } : {} } })
+        const disposers: (() => unknown)[] = []
+        applyGithub({ orchestrator: value, effect: (effect: () => () => unknown) => { disposers.push(effect()) } } as never)
+        return { value, stop: async () => { for (const dispose of disposers) await dispose() } }
+      }
+      const calls: string[] = []
+      vi.spyOn(Commands.prototype, 'run').mockImplementation(async (...args: unknown[]) => {
+        calls.push(JSON.stringify(args))
+        return 'HTTP/2.0 200 OK\r\n\r\n[]'
+      })
+      // Startup with a parked record: it stays parked, is not read, and the health is an error.
+      const run = begin(true)
+      await vi.waitFor(() => expect(run.value.health.github).toMatchObject({ state: 'error', detail: expect.stringContaining('parked') }))
+      expect(calls.filter(call => call.includes('issues/16'))).toHaveLength(0)
+      expect(run.value.store.get<Record<string, { parked?: boolean }>>('github-retry')![16]?.parked).toBe(true)
+      // Owner switches the Source off, then on: the record is rearmed with its original since.
+      settings = SettingsSchema.parse({ sources: { github: { enabled: false, config: {} } } })
+      await vi.advanceTimersByTimeAsync(60_000)
+      await vi.waitFor(() => expect(run.value.health.github).toMatchObject({ code: 'sourceOff' }))
+      settings = SettingsSchema.parse({ sources: { github: { enabled: true, config: {} } } })
+      await vi.advanceTimersByTimeAsync(60_000)
+      await vi.waitFor(() => expect(calls.some(call => call.includes('issues/16'))).toBe(true))
+      expect(run.value.store.get<Record<string, { since: string; parked?: boolean }>>('github-retry')?.[16]?.parked).toBeUndefined()
+      await run.stop(); run.value.store.close()
+    } finally { vi.useRealTimers() }
+  })
+  it('a long stored embargo keeps the Source responsive: off is reported, on still reads nothing inside the embargo, and stopping is immediate', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      let settings = SettingsSchema.parse({ sources: { github: { enabled: true, config: {} } } })
+      const board = new HealthBoard()
+      const sources = new SourceRegistry(() => settings, board)
+      healthOf.set(sources, board)
+      const value = host({ sources })
+      value.store.set('github-not-before', String(Date.now() + 365 * 86_400_000))
+      let calls = 0
+      vi.spyOn(Commands.prototype, 'run').mockImplementation(async () => { calls += 1; return 'HTTP/2.0 200 OK\r\n\r\n[]' })
+      const disposers: (() => unknown)[] = []
+      applyGithub({ orchestrator: value, effect: (effect: () => () => unknown) => { disposers.push(effect()) } } as never)
+      await vi.advanceTimersByTimeAsync(1)
+      await vi.waitFor(() => expect(value.health.github).toMatchObject({ state: 'paused', detail: expect.stringContaining('not-before') }))
+      settings = SettingsSchema.parse({ sources: { github: { enabled: false, config: {} } } })
+      await vi.advanceTimersByTimeAsync(60_000)
+      await vi.waitFor(() => expect(value.health.github).toMatchObject({ code: 'sourceOff' }))
+      settings = SettingsSchema.parse({ sources: { github: { enabled: true, config: {} } } })
+      await vi.advanceTimersByTimeAsync(120_000)
+      await vi.waitFor(() => expect(value.health.github).toMatchObject({ state: 'paused', detail: expect.stringContaining('not-before') }))
+      expect(calls).toBe(0)
+      for (const dispose of disposers) await dispose()
+      value.store.close()
+    } finally { vi.useRealTimers() }
+  })
+  it('through the real watch loop, an oversized check-runs read keeps the Source in error round after round, and a recovered read returns it to ready', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const board = new HealthBoard()
+      const settings = SettingsSchema.parse({ sources: { github: { enabled: true, config: {} } } })
+      const sources = new SourceRegistry(() => settings, board)
+      healthOf.set(sources, board)
+      const value = host({ sources })
+      value.store.tickets.save({ ...openTicket('t9'), ...pulled(9) })
+      value.store.threads.save({ key: 'github:9', ref: { source: 'github', id: '9' }, createdAt: '', lastAt: new Date().toISOString(),
+        subscriptions: ['t9'], correlated: [], pending: [], meta: { number: 9, isPr: true, title: 'Fix' } })
+      const pr = { number: 9, title: 'Fix', state: 'open', html_url: 'https://github.com/acme/widgets/pull/9', user: { login: 'agent-bot' },
+        head: { sha: 'abc', ref: 'agent/nine', repo: { full_name: 'acme/widgets' } } }
+      let broken = true
+      let checks = 0
+      vi.spyOn(Commands.prototype, 'run').mockImplementation(async (_program, args) => {
+        const path = args[1]!.replace(/^repos\/acme\/widgets\//, '').split('?')[0]!
+        let body: unknown = []
+        if (path === 'pulls/9') body = pr
+        else if (path.endsWith('/check-runs')) {
+          checks += 1
+          if (broken) throw commandError({ code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' })
+          body = [{ check_runs: [] }]
+        } else if (args.includes('--slurp')) body = [[]]
+        if (args.includes('--include')) return `HTTP/2.0 200 OK\r\nX-Poll-Interval: 60\r\n\r\n${JSON.stringify(body)}`
+        return JSON.stringify(body)
+      })
+      const disposers: (() => unknown)[] = []
+      applyGithub({ orchestrator: value, effect: (effect: () => () => unknown) => { disposers.push(effect()) } } as never)
+      const expectError = () => expect(value.health.github).toMatchObject({ state: 'error', detail: expect.stringContaining('printed more output than it may') })
+      // The default threshold is three consecutive failed rounds before the Source reports an error.
+      await vi.waitFor(() => expect(checks).toBeGreaterThanOrEqual(1))
+      for (let round = 2; round <= 5; round++) {
+        expect(value.health.github?.state).not.toBe('ready')
+        await vi.advanceTimersByTimeAsync(60_000)
+        await vi.waitFor(() => expect(checks).toBeGreaterThanOrEqual(round))
+        if (round >= 3) await vi.waitFor(expectError)
+      }
+      broken = false
+      await vi.advanceTimersByTimeAsync(60_000)
+      await vi.waitFor(() => expect(value.health.github).toMatchObject({ state: 'ready' }))
+      for (const dispose of disposers) await dispose()
+      value.store.close()
+    } finally { vi.useRealTimers() }
+  })
+  describe('embargo clock and persistence faults, with a faked clock', () => {
+    const arrange = async (fail?: { writes: boolean }) => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+      vi.setSystemTime(new Date('2026-09-09T00:00:00Z'))
+      const { TransportFailure } = await import('../src/infra/transport-failure.ts')
+      const board = new HealthBoard()
+      const settings = SettingsSchema.parse({ sources: { github: { enabled: true, config: {} } } })
+      const sources = new SourceRegistry(() => settings, board)
+      healthOf.set(sources, board)
+      const value = host({ sources })
+      if (fail) {
+        const set = value.store.set.bind(value.store)
+        vi.spyOn(value.store, 'set').mockImplementation(((name: string, v: unknown) => {
+          if (name === 'github-not-before' && fail.writes) throw new Error('disk full /home/u/.secret/db token=ghp_HOSTILE')
+          return set(name, v as never)
+        }) as typeof value.store.set)
+      }
+      const calls: number[] = []
+      vi.spyOn(Commands.prototype, 'run').mockImplementation(async () => {
+        calls.push(Date.now())
+        throw new TransportFailure('rate limited', { status: 429, retryAfter: '3600' }, Date.now())
+      })
+      const launch = () => {
+        const disposers: (() => unknown)[] = []
+        applyGithub({ orchestrator: value, effect: (effect: () => () => unknown) => { disposers.push(effect()) } } as never)
+        return async () => { for (const dispose of disposers) await dispose() }
+      }
+      return { value, calls, launch }
+    }
+    it('uses an absolute expiry: a restart inside the embargo reads only at the original deadline, one after it reads at once', async () => {
+      try {
+        const { value, calls, launch } = await arrange()
+        const t0 = Date.now()
+        const first = launch()
+        await vi.waitFor(() => expect(calls).toHaveLength(1))
+        await first()
+        await vi.advanceTimersByTimeAsync(1_000_000)
+        const second = launch()
+        await vi.advanceTimersByTimeAsync(2_500_000)
+        expect(calls).toHaveLength(1)
+        await vi.advanceTimersByTimeAsync(200_000)
+        await vi.waitFor(() => expect(calls).toHaveLength(2))
+        expect(calls[1]! - t0).toBeGreaterThanOrEqual(3_600_000)
+        expect(calls[1]! - t0).toBeLessThan(3_700_000)
+        await second()
+        // A restart after the deadline needs no wait.
+        await vi.advanceTimersByTimeAsync(10_000_000)
+        const third = launch()
+        await vi.waitFor(() => expect(calls.length).toBeGreaterThanOrEqual(3))
+        await third(); value.store.close()
+      } finally { vi.useRealTimers() }
+    })
+    it('a failed embargo write stays an error for the whole embargo with a static message, keeps the in-memory floor, and recovers when the write succeeds', async () => {
+      try {
+        const fail = { writes: true }
+        const { value, calls, launch } = await arrange(fail)
+        const first = launch()
+        await vi.waitFor(() => expect(calls).toHaveLength(1))
+        const unsaved = () => expect(value.health.github).toMatchObject({ state: 'error', detail: expect.stringContaining('could not be saved') })
+        await vi.waitFor(unsaved)
+        for (let slice = 0; slice < 5; slice++) {
+          await vi.advanceTimersByTimeAsync(60_000)
+          unsaved()
+          expect(JSON.stringify(value.health.github)).not.toMatch(/disk full|HOSTILE|\/home\/u|secret/)
+        }
+        expect(calls).toHaveLength(1)
+        fail.writes = false
+        await vi.advanceTimersByTimeAsync(61_000)
+        await vi.waitFor(() => expect(value.health.github).toMatchObject({ state: 'paused', detail: expect.stringContaining('Waiting') }))
+        expect(value.store.get('github-not-before')).toBeDefined()
+        await vi.advanceTimersByTimeAsync(3_600_000)
+        await vi.waitFor(() => expect(calls).toHaveLength(2))
+        await first(); value.store.close()
+      } finally { vi.useRealTimers() }
+    })
   })
   it('waits for setup, pauses while the Source is off, and counts only consecutive failed polls towards an error', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
@@ -1024,7 +1230,7 @@ it('reports GitHub as failing only after the configured number of consecutive fa
   expect(pollFailure(2, 3, eof)).toBeUndefined()
   expect(pollFailure(3, 3, eof)).toEqual({ state: 'error', detail: '3 consecutive failed polls; last: Error: Get "https://api.github.com/x": EOF', code: 'pollFailures', values: { count: '3', error: 'Error: Get "https://api.github.com/x": EOF' } })
   expect(githubKind.schema.parse({})).toEqual({ repository: '', cli: '', pollSeconds: 60, failuresBeforeError: 3, observeIssues: false,
-    observePulls: false, observeComments: false, observeCi: false })
+    observePulls: false, observeComments: false, observeCi: false, replaySeconds: 120, reconcileMinutes: 30, reconcileHorizonSeconds: 3600 })
 })
 describe('feishu event consumer', () => {
   let dir: string
@@ -1043,12 +1249,13 @@ describe('feishu event consumer', () => {
    * A bot CLI whose `event consume` behaves as `mode` says: `never` gets ready, `warn` warns once ready, `ready` stays up,
    * and `flaky` exits after its first ready. It records each run and the PID of the latest.
    */
-  function cli(mode: 'never' | 'warn' | 'ready' | 'flaky' | 'events' | 'late'): string {
+  function cli(mode: 'never' | 'warn' | 'ready' | 'flaky' | 'events' | 'late' | 'late-ready'): string {
     const path = join(dir, 'lark-bot')
     writeFileSync(path, `#!/bin/sh
   [ "$1" = event ] || { echo '{"ok":true,"data":{}}'; exit 0; }
   n=$(cat '${dir}/runs' 2>/dev/null || echo 0); n=$((n + 1)); echo $n > '${dir}/runs'; echo $$ > '${dir}/pid'
   case ${mode} in
+    late-ready) printf 'not json\n'; sleep 0.1; echo '[event] ready' >&2; sleep 0.1; cat '${dir}/events'; exec sleep 60 ;;
     never) exec sleep 60 ;;
     warn) echo '[event] ready' >&2; echo 'WARN the connection was reset' >&2; exec sleep 60 ;;
     ready) echo '[event] ready' >&2; exec sleep 60 ;;
@@ -1097,6 +1304,15 @@ describe('feishu event consumer', () => {
     expect(health.feishu).toMatchObject({ state: 'error', detail: expect.stringContaining('JSON') })
     controller.abort(); await running; store.close()
   }, 20_000)
+  it('PRE-1: a delayed readiness line cannot clear a malformed-event diagnostic', async () => {
+    writeFileSync(join(dir, 'events'), event('om_after_ready', 'oc_group', 'group') + '\n')
+    const { ctx, health, store } = consumerSource(cli('late-ready'))
+    running = runFeishu(ctx, controller.signal)
+    try {
+      await vi.waitFor(() => expect(store.triggers.get(feishuTriggerId('om_after_ready'))).toBeDefined(), until)
+      expect(health.feishu).toMatchObject({ state: 'error', detail: expect.stringContaining('JSON') })
+    } finally { controller.abort(); await running; store.close() }
+  }, 20_000)
   it('drops the events it reads once the Source is off', async () => {
     writeFileSync(join(dir, 'events'), event('om_9', 'oc_group', 'group') + '\n')
     const { ctx, health, store, turnOff } = consumerSource(cli('late'))
@@ -1143,6 +1359,30 @@ describe('feishu event consumer', () => {
     expect(off.chats).toEqual(['oc_a', 'oc_b'])
     expect(off.cursors.oc_dm).toBe(hour)
   }, 20_000)
+  it('RESTART: the first-seen boundary and cursor survive a store reopen, and the new loop admits only what followed the boundary', async () => {
+    const chat = { chatId: 'oc_a', listen: 'mentions' }
+    const first = consumerSource(cli('ready'), { chats: [chat] })
+    const one = new AbortController()
+    const loopOne = runFeishu(first.ctx, AbortSignal.any([one.signal, controller.signal]))
+    await vi.waitFor(() => expect(first.store.get(KV.feishu.started('oc_a'))).toBeDefined(), until)
+    const boundary = first.store.get<string>(KV.feishu.started('oc_a'))!
+    one.abort(); await loopOne; first.store.close()
+    const at = (ms: number) => String(Date.parse(boundary) + ms)
+    const mention = (id: string, ms: number) => ({ message_id: id, chat_id: 'oc_a', create_time: at(ms), msg_type: 'text', sender: { id: 'ou_alice', id_type: 'open_id', sender_type: 'user' },
+      body: { content: '{"text":"@bot fix"}' }, mentions: [{ id: 'ou_bot', key: '@_user_1', name: 'Bot' }] })
+    const lark = vi.spyOn(Commands.prototype, 'lark').mockImplementation(async args =>
+      args[2] === '/open-apis/im/v1/messages'
+        ? { has_more: false, items: [mention('om_before_restart', -5000), mention('om_after_restart', 500)] }
+        : { chats: [] })
+    const second = consumerSource(cli('ready'), { chats: [chat] })
+    expect(second.store.get(KV.feishu.started('oc_a'))).toBe(boundary)
+    const two = new AbortController()
+    const loopTwo = runFeishu(second.ctx, AbortSignal.any([two.signal, controller.signal]))
+    await vi.waitFor(() => expect(second.store.triggers.get(feishuTriggerId('om_after_restart'))).toBeDefined(), until)
+    expect(second.store.triggers.get(feishuTriggerId('om_before_restart'))).toBeUndefined()
+    expect(second.store.get<string>(KV.feishu.started('oc_a'))).toBe(boundary)
+    two.abort(); await loopTwo; lark.mockRestore(); second.store.close()
+  }, 30_000)
   it('reports an error when the consumer is not ready within 45 seconds', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     const { ctx, health, store } = consumerSource(cli('never'))
@@ -1228,12 +1468,12 @@ describe('observing the GitHub repository', () => {
     expect(h.receive.mock.calls.map(([trigger]) => [trigger.meta.number, trigger.meta.kind, trigger.id]))
       .toEqual([[4, 'issue', issueTrigger(issue(4), 'agent-bot').id], [5, 'pull', issueTrigger(issue(5), 'agent-bot').id]])
     const started = { issues: at(0), pulls: at(0) }
-    expect(h.store.get('github-stream:issues')).toEqual({ since: cursorAt(at(4)), started })
+    expect(h.store.get('github-stream:issues')).toEqual({ since: cursorAt(at(4), 121_000), started, lastReconciliation: expect.any(String) })
     const list = () => calls.filter(args => args[1]!.startsWith('repos/acme/widgets/issues?'))
     expect(list()[0]![1]).toContain(`since=${encodeURIComponent(at(0))}`)
     // The next round repeats the request at the newest Issue, whose ETag the round after sends, which GitHub answers 304 for.
     await pollRound(h)
-    expect(h.store.get('github-stream:issues')).toEqual({ since: cursorAt(at(4)), started, etag: '"same"' })
+    expect(h.store.get('github-stream:issues')).toEqual({ since: cursorAt(at(4), 121_000), started, lastReconciliation: expect.any(String), etag: '"same"' })
     h.receive.mockClear()
     await pollRound(h)
     expect(list().at(-1)).toEqual(expect.arrayContaining(['-H', 'If-None-Match: "same"']))
@@ -1286,7 +1526,7 @@ describe('observing the GitHub repository', () => {
     await expect(pollRound(h)).rejects.toThrow(/issues: .*502/)
     expect(h.store.get('github-stream:issues')).toEqual({ since: at(0), started: { issues: at(0) } })
     expect(h.receive).toHaveBeenCalledWith(expect.objectContaining({ text: 'looks off' }))
-    expect(h.store.get('github-stream:comments')).toEqual({ since: cursorAt(at(1)), started: { comments: at(0) } })
+    expect(h.store.get('github-stream:comments')).toEqual({ since: cursorAt(at(1), 121_000), started: { comments: at(0) }, lastReconciliation: expect.any(String) })
     h.store.close()
   })
   it('reads a stream whose cursor is older than the polling horizon from the horizon, without the ETag of the older request', async () => {
@@ -1334,14 +1574,14 @@ describe('observing the GitHub repository', () => {
     expect(Object.keys(h.store.get<{ started: Record<string, string> }>('github-stream:issues')!.started)).toEqual(['pulls'])
     h.store.close()
   })
-  it('keeps a stream\'s cursor five seconds before its newest item, and a stale cursor on the hour, so the ETag is sent again', async () => {
+  it('keeps a stream\'s cursor one replay window before its newest item, and a stale cursor on the hour, so the ETag is sent again', async () => {
     const h = host()
     observe(h, { observeIssues: true })
     h.store.set('github-since', at(-24))
     h.store.set('github-stream:issues', { since: at(0), started: { issues: at(0) } })
     repository(h, { issues: [issue(6, { created_at: at(3), updated_at: at(3) })] })
     await pollRound(h)
-    expect(h.store.get<{ since: string }>('github-stream:issues')!.since).toBe(new Date(Date.parse(at(3)) - 5000).toISOString())
+    expect(h.store.get<{ since: string }>('github-stream:issues')!.since).toBe(new Date(Date.parse(at(3)) - 121_000).toISOString())
     // A cursor behind the horizon reads from the horizon on the hour, the same in the next round, which sends the ETag.
     const old = new Date(Date.now() - 20 * 86_400_000).toISOString()
     h.store.set('github-stream:issues', { since: old, started: { issues: old } })
@@ -1402,6 +1642,108 @@ describe('observing the GitHub repository', () => {
     expect(h.receive.mock.calls[0]![0]).toMatchObject({ human: false, actor: { id: '' }, threads: [{ source: 'github', id: 'ci:main' }],
       meta: { ci: true, branch: 'main', sha: 'bbb2222' }, url: 'https://github.com/acme/widgets/commit/bbb2222' })
     expect(h.receive.mock.calls[0]![0].text).toContain('Read github/commits/bbb2222/checks for every check.')
+    h.store.close()
+  })
+})
+
+describe('github notifications lane parking (fine-grained token)', () => {
+  /** GitHub documents the notifications endpoints as accepting only personal access tokens (classic); a fine-grained token gets this exact 403. */
+  const MARKER = 'Resource not accessible by personal access token'
+  const at = (hour: number) => new Date(Math.floor(Date.now() / 86_400_000 - 2) * 86_400_000 + hour * 3_600_000).toISOString()
+  const observe = (h: ReturnType<typeof host>, config: Record<string, unknown>) =>
+    h.store.saveSettings({ ...h.store.settings(), sources: { ...h.store.settings().sources, github: { enabled: true, config } } })
+  const laneOf = (h: ReturnType<typeof host>) => h.store.get<{ since: string; probeAt: string }>('github-notifications-lane')
+  /** GitHub with a controllable notifications answer and repository stream lists. */
+  function repo(h: ReturnType<typeof host>, notifications: unknown, answers: { comments?: unknown[]; issue?: unknown; issueComments?: unknown[] } = {}) {
+    const calls: string[] = []
+    vi.spyOn(h.commands, 'run').mockImplementation(async (_program, args) => {
+      const bare = args[1]!.replace(/^repos\/acme\/widgets\/?/, '').split('?')[0]!
+      calls.push(bare)
+      const listed = (list: unknown[] | undefined) => `HTTP/2.0 200 OK\r\nX-Poll-Interval: 60\r\n\r\n${JSON.stringify(args.includes('--slurp') ? [list ?? []] : list ?? [])}`
+      if (bare === 'notifications') {
+        if (notifications instanceof Error) throw notifications
+        return listed(notifications as unknown[])
+      }
+      if (bare === 'issues/comments') return listed(answers.comments)
+      if (bare === 'issues/13') return `HTTP/2.0 200 OK\r\n\r\n${JSON.stringify(args.includes('--slurp') ? [answers.issue] : answers.issue)}`
+      if (bare === 'issues/13/comments') return listed(answers.issueComments)
+      return listed([])
+    })
+    return calls
+  }
+  const mention = (id: number, number: number) => ({ id, body: '@agent-bot please look', user: { login: 'carol', type: 'User' },
+    created_at: at(1), updated_at: at(1), issue_url: `https://api.github.com/repos/acme/widgets/issues/${number}`,
+    html_url: `https://github.com/acme/widgets/issues/${number}#issuecomment-${id}` })
+
+  it('parks the lane on the documented marker, keeps repository streams, and reports ready naming what carries intake', async () => {
+    const h = host()
+    observe(h, { observeComments: true })
+    h.store.set('github-since', at(-24))
+    for (const stream of ['comments', 'review-comments']) h.store.set(`github-stream:${stream}`, { since: at(0), started: { comments: at(0) } })
+    repo(h, refused(403, MARKER), { comments: [mention(1, 7)] })
+    await pollRound(h)
+    // The comment stream delivered its Trigger although notifications cannot be read with this token.
+    expect(h.receive).toHaveBeenCalledWith(expect.objectContaining({ text: '@agent-bot please look', meta: expect.objectContaining({ number: 7 }) }))
+    expect(laneOf(h)).toBeDefined()
+    expect(h.health.github).toMatchObject({ state: 'ready', code: 'notificationsUnsupported' })
+    expect(h.health.github!.detail).toContain('comments')
+    h.store.close()
+  })
+  it('reports paused with the reason when the lane is parked and every repository activity switch is off', async () => {
+    const h = host()
+    observe(h, {})
+    h.store.set('github-since', at(-24))
+    repo(h, refused(403, MARKER))
+    await pollRound(h)
+    expect(h.receive).not.toHaveBeenCalled()
+    expect(h.health.github).toMatchObject({ state: 'paused', code: 'notificationsUnsupportedIdle' })
+    h.store.close()
+  })
+  it('does not park on a rate-limit 403, a 401, or a 404: those rounds still fail', async () => {
+    for (const error of [refused(403, 'API rate limit exceeded'), refused(401, 'Bad credentials'), refused(404, 'Not Found')]) {
+      const h = host()
+      observe(h, { observeComments: true })
+      h.store.set('github-since', at(-24))
+      repo(h, error)
+      await expect(pollRound(h)).rejects.toThrow()
+      expect(laneOf(h)).toBeUndefined()
+      h.store.close()
+    }
+  })
+  it('between probes the lane is not called, and a probe failing for another reason fails the round and keeps the lane parked', async () => {
+    const h = host()
+    observe(h, {})
+    h.store.set('github-since', at(-24))
+    h.store.set('github-notifications-lane', { since: at(0), probeAt: new Date().toISOString() })
+    const calls = repo(h, refused(502, 'Bad Gateway'))
+    await pollRound(h)
+    expect(calls).not.toContain('notifications')
+    expect(h.health.github).toMatchObject({ state: 'paused', code: 'notificationsUnsupportedIdle' })
+    // A probe that fails for an ordinary reason surfaces as a round failure and does not clear the lane.
+    h.store.set('github-notifications-lane', { since: at(0), probeAt: at(0) })
+    await expect(pollRound(h)).rejects.toThrow(/502/)
+    expect(laneOf(h)).toBeDefined()
+    h.store.close()
+  })
+  it('a due probe resumes the full intake when the credential starts reading notifications', async () => {
+    const h = host()
+    observe(h, {})
+    h.store.set('github-since', at(-24))
+    h.store.set('github-notifications-lane', { since: at(0), probeAt: at(0) })
+    repo(h, [notification(13)], { issue: { id: 1013, number: 13, title: 'Login fails', state: 'open', created_at: at(-20), updated_at: at(1),
+      html_url: 'https://github.com/acme/widgets/issues/13', user: { login: 'carol', type: 'User' } }, issueComments: [mention(2, 13)] })
+    await pollRound(h)
+    expect(h.receive).toHaveBeenCalledWith(expect.objectContaining({ meta: expect.objectContaining({ number: 13 }) }))
+    expect(laneOf(h)).toBeUndefined()
+    expect(h.health.github).toMatchObject({ state: 'ready' })
+    expect(h.health.github!.detail).toContain('notifications')
+    h.store.close()
+  })
+  it('switching the Source off and on rearms the lane for a fresh probe', () => {
+    const h = host()
+    h.store.set('github-notifications-lane', { since: at(0), probeAt: at(0) })
+    rearmParked(h)
+    expect(laneOf(h)).toBeUndefined()
     h.store.close()
   })
 })

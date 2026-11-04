@@ -1,0 +1,67 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/context-repro[39m
+
+ [31m❯[39m tests/issue-24-repository-scope.spec.ts [2m([22m[2m5 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 13[2mms[22m[39m
+[31m   [31m×[31m does not map a foreign fully qualified PR URL onto a local ticket with the same number[39m[32m 7[2mms[22m[39m
+   [32m✓[39m the existing address parser already rejects foreign repository identity[32m 1[2mms[22m[39m
+   [32m✓[39m relative API reads stay bound to their deployment and escaping URLs never execute[32m 2[2mms[22m[39m
+   [32m✓[39m documents why one shared Store cannot host two repositories without namespacing[32m 1[2mms[22m[39m
+[31m   [31m×[31m actual candidateCard never recommends a local ticket for a foreign same-number PR[39m[32m 2[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/issue-24-repository-scope.spec.ts[2m > [22mdoes not map a foreign fully qualified PR URL onto a local ticket with the same number
+[31m[1mAssertionError[22m: expected [ 'github:12' ] to deeply equal [][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "github:12",[39m
+[31m+ ][39m
+
+[36m [2m❯[22m tests/issue-24-repository-scope.spec.ts:[2m22:76[22m[39m
+    [90m 20|[39m it('does not map a foreign fully qualified PR URL onto a local ticket …
+    [90m 21|[39m   [35mconst[39m sources [33m=[39m [34mregistry[39m()
+    [90m 22|[39m   expect(sources.find('https://github.com/other/project/pull/12').thre…
+    [90m   |[39m                                                                            [31m^[39m
+    [90m 23|[39m   expect(sources.find('https://github.com/acme/widgets/pull/12').threa…
+    [90m 24|[39m   [34mexpect[39m(sources[33m.[39m[34mfind[39m([32m'#12'[39m)[33m.[39mthreads)[33m.[39m[34mtoEqual[39m([[32m'github:12'[39m])
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-24-repository-scope.spec.ts[2m > [22mactual candidateCard never recommends a local ticket for a foreign same-number PR
+[31m[1mAssertionError[22m: expected { trigger_id: 'new-request', …(11) } to not have property "referenced_tickets"[39m
+
+[32m- Expected:[39m
+undefined
+
+[31m+ Received:[39m
+[
+  {
+    "preview": "",
+    "read": "ticket/local-ticket",
+    "state": "working/queued",
+    "strength": "explicit",
+    "ticket_id": "local-ticket",
+    "title": "Local request",
+  },
+]
+
+[36m [2m❯[22m tests/issue-24-repository-scope.spec.ts:[2m68:70[22m[39m
+    [90m 66|[39m     thread: { key: 'github:99', ref: trigger.threads[0]!, createdAt: '…
+    [90m 67|[39m     triggers[33m:[39m [{ [33m...[39mtrigger[33m,[39m text }] })
+    [90m 68|[39m   expect(await card('https://github.com/other/project/pull/12')).not.t…
+    [90m   |[39m                                                                      [31m^[39m
+    [90m 69|[39m   expect(await card('https://github.com/acme/widgets/pull/12')).toMatc…
+    [90m 70|[39m   expect(await card('#12')).toMatchObject({ referenced_tickets: [{ tic…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m3 passed[39m[22m[90m (5)[39m
+[2m   Start at [22m 06:57:37
+[2m   Duration [22m 543ms[2m (transform 329ms, setup 0ms, import 438ms, tests 13ms, environment 0ms)[22m
+

@@ -1,0 +1,21 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/storage-validation[39m
+
+(node:2507) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/migration.spec.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 260[2mms[22m[39m
+(node:2514) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/issue-20-adversarial.spec.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 2430[2mms[22m[39m
+   [33m[2m✓[22m[39m SIGKILL after uncommitted save preserves decision/link atomicity [33m 875[2mms[22m[39m
+   [33m[2m✓[22m[39m SIGKILL after committed save preserves decision/link atomicity [33m 758[2mms[22m[39m
+   [33m[2m✓[22m[39m helper setup failure cannot satisfy the SIGKILL boundary evidence [33m 750[2mms[22m[39m
+(node:2616) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/issue-19-20-storage.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 445[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[32m31 passed[39m[22m[90m (31)[39m
+[2m   Start at [22m 07:15:28
+[2m   Duration [22m 4.18s[2m (transform 410ms, setup 0ms, import 784ms, tests 3.13s, environment 0ms)[22m
+

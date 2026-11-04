@@ -1,0 +1,58 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/home/sandbox/work/dsh-superagent-proto[39m
+
+(node:8008) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [31m❯[39m tests/issue-17-disposal.spec.ts [2m([22m[2m2 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[33m 5111[2mms[22m[39m
+[31m   [31m×[31m an in-flight idle handler cannot kick or mutate after executor disposal[39m[32m 104[2mms[22m[39m
+[31m   [31m×[31m disposing during background settlement aborts the pending look without a later report or kick[39m[33m 5006[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/issue-17-disposal.spec.ts[2m > [22man in-flight idle handler cannot kick or mutate after executor disposal
+[31m[1mAssertionError[22m: expected "report" to not be called at all, but actually been called 1 times[90m
+
+Received:
+
+[1m  1st report call:
+
+[22m    Array [
+      "4a3444358ad1c895e4a6bda80de2d119",
+      Object {
+        "state": "waiting",
+        "summary": "Prior evidence preserved",
+      },
+    ]
+[31m[90m
+
+Number of calls: [1m1[22m
+[31m[39m
+[36m [2m❯[22m tests/issue-17-disposal.spec.ts:[2m31:22[22m[39m
+    [90m 29|[39m   h[33m![39m[33m.[39mruntime[33m.[39mexecutor[33m.[39m[34mdispose[39m()
+    [90m 30|[39m   gate[33m.[39m[34mresolve[39m()[33m;[39m [35mawait[39m work
+    [90m 31|[39m   [34mexpect[39m(report)[33m.[39mnot[33m.[39m[34mtoHaveBeenCalled[39m()
+    [90m   |[39m                      [31m^[39m
+    [90m 32|[39m   [34mexpect[39m(kick)[33m.[39mnot[33m.[39m[34mtoHaveBeenCalled[39m()
+    [90m 33|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-17-disposal.spec.ts[2m > [22mdisposing during background settlement aborts the pending look without a later report or kick
+[31m[1mError[22m: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".[39m
+[36m [2m❯[22m tests/issue-17-disposal.spec.ts:[2m35:1[22m[39m
+    [90m 33|[39m })
+    [90m 34|[39m
+    [90m 35|[39m it('disposing during background settlement aborts the pending look wit…
+    [90m   |[39m [31m^[39m
+    [90m 36|[39m   [35mconst[39m s [33m=[39m [35mawait[39m [34mscenario[39m()[33m,[39m gate [33m=[39m [34mdeferred[39m()
+    [90m 37|[39m   const subagents = h!.ctx.get('subagents') as unknown as { waitForChi…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m   Start at [22m 07:33:53
+[2m   Duration [22m 5.97s[2m (transform 591ms, setup 0ms, import 764ms, tests 5.11s, environment 0ms)[22m
+

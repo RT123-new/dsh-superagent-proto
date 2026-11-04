@@ -26,7 +26,8 @@ describe('Source registry', () => {
     sources.register(probe); sources.register(githubKind)
     expect(sources.instances()).toEqual([
       { id: 'github', kind: 'github', enabled: true, config: { repository: '', cli: '', pollSeconds: 60, failuresBeforeError: 3,
-        observeIssues: false, observePulls: false, observeComments: false, observeCi: false }, installed: true },
+        observeIssues: false, observePulls: false, observeComments: false, observeCi: false,
+        replaySeconds: 120, reconcileMinutes: 30, reconcileHorizonSeconds: 3600 }, installed: true },
       { id: 'probe', kind: 'probe', enabled: false, config: { interval: 9 }, installed: true },
       { id: 'retired', kind: 'retired', enabled: true, config: { x: 1 }, installed: false },
     ])
@@ -108,7 +109,7 @@ describe('Source registry', () => {
     expect(sources.repliesTo({ ...reply, source: 'github' })).toBeUndefined()
   })
   it('finds what a search query names in each kind\'s terms', () => {
-    const sources = new SourceRegistry(() => SettingsSchema.parse({}))
+    const sources = new SourceRegistry(() => SettingsSchema.parse({ sources: { github: { enabled: true, config: { repository: 'acme/widgets' } } } }))
     sources.register(feishuKind); sources.register(githubKind)
     expect(sources.find('#12')).toEqual({ threads: ['github:12'], terms: [] })
     expect(sources.find('https://github.com/acme/widgets/pull/7#issuecomment-3')).toEqual({ threads: ['github:7'], terms: [] })

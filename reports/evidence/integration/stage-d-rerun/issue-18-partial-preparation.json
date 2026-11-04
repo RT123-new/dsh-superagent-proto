@@ -1,0 +1,7 @@
+{
+  "scenario": "first prepare killed mid-flight (terminated range); relaunch re-runs prepare and succeeds",
+  "prepareCommands": 2,
+  "failedMs": 3.3251449999999636,
+  "recoveredMs": 4.055574999999976,
+  "recovered": true
+}

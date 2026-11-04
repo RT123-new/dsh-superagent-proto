@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { key, liveTicket, type Ticket } from '../core/index.ts'
 import { mandateInstructions, ticketOfSession } from '../executor/dsh.ts'
 import type { HealthEntry } from '../infra/health.ts'
+import { resolveWorkerAncestry } from './ancestry.ts'
 import { AgentDelivery, messageId } from './delivery.ts'
 import type { Effects } from './effects.ts'
 import type { Variable } from './execution-environment.ts'
@@ -19,6 +20,7 @@ import { SKILL_PREFIX, type PromptVersion, type Prompts } from './prompts.ts'
 import type { Store } from './store.ts'
 import { KV } from '../kv.ts'
 import type { RegisterTool, Tool } from './tools/tool.ts'
+import type { Probe } from '../infra/metrics-probe.ts'
 
 /** Host dependencies used by `Sessions`. */
 export interface SessionsHost {
@@ -32,6 +34,8 @@ export interface SessionsHost {
   readonly masterId: string
   readonly lifetime: AbortSignal
   closing(): boolean
+  /** Optional instrumentation; absent means none. */
+  readonly probe?: Probe
   /** Execution environment variables for `ticket`, rendered into its worker's system prompt. */
   environment(ticket: Ticket): Variable[]
   /** Tools to register on the main Session (`ticket === undefined`) or on `ticket`'s worker Session. */
@@ -42,7 +46,7 @@ export interface SessionsHost {
  * What Sessions registered for an agent it decorated: the releases of its prompt section, tools and skill scope, the scope
  * its skills are registered in, and the skills of one prompt revision; for a worker's subagent, only its tool limits.
  */
-interface SessionBinding { disposers: (() => void)[]; scope?: Context; skills?: { revision: number; dispose: () => void }; subagent?: true }
+interface SessionBinding { ready?: Promise<void>; disposers: (() => void)[]; scope?: Context; skills?: { revision: number; dispose: () => void }; subagent?: true }
 
 /** The agent presets Executor Sessions and the main Session are created with, which the bundle's patch defines. */
 export const WORKER_PRESET = 'dsh-superagent-worker', ROUTER_PRESET = 'dsh-superagent-router'
@@ -111,7 +115,28 @@ export class Sessions {
       this.release(agent)
       this.retryHealth.clear(agent.id); this.updateModelHealth()
     })
+    // Provider-reported usage of each committed assistant message, by component. Only this terminal event carries usage (no stream
+    // deltas), and each message object is counted once; a message missing usage is counted as an unknown report.
+    // Bounded stable settlement identities, not object identities: reconstructed/replayed events must not bill twice.
+    // Once full, stop collecting new usage rather than silently evict old identities and double count replays.
+    const counted = new Set<string>()
     ctx.on('session/event', (session, event) => {
+      if (event.type === 'assistant/message' && this.host.probe?.enabled) {
+        const known = ctx.agents.get(session.id)
+        const bound = known ? this.bindings.get(known) : undefined
+        const component = session.id === this.host.masterId ? 'coordinator' : bound?.subagent ? 'subagent' : bound && known && this.ticketOf(known) ? 'worker' : undefined
+        if (component) {
+          const identity = JSON.stringify([session.id, event.data.turn, event.data.step, event.data.message.id])
+          if (!counted.has(identity)) {
+            if (counted.size >= 10_000) this.host.probe.count('usage_identity_overflow')
+            else {
+              counted.add(identity)
+              const usage = event.data.usage
+              this.host.probe.usage(component, usage && { inputCacheMiss: usage.inputTokens, inputCacheHit: usage.cacheReadTokens, output: usage.outputTokens, cacheWrite: usage.cacheWriteTokens, reasoning: usage.reasoningTokens })
+            }
+          }
+        }
+      }
       const agent = ctx.agents.get(session.id)
       const binding = agent && agent.session === session ? this.bindings.get(agent) : undefined
       if (!agent || !binding || binding.subagent) return
@@ -135,22 +160,70 @@ export class Sessions {
     })
   }
   /** Resolves or creates session `id` in workspace `cwd`, initializes its role model, decorates it with prompts/skills/tools, sets `danger-full-access` permissions, and renames it to `title`. */
-  async ensure(id: string, cwd: string, title: string, role: 'orchestrator' | 'worker'): Promise<Agent> {
+  async ensure(id: string, cwd: string, title: string, role: 'orchestrator' | 'worker', authorize: () => void = () => {}): Promise<Agent> {
+    let createIssued = false
+    try { return await this.ensureGuarded(id, cwd, title, role, authorize, () => { createIssued = true }) }
+    catch (error) {
+      // The framework cannot cancel or dispose a started create, so a session may now exist for an assignment that no longer
+      // holds authority. Surface it (log, counter, bounded list) instead of leaving it silent; delivery to it stays refused.
+      // Upstream error text is untrusted and may carry secrets: record and log only the error class, never its message.
+      const kind = error instanceof Error ? 'error' : 'non-error'   // static category: upstream class names and messages are untrusted
+      if (createIssued && !this.unresolved.has(id)) {
+        // Past the bound the oldest entry is evicted; the counter keeps counting every occurrence, so it is the complete signal.
+        if (this.unresolved.size >= 256) { this.unresolved.delete(this.unresolved.keys().next().value!); this.host.probe?.count('session_create_unresolved_evicted') }
+        this.unresolved.set(id, kind); this.host.probe?.count('session_create_unresolved')
+        this.ctx.logger.warn('dsh-superagent: session %s may exist after its assignment stopped during creation (%s); the framework offers no disposal', id, kind)
+      }
+      // A privilege granted earlier to a reused session must not outlive its ticket: drop to the default preset once the ticket ended.
+      const existing = this.ctx.agents.get(id as SessionId)
+      const ticketId = ticketOfSession(id)
+      if (existing && ticketId !== undefined) {
+        const stored = this.host.store.tickets.get(ticketId)
+        if (!stored || !liveTicket(stored)) {
+          this.ctx.permissionPresets.set(existing.session, this.ctx.permissionPresets.defaultPreset)
+          // Its tools, prompt section and skills were granted for the ended ticket. A later authorized ensure decorates afresh.
+          this.release(existing)
+        }
+      }
+      throw error
+    }
+  }
+  /** Drops an ended ticket's Session privilege to the default preset: a grant must not outlive its ticket. */
+  revoke(id: string): void {
+    const agent = this.ctx.agents.get(id as SessionId)
+    if (agent) this.ctx.permissionPresets.set(agent.session, this.ctx.permissionPresets.defaultPreset)
+  }
+  /** Sessions whose creation overlapped a cancelled assignment and that were not later adopted by an authorized `ensure`. */
+  unresolvedSessions(): ReadonlyMap<string, string> { return this.unresolved }
+  private readonly unresolved = new Map<string, string>()
+  private async ensureGuarded(id: string, cwd: string, title: string, role: 'orchestrator' | 'worker', authorize: () => void, created: () => void): Promise<Agent> {
     const ctx = this.ctx
+    authorize()
     let result = await ctx.sessionController.resolveAgent(id as SessionId)
+    authorize()
     if ('error' in result && result.error.code === 'session/not-found') {
       const workspace = await ctx.workspaceRegistry.create(cwd)
+      authorize()
       // A Session keeps the preset it was created with, one of the bundle's own (cordis.patch.yml).
+      created()
       await ctx.sessionController.create({ sessionId: id as SessionId, workspaceId: workspace.id,
         agentPreset: role === 'worker' ? WORKER_PRESET : ROUTER_PRESET })
+      authorize()
       result = await ctx.sessionController.resolveAgent(id as SessionId)
+      authorize()
     }
     if ('error' in result) throw result.error
     const settings = this.host.store.settings()
-    await initializeRoleModel(ctx, result.agent, role === 'orchestrator' ? settings.eval.model : settings.executor.model)
-    await this.decorate(result.agent)
-    ctx.permissionPresets.set(result.agent.session, 'danger-full-access')
+    await initializeRoleModel(ctx, result.agent, role === 'orchestrator' ? settings.eval.model : settings.executor.model, authorize)
+    authorize()
+    await this.decorate(result.agent, authorize)
+    authorize()
     await ctx.sessionController.rename({ sessionId: id as SessionId, title })
+    authorize()
+    // Grant the privileged preset only after the last asynchronous boundary has re-authorized this assignment, so a
+    // cancelled or revoked assignment never leaves danger-full-access applied (final review, phase 2.2).
+    ctx.permissionPresets.set(result.agent.session, 'danger-full-access')
+    this.unresolved.delete(id)
     return result.agent
   }
   /** Returns whether `sessionId` already holds the message delivered under `requestId`, or `false` if the session does not exist. */
@@ -179,10 +252,12 @@ export class Sessions {
   /** Injects a notice into the main Session without waking it; no-op if the main Session does not exist yet. */
   private async inject(name: string, value: Record<string, unknown>, summary: string): Promise<void> {
     const resolved = await this.ctx.sessionController.resolveAgent(this.host.masterId as SessionId)
-    if ('error' in resolved) return
-    // Deduplicate by notice name and payload hash so retries are idempotent while updated payloads still deliver.
+    if ('error' in resolved) throw resolved.error
+    // Committed settings revisions have immutable identities independent of object ordering or changed-path details.
+    // Other notices retain the existing name/payload identity.
     const text = JSON.stringify(value)
-    await this.agentDelivery.send(resolved.agent, `notice:${name}:${key(text)}`, text, { inject: summary }, this.host.lifetime)
+    const identity = name.startsWith('settings:') && typeof value.revision === 'number' ? `${name}:${value.revision}` : `${name}:${key(text)}`
+    await this.agentDelivery.send(resolved.agent, `notice:${identity}`, text, { inject: summary }, this.host.lifetime)
   }
   /** Returns the current prompt revision, the active prompt revision of each loaded Session, and whether the main Session still has a pending `'prompts'` notice. */
   status() {
@@ -229,14 +304,32 @@ export class Sessions {
     const ticketId = ticketOfSession(agent.id)
     return ticketId === undefined ? undefined : this.host.store.tickets.get(ticketId)
   }
-  private async decorate(agent: Agent): Promise<void> {
-    if (this.bindings.has(agent)) return
+  private async decorate(agent: Agent, authorize: () => void = () => {}): Promise<void> {
+    authorize()
+    const existing = this.bindings.get(agent)
+    if (existing) {
+      // Presence is not readiness: agent-created decoration may still be waiting on the skills service.
+      await existing.ready
+      authorize()
+      if (this.bindings.get(agent) !== existing) return this.decorate(agent, authorize)
+      return
+    }
+    const binding: SessionBinding = { disposers: [] }
+    this.bindings.set(agent, binding)
+    const ready = this.decorateBinding(agent, binding, authorize)
+    binding.ready = ready
+    try { await ready }
+    catch (error) { this.release(agent, binding); throw error }
+  }
+  private async decorateBinding(agent: Agent, binding: SessionBinding, authorize: () => void): Promise<void> {
     const host = this.host
     const master = agent.id === host.masterId
     const ticket = master ? undefined : this.ticketOf(agent)
-    if (!master && !ticket) { this.limitSubagent(agent); return }
-    const binding: SessionBinding = { disposers: [] }
-    this.bindings.set(agent, binding)
+    if (!master && !ticket) {
+      this.bindings.delete(agent)
+      this.limitSubagent(agent)
+      return
+    }
     this.retryHealth.restore(agent.id, agent.session.snapshotEvents())
     if (agent.status === 'idle') this.retryHealth.clear(agent.id)
     this.updateModelHealth()
@@ -248,13 +341,18 @@ export class Sessions {
       return `[dsh-superagent prompt revision ${version.revision}]\n${composed}\n${current ? mandateInstructions(current.mandate) : ''}`
     }, ...(master ? { complete: true } : {}) }))
     // A recreated skill scope (e.g. after the skills service restarts) starts empty, so reset `binding.skills` before rebinding.
+    let initialized = false
     const skillScope = agent.ctx.inject(['skills'], scope => {
+      // Injection may resume after cancellation or release. Never mutate a stale generation.
+      if (this.bindings.get(agent) !== binding) return
+      if (!initialized) { try { authorize() } catch { return } }
       binding.scope = scope
       binding.skills = undefined
       this.bindSkills(binding, host.prompts.current())
     })
     binding.disposers.push(() => { skillScope.dispose().catch((error: unknown) => { this.ctx.logger.warn('dsh-superagent could not release a skill scope: %s', String(error)) }) })
     await skillScope
+    authorize()
     // Bail out if the agent was disposed while awaiting the skill scope.
     if (this.bindings.get(agent) !== binding) return
     const register = this.registerTool(agent, binding)
@@ -266,6 +364,7 @@ export class Sessions {
       // An Executor Session keeps the profile's work tools it has, which DSH requires to be known; its own tools are not masked.
       binding.disposers.push(...this.workOnly(agent, ticket!.id))
     }
+    initialized = true
   }
   /**
    * Whether a Session runs the router preset: as DSH's preset registry last selected it, read through the session projection
@@ -296,19 +395,33 @@ export class Sessions {
     })]
   }
   /**
-   * A subagent of an Executor Session, or of one of its subagents, which runs under DSH's `standard` preset with the worker's
-   * permissions, gets the same work tools as the worker, and none once the worker's ticket ended. Any other agent is left as
-   * it is.
+   * A subagent of an Executor Session, or of one of its subagents at any nesting depth, which runs under DSH's
+   * `standard` preset with the worker's permissions, gets the same work tools as the worker, and none once the worker's
+   * ticket ended: permission inheritance follows the originating authorized Ticket, resolved by validated ancestry
+   * rather than a bounded parent walk. Observed managed lineage is durable, so missing or corrupt parent metadata cannot erase the originating ticket.
+   * A worker or recorded descendant whose ticket is gone refuses every tool execution. Independently created user Sessions and their
+   * subagents are left as they are.
    */
   private limitSubagent(agent: Agent): void {
-    let parent = agent.session.header.parentSession
-    // Up the subagents' parents to the worker, which are loaded while their subagents run.
-    for (let depth = 0; parent !== undefined && ticketOfSession(parent) === undefined && depth < 8; depth++) {
-      parent = this.ctx.agents.get(parent)?.session.header.parentSession
+    const store = this.host.store
+    const ticketOf = (id: string) => ticketOfSession(id) ?? store.get(KV.sessions.worker(id))
+    const ownTicket = ticketOf(agent.id)
+    const ancestry = ownTicket === undefined
+      ? resolveWorkerAncestry({ id: agent.id, parentSession: agent.session.header.parentSession },
+        sessionId => this.ctx.agents.get(sessionId as SessionId)?.session.header, ticketOf, this.host.masterId)
+      : { kind: 'worker' as const, ticketId: ownTicket }
+    if (ancestry.kind === 'worker') {
+      // One immutable originating ticket per managed Session, not a mutable chain or unbounded event history.
+      // Retained after disposal: descendants and restored Sessions cannot escape when their parents unload.
+      store.set(KV.sessions.worker(agent.id), ancestry.ticketId)
+      this.bindings.set(agent, { disposers: this.workOnly(agent, ancestry.ticketId), subagent: true })
+      return
     }
-    const ticketId = parent === undefined ? undefined : ticketOfSession(parent)
-    if (ticketId === undefined || !this.host.store.tickets.get(ticketId)) return
-    this.bindings.set(agent, { disposers: this.workOnly(agent, ticketId), subagent: true })
+    if (ancestry.kind === 'unresolved') {
+      // Missing ancestry is not evidence this is our work. Denying it would alter unrelated user Sessions.
+      // Known managed ancestors resolve from durable provenance above even when no longer loaded.
+      this.ctx.logger.warn('dsh-superagent could not classify Session %s (%s); no managed provenance was found', agent.id, ancestry.reason)
+    }
   }
   /** Register the skills of a prompt version in the agent's skill scope, in place of an earlier version's. */
   private bindSkills(binding: SessionBinding, version: PromptVersion): void {
@@ -338,9 +451,9 @@ export class Sessions {
     return version
   }
   /** Releases registrations for `agent` in reverse order (LIFO); disposing its skill scope releases its skills as well. */
-  private release(agent: Agent): void {
+  private release(agent: Agent, expected?: SessionBinding): void {
     const binding = this.bindings.get(agent)
-    if (!binding) return
+    if (!binding || expected && binding !== expected) return
     this.bindings.delete(agent)
     binding.skills?.dispose()
     for (const dispose of binding.disposers.splice(0).reverse()) {

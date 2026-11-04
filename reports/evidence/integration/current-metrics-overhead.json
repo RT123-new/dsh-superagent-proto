@@ -1,0 +1,11 @@
+{
+ "node": "v22.23.4",
+ "N": 1000000,
+ "loopBaselineMs": 7.79,
+ "observeNsPerCall": 143.1,
+ "timerStartStopNsPerCall": 216.7,
+ "snapshotBytes": 3294,
+ "serializeMsP50": 1.544,
+ "serializeMsMax": 2.247,
+ "heapMB": 9.3
+}

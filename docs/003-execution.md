@@ -48,9 +48,11 @@ Worker subagents, including nested ones, use DeepSeek Harness's `standard` prese
 
 ### Preparing a Ticket directory
 
-Before the first Assignment, if the Ticket directory does not exist, the prepare command runs once with `sh` in the execution root. It has ten minutes to finish. Without a prepare command, the worker starts in an empty directory.
+Before an Assignment uses its Ticket directory, the directory must hold a current `prepared` record; without one, the prepare command runs with `sh` in the execution root. It has ten minutes to finish. Without a prepare command, the worker starts in an empty directory.
 
-A failed command fails the Ticket and records its output. A retry or a person's message on one of the Ticket's Threads tries preparation again. A typical command uses `git worktree` to create a checkout. A pull request belongs to the Ticket when its branch's last path segment matches the Ticket's short name.
+Preparation is durable state (`src/executor/workspace.ts`), not directory presence: `preparing` while the command runs, then `prepared` once the command exited successfully and the directory was verified, `failed` or `cancelled` otherwise. Each record carries the identity of the configuration it prepared under (the repository, the prepare command and the preparation version). A workspace whose configuration changed, or whose preparation failed, was cancelled or never finished, is prepared again before use; a partially prepared workspace is never silently accepted as complete. Directories from before preparation state existed, or whose records are missing or corrupt, keep their files. With a configured prepare command, a non-empty unrecorded directory fails closed: credential configuration checks cannot prove generic setup completed, and blindly running setup again could destroy work. Back up and inspect it, then move it aside or reconcile its preparation state offline before retrying. There is no automatic adoption or panel confirmation. Empty directories can run preparation; without a configured command, existing directories still undergo the credential-safety check. The record writes are atomic, so a crash cannot leave half a record.
+
+A failed command fails the Ticket and records its output. A retry or a person's message on one of the Ticket's Threads tries preparation again. Ending the Assignment cancels a running prepare command with it, and a replacement Assignment waits for the entire managed process range to become quiescent, not only for the direct shell to exit. If the provider cannot prove quiescence, workspace reuse stays blocked with an unresolved-ownership record until offline remediation. A replacement Assignment waits for that proof before it uses the same workspace. A typical command uses `git worktree` to create a checkout. A pull request belongs to the Ticket when its branch's last path segment matches the Ticket's short name.
 
 ### Concurrency
 
@@ -181,6 +183,17 @@ A Ticket's messages to one conversation go out in the order they were queued, so
 Messages of other Tickets, and messages of no Ticket, do not wait for it.
 
 A message with failed attempts is a system problem until it goes out or is withdrawn.
+
+If the host stops during an outbound send, the remote provider may already have accepted the message. On restart,
+the reply receipt remains pending but the effect is parked as `blocked:unknown_outcome` rather than resent automatically.
+The Execution panel's blocked-effects list displays this as an unknown result. A person must inspect the conversation
+and explicitly choose **Rearm** to permit another attempt, accepting that the provider may deliver a duplicate.
+Previously persisted `[attempt-unknown]` replies are also parked at startup. A blocked reply stays in the database;
+its original message and stable receipt ID are never discarded by this safeguard.
+
+A successful recorded send clears its effect row. A normal transient error during a running process may still retry
+with backoff, because a timeout alone does not establish whether the provider delivered the message. Consequently this
+policy prevents automatic crash-recovery duplicates, not every possible duplicate delivery.
 
 A message is dropped only when its Source no longer listens to the conversation, or when the Source answers that the conversation can never receive it; while its Source is off, it waits.
 

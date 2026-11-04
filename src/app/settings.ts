@@ -71,6 +71,8 @@ export interface SettingsHost {
   readonly setup: Pick<Setup, 'configured' | 'checkAccounts' | 'blockCommands' | 'restart'>
   /** Triggers an immediate pass so work newly allowed by a settings save runs right away. */
   requestPass(): void
+  /** Samples slot capacity immediately after a committed executor settings change. */
+  executorChanged?(): void
 }
 
 /**
@@ -161,7 +163,16 @@ export class Settings {
     const previous = block === 'eval' ? current.eval.model : block === 'executor' ? current.executor.model : null
     if (model && JSON.stringify(model) !== JSON.stringify(previous)) {
       try { await resolveRoleModel(this.host.context, model) }
-      catch (error) { throw new UserError('modelUnavailable', { block, error: error instanceof Error ? error.message : String(error) }) }
+      catch (error) {
+        // Never reflect upstream content: prose or an attacker-chosen string code can carry remote text or a
+        // credential. Only codes from the finite LlmError contract of the pinned dsh-llm are shown; anything
+        // else becomes the fixed token 'unavailable'. Upstream detail remains in the server logs.
+        const LLM_CODES: ReadonlySet<string> = new Set(['DUPLICATE_ADAPTER', 'DUPLICATE_DIRECTORY', 'DUPLICATE_DISCOVERY', 'INVALID_ADAPTER',
+          'INVALID_CATALOG', 'INVALID_DIRECTORY', 'INVALID_DISCOVERY', 'INVALID_MODEL_CONTEXT', 'INVALID_MODEL_INFO', 'INVALID_MODEL_MAX_TOKENS',
+          'INVALID_MODEL_REASONING', 'INVALID_PREPARED_CALL', 'NO_ADAPTER', 'NO_DISCOVERY', 'REGISTRATION_DISPOSED', 'UNSUPPORTED_REASONING_EFFORT'])
+        const code = error && typeof error === 'object' && 'code' in error && typeof error.code === 'string' ? error.code : undefined
+        throw new UserError('modelUnavailable', { block, error: code !== undefined && LLM_CODES.has(code) ? code : 'unavailable' })
+      }
     }
     rules.guard?.(current, candidate, origin)
     if (setupChanged(current, candidate)) await this.host.setup.checkAccounts(block, candidate)
@@ -181,9 +192,10 @@ export class Settings {
     const notified = [...effects.keys()]
     store.atomic(() => {
       store.saveSettings(SettingsSchema.parse(settings), { source: origin, block, policyVersion: after, policyChanged: before !== after, notified })
-      if (origin !== 'tool') sessions.notify(...settingsNotice(block, changedPaths(old, settings)))
+      if (origin !== 'tool') sessions.notify(...settingsNotice(block, changedPaths(old, settings), store.blockRevision(block)))
       if (before !== after) engine.policyChanged(before, after, effects)
     })
+    if (old.executor.maxWorkers !== settings.executor.maxWorkers) this.host.executorChanged?.()
     // Rewrite worker command shims immediately when `blockedCommands` changes.
     const blocked = settings.executor.blockedCommands
     const changed = blocked.join(' ') !== old.executor.blockedCommands.join(' ')
@@ -206,7 +218,7 @@ export class Settings {
     store.atomic(() => {
       const record = { source: origin, block: 'pause' as const, policyVersion: policyVersion(old), policyChanged: false, notified: [] }
       store.saveSettings({ ...old, paused }, record)
-      if (origin !== 'tool') sessions.notify(...settingsNotice('pause', ['paused']))
+      if (origin !== 'tool') sessions.notify(...settingsNotice('pause', ['paused'], store.blockRevision('pause')))
     })
     await sessions.delivery('settings:pause')
     this.host.requestPass()

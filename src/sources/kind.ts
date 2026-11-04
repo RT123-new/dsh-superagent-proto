@@ -48,9 +48,22 @@ export interface SourceChannel<C> {
   allowed?(address: Record<string, string>, config: C): boolean
   /**
    * Sends a message idempotently by ID; returns `'gone'` when the target conversation no longer accepts replies.
-   * @throws when delivery failed but may succeed on a later retry.
+   * @throws SendNotAttempted when it can prove that no provider request was made.
+   * @throws when delivery failed but may succeed on a later retry; without `idempotency`, such an ambiguous failure parks the reply for explicit operator recovery.
    */
   send(host: Pick<SourceContext, 'commands'>, message: OutboundMessage): Promise<'sent' | 'gone'>
+  /**
+   * How a retried send after an ambiguous failure is made safe: 'provider' means the provider dedupes on the durable
+   * message id (its documented idempotency key), 'marker' means this adapter checks for its own persisted message-id
+   * marker before posting. Undeclared means unproven: ambiguous post-attempt failures park instead of auto-retrying.
+   */
+  idempotency?: 'provider' | 'marker'
+  /**
+   * How long the provider dedupes a 'provider' idempotency key, in milliseconds (Feishu: 1 hour). Undefined asserts a
+   * non-expiring contract; once a queued message may be older than the window, an ambiguous failure parks instead of
+   * risking a duplicate remote creation.
+   */
+  idempotencyWindowMs?: number
   /** Returns the URL and label for `address`; `url` is empty when `links` lack the required deployment info. */
   link(address: Record<string, string>, links: ChannelLinks): ChannelLink
 }
@@ -100,8 +113,8 @@ export interface SourceKind<C extends Record<string, unknown> = Record<string, u
   channel?: SourceChannel<C>
   /** Bounded context reader for assessments; assessments of a kind without `threadContext` read none. */
   threadContext?: ThreadContext<C>
-  /** Maps a search query to candidate Thread keys (such as `github:12`) and Trigger search terms (such as a Feishu `om_` ID). */
-  find?(query: string): { threads: string[]; terms: string[] }
+  /** Maps a search query to candidate Thread keys and Trigger terms within the validated instance config, when supplied. */
+  find?(query: string, config?: C): { threads: string[]; terms: string[] }
   /** Returns the ID of the Trigger whose message this Trigger replies to, when derivable without a network read. */
   repliesTo?(trigger: Trigger): string | undefined
   /** Policy section for kinds whose senders have their own identity. */

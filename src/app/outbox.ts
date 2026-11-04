@@ -3,15 +3,19 @@ import type { OutboundMessage, Outbox as OutboxPort, ReplyStatus } from '../core
 import type { Commands } from '../infra/commands.ts'
 import { checkedImText } from '../infra/text.ts'
 import type { SourceRegistry } from '../sources/registry.ts'
+import { AttemptUnknownError, checkedMessageId, SendNotAttempted } from '../sources/send.ts'
 import { FAILURES_BEFORE_ERROR, Later, type Effects } from './effects.ts'
 import type { Store } from './store.ts'
+import type { Probe } from '../infra/metrics-probe.ts'
 
 export interface OutboxHost {
-  readonly store: Pick<Store, 'atomic' | 'receipts'>
-  readonly effects: Pick<Effects, 'enqueue' | 'cancel' | 'handle' | 'idle'>
-  readonly sources: Pick<SourceRegistry, 'instance' | 'channelAllowed' | 'send'>
+  readonly store: Pick<Store, 'atomic' | 'afterCommit' | 'receipts'>
+  readonly effects: Pick<Effects, 'enqueue' | 'cancel' | 'handle' | 'idle'> & Partial<Pick<Effects, 'attemptUnknown'>>
+  readonly sources: Pick<SourceRegistry, 'instance' | 'channelAllowed' | 'send' | 'channelIdempotency' | 'channelIdempotencyWindow'>
   readonly commands: Commands
   paused(): boolean
+  /** Optional instrumentation; absent means none. */
+  readonly probe?: Probe
 }
 
 /**
@@ -20,33 +24,74 @@ export interface OutboxHost {
  * Messages wait while processing is paused or their source is unavailable, and settle as dropped when the target conversation is ignored or gone.
  */
 export class Outbox implements OutboxPort {
+  /** Local monotonic stamps of receipts queued by this process, until sent; receipts queued before a restart are not timed. */
+  private readonly queued = new Map<string, number>()
   constructor(private readonly host: OutboxHost) {
-    host.effects.handle('reply', (_payload, id) => this.deliver(id), { limit: () => host.paused() ? 0 : 1, retry: [5000, 300_000] })
+    host.effects.handle('reply', (_payload, id) => this.deliver(id), { limit: () => host.paused() ? 0 : 1, retry: [5000, 300_000], markAttempt: true })
   }
   /** Record a message receipt and enqueue its delivery effect atomically; duplicate message IDs are ignored. */
   send(message: OutboundMessage): void {
     // Validate IM reply length here; acknowledgements are already validated when decided.
     if (message.kind === 'reply' && message.channel.source === 'feishu') checkedImText(message.text)
     const { store, effects } = this.host
-    store.atomic(() => { if (store.receipts.add(message)) effects.enqueue('reply', message.id, {}) })
+    store.atomic(() => { if (store.receipts.add(message)) {
+      effects.enqueue('reply', message.id, {})
+      store.afterCommit(() => {
+        const at = this.host.probe?.now()
+        if (at === undefined) return
+        if (this.queued.size >= 5000) { this.queued.delete(this.queued.keys().next().value!); this.host.probe?.count('receipt_timing_dropped') }
+        this.queued.set(message.id, at)
+      })
+    } })
   }
   status(id: string): ReplyStatus | undefined { return this.host.store.receipts.get(id)?.status }
+  /** `attempted-unknown` when a send began and the host stopped before recording its outcome: a retry may duplicate the remote message. */
+  outcome(id: string): 'sent' | 'pending' | 'attempted-unknown' | 'other' | undefined {
+    const status = this.status(id)
+    if (status === undefined) return undefined
+    if (status === 'sent') return 'sent'
+    if (status !== 'pending') return 'other'
+    return this.host.effects.attemptUnknown?.('reply', id) ? 'attempted-unknown' : 'pending'
+  }
   withdraw(id: string): void {
     const { store, effects } = this.host
-    store.atomic(() => { if (store.receipts.withdraw(id)) effects.cancel('reply', id) })
+    store.atomic(() => { if (store.receipts.withdraw(id)) { effects.cancel('reply', id); store.afterCommit(() => this.queued.delete(id)) } })
   }
   sent(): Promise<void> { return this.host.effects.idle('reply') }
   private async deliver(id: string): Promise<void> {
     const { store, sources, commands } = this.host
     const receipt = store.receipts.get(id)
-    if (receipt?.status !== 'pending') return
+    if (receipt?.status !== 'pending') { this.queued.delete(id); return }
+    // The durable message id is every channel's idempotency key; an invalid one can never reach a provider.
+    checkedMessageId(id)
     if (!sources.instance(receipt.channel.source)?.enabled) throw new Later('The Source is off or not installed')
     // Hold later messages for the same ticket and conversation behind an earlier pending message until it exceeds the failure threshold.
     if (store.receipts.behind(id, FAILURES_BEFORE_ERROR)) throw new Later('An earlier message of this ticket to this conversation waits')
-    if (!sources.channelAllowed(receipt.channel)) { store.receipts.settle(receipt, 'channelIgnored'); return }
+    // A previous attempt may have reached the provider. Once the provider idempotency key may have expired (queuedAt
+    // bounds the first key use conservatively), another invocation could duplicate that accepted send, so the refusal
+    // must happen BEFORE the next provider contact; parking only after a failed dispatch would be too late.
+    const window = sources.channelIdempotencyWindow(receipt.channel.source)
+    if (window !== undefined && receipt.providerContact && (!receipt.queuedAt || Date.now() - Date.parse(receipt.queuedAt) >= window))
+      throw new AttemptUnknownError(new Error('the provider idempotency window may have expired after a possibly-accepted attempt'))
+    if (!sources.channelAllowed(receipt.channel)) { store.receipts.settle(receipt, 'channelIgnored'); this.queued.delete(id); return }
     // A permanently unreachable target (such as a recalled message or deleted Issue) settles as `channelGone` so its receipt prevents retries.
-    const result = await sources.send(receipt, commands)
+    let result: 'sent' | 'gone' | 'waiting'
+    try { result = await sources.send(receipt, commands) }
+    catch (error) {
+      // SendNotAttempted proves nothing reached the provider. Anything else after a possible provider invocation is an
+      // unknown outcome: only a channel with a proven idempotency contract may retry it automatically; otherwise park it
+      // exactly like the crash path instead of risking an external duplicate.
+      if (error instanceof SendNotAttempted) throw error
+      // Anything else means a provider request may have happened; the pre-dispatch gate above needs that fact durably.
+      store.receipts.markProviderContact(id)
+      if (sources.channelIdempotency(receipt.channel.source) === undefined) throw new AttemptUnknownError(error)
+      throw error
+    }
     if (result === 'waiting') throw new Later('The Source is not installed')
     store.receipts.settle(receipt, result === 'gone' ? 'channelGone' : 'sent')
+    // Receipt queued -> the Source acknowledged the send; a `gone` target is counted apart, never as a response.
+    const at = this.queued.get(id); this.queued.delete(id)
+    if (result === 'gone') this.host.probe?.count('reply_gone')
+    else if (at !== undefined) this.host.probe?.observe('receipt_to_response', 'internal', Math.max(0, (this.host.probe?.now() ?? at) - at))
   }
 }

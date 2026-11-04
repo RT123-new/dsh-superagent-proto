@@ -1,0 +1,23 @@
+{
+  "scenario": "capacity 1; t1 cancelled during background-wait; t2 queued behind it",
+  "slotReleaseToNextStartMs": 10,
+  "windowMs": 36,
+  "capacitySlotMs": 36,
+  "stateSlotMs": {
+    "starting": 22,
+    "turn": 2,
+    "background-wait": 9,
+    "handed-off": 0,
+    "idle": 15
+  },
+  "occupancyFraction": {
+    "starting": 0.6111111111111112,
+    "turn": 0.05555555555555555,
+    "background-wait": 0.25,
+    "handed-off": 0,
+    "idle": 0.4166666666666667
+  },
+  "peakUsed": 1,
+  "peakPerson": 0,
+  "sampleCount": 14
+}

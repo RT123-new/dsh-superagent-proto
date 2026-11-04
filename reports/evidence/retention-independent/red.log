@@ -1,0 +1,94 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/retention-review[39m
+
+(node:13858) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [31m❯[39m tests/issue-19-retention-review.spec.ts [2m([22m[2m5 tests[22m[2m | [22m[31m5 failed[39m[2m)[22m[32m 82[2mms[22m[39m
+[31m   [31m×[31m embedded IDs, JSON keys and kv keys retain live references[39m[32m 17[2mms[22m[39m
+[31m   [31m×[31m archive ownership cannot be silently overwritten by another store with colliding Trigger IDs[39m[32m 28[2mms[22m[39m
+[31m   [31m×[31m a symlink to live database is rejected before writing archive schema to live[39m[32m 11[2mms[22m[39m
+[31m   [31m×[31m restore verifies archive bytes before importing anything or removing tombstones[39m[32m 13[2mms[22m[39m
+[31m   [31m×[31m concurrent disposition changes after archive commit prevent deleting an outdated archived snapshot[39m[32m 12[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 5 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/issue-19-retention-review.spec.ts[2m > [22membedded IDs, JSON keys and kv keys retain live references
+[31m[1mAssertionError[22m: expected undefined to be defined[39m
+[36m [2m❯[22m tests/issue-19-retention-review.spec.ts:[2m17:45[22m[39m
+    [90m 15|[39m [34mit[39m([32m'embedded IDs, JSON keys and kv keys retain live references'[39m[33m,[39m()[33m=>[39m{
+    [90m 16|[39m  store.db.prepare('INSERT INTO kv VALUES (?,?)').run('cursor:victim',J…
+    [90m 17|[39m  [34mrun[39m()[33m;[39m[34mexpect[39m(store[33m.[39mtriggers[33m.[39m[35mget[39m([32m'victim'[39m))[33m.[39m[34mtoBeDefined[39m()
+    [90m   |[39m                                             [31m^[39m
+    [90m 18|[39m })
+    [90m 19|[39m it('archive ownership cannot be silently overwritten by another store …
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-19-retention-review.spec.ts[2m > [22marchive ownership cannot be silently overwritten by another store with colliding Trigger IDs
+[31m[1mAssertionError[22m: expected [Function] to throw an error[39m
+[36m [2m❯[22m tests/issue-19-retention-review.spec.ts:[2m21:30[22m[39m
+    [90m 19|[39m it('archive ownership cannot be silently overwritten by another store …
+    [90m 20|[39m  run();const other=new Store(join(dir,'other.sqlite'));seed(other,'oth…
+    [90m 21|[39m  try {expect(()=>run(other)).toThrow();expect(other.triggers.get('vict…
+    [90m   |[39m                              [31m^[39m
+    [90m 22|[39m  store.retention.restore(join(dir,'archive.sqlite'));expect(store.trig…
+    [90m 23|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-19-retention-review.spec.ts[2m > [22ma symlink to live database is rejected before writing archive schema to live
+[31m[1mAssertionError[22m: expected [Function] to throw an error[39m
+
+[32m- Expected:[39m
+null
+
+[31m+ Received:[39m
+undefined
+
+[36m [2m❯[22m tests/issue-19-retention-review.spec.ts:[2m26:31[22m[39m
+    [90m 24|[39m it('a symlink to live database is rejected before writing archive sche…
+    [90m 25|[39m  const alias=join(dir,'alias.sqlite');symlinkSync(join(dir,'live.sqlit…
+    [90m 26|[39m  [34mexpect[39m(()[33m=>[39m[34mrun[39m(store[33m,[39malias))[33m.[39m[34mtoThrow[39m([36m/separate|live/i[39m)
+    [90m   |[39m                               [31m^[39m
+    [90m 27|[39m  expect(store.db.prepare("SELECT name FROM sqlite_master WHERE name='a…
+    [90m 28|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-19-retention-review.spec.ts[2m > [22mrestore verifies archive bytes before importing anything or removing tombstones
+[31m[1mAssertionError[22m: expected [Function] to throw an error[39m
+
+[32m- Expected:[39m
+null
+
+[31m+ Received:[39m
+undefined
+
+[36m [2m❯[22m tests/issue-19-retention-review.spec.ts:[2m32:66[22m[39m
+    [90m 30|[39m  [34mrun[39m()[33m;[39m[35mconst[39m archive[33m=[39m[35mnew[39m [33mDatabaseSync[39m([34mjoin[39m(dir[33m,[39m[32m'archive.sqlite'[39m))
+    [90m 31|[39m  archive.prepare("UPDATE archived_trigger SET value=json_set(value,'$.…
+    [90m 32|[39m  expect(()=>store.retention.restore(join(dir,'archive.sqlite'))).toThr…
+    [90m   |[39m                                                                  [31m^[39m
+    [90m 33|[39m  expect(store.triggers.get('victim')).toBeUndefined();expect(store.tri…
+    [90m 34|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-19-retention-review.spec.ts[2m > [22mconcurrent disposition changes after archive commit prevent deleting an outdated archived snapshot
+[31m[1mAssertionError[22m: expected undefined to be defined[39m
+[36m [2m❯[22m tests/issue-19-retention-review.spec.ts:[2m43:73[22m[39m
+    [90m 41|[39m   [35mreturn[39m result
+    [90m 42|[39m  })
+    [90m 43|[39m  run();expect(injected).toBe(true);expect(store.triggers.get('victim')…
+    [90m   |[39m                                                                         [31m^[39m
+    [90m 44|[39m })
+    [90m 45|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m5 failed[39m[22m[90m (5)[39m
+[2m   Start at [22m 07:36:20
+[2m   Duration [22m 674ms[2m (transform 377ms, setup 0ms, import 490ms, tests 82ms, environment 0ms)[22m
+

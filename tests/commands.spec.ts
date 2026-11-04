@@ -1,6 +1,11 @@
-import { describe, expect, it, vi } from 'vitest'
+import { mkdtempSync, writeFileSync, chmodSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { CliError, Commands, commandError } from '../src/infra/commands.ts'
+import { serverNotBeforeOf } from '../src/app/retry-policy.ts'
+import { classifyError } from '../src/app/retry-policy.ts'
 import { feishuKind } from '../src/sources/feishu.ts'
 import { feishuChannel } from '../src/sources/feishu-trigger.ts'
 import { githubKind } from '../src/sources/github.ts'
@@ -19,7 +24,7 @@ describe('account-isolated operations', () => {
   it('uses the agent account\'s GitHub CLI and preserves literal shell metacharacters in argv', async () => {
     const commands = new Commands(() => deployment, {}, new AbortController().signal); const run = vi.spyOn(commands,'run').mockResolvedValue('{}')
     await commands.gh(['api','some-path','-f','body=`whoami` $(touch x)'])
-    expect(run).toHaveBeenCalledWith('/path/agent-gh', ['api','some-path','-f','body=`whoami` $(touch x)'])
+    expect(run).toHaveBeenCalledWith('/path/agent-gh', ['api','some-path','-f','body=`whoami` $(touch x)','--include'], undefined, { responseHeaders: true })
   })
   it('runs every command with its environment over the process environment, where undefined removes a variable', async () => {
     process.env.GH_TOKEN = 'personal'
@@ -133,7 +138,7 @@ describe('GitHub calls', () => {
     const value = commands()
     const run = vi.spyOn(value, 'run').mockResolvedValue('{"number":12,"title":"Login fails","extra":true}')
     expect(await value.api(z.looseObject({ number: z.number() }), 'issues/12')).toEqual({ number: 12, title: 'Login fails', extra: true })
-    expect(run).toHaveBeenLastCalledWith('/path/agent-gh', ['api', `repos/${REPOSITORY}/issues/12`])
+    expect(run).toHaveBeenLastCalledWith('/path/agent-gh', ['api', `repos/${REPOSITORY}/issues/12`, '--include'], undefined, { responseHeaders: true })
     await expect(value.api(z.looseObject({ number: z.string() }), 'issues/12')).rejects.toThrow()
     for (const path of ['../other/repo/issues', 'issues/../../x', '/repos/x/y', 'https://api.github.com/x']) {
       await expect(value.api(z.unknown(), path)).rejects.toThrow('restricted to the configured repository')
@@ -141,7 +146,7 @@ describe('GitHub calls', () => {
     expect(run).toHaveBeenCalledTimes(2)
     // An empty path targets the repository root.
     await value.api(z.unknown(), '')
-    expect(run).toHaveBeenLastCalledWith('/path/agent-gh', ['api', `repos/${REPOSITORY}`])
+    expect(run).toHaveBeenLastCalledWith('/path/agent-gh', ['api', `repos/${REPOSITORY}`, '--include'], undefined, { responseHeaders: true })
     // Without a schema, api() returns the raw CLI stdout.
     run.mockResolvedValue('raw file')
     expect(await value.api('contents/README.md', '-H', 'Accept: application/vnd.github.raw')).toBe('raw file')
@@ -151,11 +156,11 @@ describe('GitHub calls', () => {
     const run = vi.spyOn(value, 'run').mockResolvedValue('[[{"id":1}],[{"id":2}]]')
     expect(await value.pages(z.looseObject({ id: z.number() }), 'issues/12/comments?per_page=100')).toEqual([{ id: 1 }, { id: 2 }])
     expect(run).toHaveBeenLastCalledWith('/path/agent-gh', ['api', `repos/${REPOSITORY}/issues/12/comments?per_page=100`, '--paginate',
-      '--slurp'])
+      '--slurp', '--include'], undefined, { responseHeaders: true })
     run.mockResolvedValue('[[{"id":1}],[{"id":"two"}]]')
     const tally = { skipped: 0 }
     expect(await value.pages(z.looseObject({ id: z.number() }), 'issues/12/comments', tally)).toEqual([{ id: 1 }])
-    expect(tally).toEqual({ skipped: 1 })
+    expect(tally).toEqual({ skipped: 1, rejected: [{ id: 'sha256:3fc4ccfe7458', fields: ["id"] }] })
     run.mockResolvedValue('{"message":"not a list"}')
     await expect(value.pages(z.looseObject({ id: z.number() }), 'issues/12/comments')).rejects.toThrow()
   })
@@ -212,4 +217,99 @@ it('stops a running command when the signal of its work aborts, or the lifetime,
   lifetime.abort()
   await expect(other).rejects.toThrow()
   expect(Date.now() - started).toBeLessThan(4000)
+})
+
+it('a transient failure of the pre-POST review-comment read is provably not-attempted, never parked as unknown', async () => {
+    const commands = new Commands(() => deployment, {}, new AbortController().signal)
+    vi.spyOn(commands, 'api').mockImplementation(async (_schema: unknown, path: unknown) => {
+      if (String(path).startsWith('pulls/comments/')) throw new CliError('gh: HTTP 503', 503)
+      throw new Error(`unexpected api call ${String(path)}`)
+    })
+    const message = { id: 'a'.repeat(32), channel: { source: 'github', thread: 't:42', address: { number: '42', url: `https://github.com/${REPOSITORY}/pull/42#discussion_r1` } }, text: 'hi', kind: 'reply' as const }
+    const failure = await send(commands, message).catch((error: unknown) => error)
+    const { SendNotAttempted } = await import('../src/sources/send.ts')
+    expect(failure).toBeInstanceOf(SendNotAttempted)
+  })
+
+describe('trusted transport metadata: real provider Retry-After at the gh boundary', () => {
+  const dirs: string[] = []
+  afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }) })
+  /** A stand-in gh that emits an `--include` header block on stdout (as real gh does even on HTTP errors) and fails. */
+  const failingGh = (headers: string, stderr: string): string => {
+    const dir = mkdtempSync(join(tmpdir(), 'fake-gh-')); dirs.push(dir)
+    const path = join(dir, 'gh')
+    writeFileSync(path, `#!/bin/sh\nprintf '%s' '${headers}'\nprintf '%s' '${stderr}' >&2\nexit 1\n`)
+    chmodSync(path, 0o755)
+    return path
+  }
+  const commandsFor = (cli: string) => new Commands(() => testDeployment({ github: { ...testDeployment().github, cli } }), {}, new AbortController().signal)
+
+  it('parses a Retry-After seconds header from a failed gh api call into typed metadata, never from text', async () => {
+    const cli = failingGh("HTTP/2.0 403 Forbidden\r\nRetry-After: 120\r\nContent-Type: application/json\r\n\r\n{\"message\":\"API rate limit exceeded for user ID 1.\"}", 'gh: API rate limit exceeded for user ID 1. (HTTP 403)')
+    const before = Date.now()
+    const failure = await commandsFor(cli).gh(['api', 'repos/acme/widgets/issues']).catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(CliError)
+    expect(classifyError(failure)).toBe('rate_limited')
+    const notBefore = serverNotBeforeOf(failure)
+    expect(notBefore).toBeGreaterThanOrEqual(before + 120_000)
+    expect(notBefore).toBeLessThanOrEqual(Date.now() + 120_000)
+  })
+  it('accepts a valid IMF-fixdate Retry-After; a malformed value yields no server instruction', async () => {
+    const date = new Date(Date.now() + 90_000).toUTCString()
+    const cli = failingGh(`HTTP/2.0 403 Forbidden\r\nRetry-After: ${date}\r\n\r\n{}`, 'gh: API rate limit exceeded for user ID 1. (HTTP 403)')
+    const failure = await commandsFor(cli).gh(['api', 'repos/acme/widgets/issues']).catch((error: unknown) => error)
+    expect(serverNotBeforeOf(failure)).toBe(Date.parse(date))
+    const bad = failingGh("HTTP/2.0 429 Too Many Requests\r\nRetry-After: soon-ish\r\n\r\n{}", 'gh: HTTP 429')
+    const failure2 = await commandsFor(bad).gh(['api', 'repos/acme/widgets/issues']).catch((error: unknown) => error)
+    expect(serverNotBeforeOf(failure2)).toBeUndefined()
+  })
+  it('uses the last page header block when a paginated gh api call fails mid-way', async () => {
+    const cli = failingGh("HTTP/2.0 200 OK\r\n\r\n[{\"id\":1}]\nHTTP/2.0 403 Forbidden\r\nRetry-After: 30\r\n\r\n{\"message\":\"API rate limit exceeded\"}", 'gh: API rate limit exceeded (HTTP 403)')
+    const before = Date.now()
+    const failure = await commandsFor(cli).gh(['api', 'repos/acme/widgets/issues', '--paginate', '--slurp']).catch((error: unknown) => error)
+    const notBefore = serverNotBeforeOf(failure)
+    expect(notBefore).toBeGreaterThanOrEqual(before + 30_000)
+    expect(notBefore).toBeLessThanOrEqual(Date.now() + 30_000)
+  })
+  /** A stand-in lark-cli that prints a typed error envelope on stderr (lark-cli >= 1.0.84 contract) and fails. */
+  const failingLark = (envelope: string): string => {
+    const dir = mkdtempSync(join(tmpdir(), 'fake-lark-')); dirs.push(dir)
+    const path = join(dir, 'lark-cli')
+    writeFileSync(path, `#!/bin/sh\nprintf '%s' '${envelope}' >&2\nexit 1\n`)
+    chmodSync(path, 0o755)
+    return path
+  }
+  const larkFor = (cli: string) => new Commands(() => testDeployment({ feishu: { ...testDeployment().feishu!, cli } }), {}, new AbortController().signal)
+
+  it('parses retry_after_seconds from a failed lark-cli stderr envelope into typed metadata, never from prose', async () => {
+    const cli = failingLark('{"ok":false,"error":{"type":"api","subtype":"rate_limit","code":99991400,"message":"rate limited","retryable":true,"retry_after_seconds":45}}')
+    const before = Date.now()
+    const failure = await larkFor(cli).lark(['im', '+messages-reply']).catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(CliError)
+    expect(classifyError(failure)).toBe('rate_limited')
+    const notBefore = serverNotBeforeOf(failure)
+    expect(notBefore).toBeGreaterThanOrEqual(before + 45_000)
+    expect(notBefore).toBeLessThanOrEqual(Date.now() + 45_000)
+  })
+  it('honors the envelope only when retryable for api/rate_limit or network errors; an older CLI yields no instruction', async () => {
+    const notRetryable = failingLark('{"ok":false,"error":{"type":"api","subtype":"rate_limit","code":99991400,"message":"rate limited","retry_after_seconds":45}}')
+    expect(serverNotBeforeOf(await larkFor(notRetryable).lark(['im', '+messages-reply']).catch((error: unknown) => error))).toBeUndefined()
+    const older = failingLark('{"ok":false,"error":{"type":"api","subtype":"rate_limit","code":99991400,"message":"rate limited","retryable":true}}')
+    expect(serverNotBeforeOf(await larkFor(older).lark(['im', '+messages-reply']).catch((error: unknown) => error))).toBeUndefined()
+    const otherApi = failingLark('{"ok":false,"error":{"type":"api","subtype":"permission_denied","code":99991672,"message":"no scope","retryable":true,"retry_after_seconds":45}}')
+    expect(serverNotBeforeOf(await larkFor(otherApi).lark(['im', '+messages-reply']).catch((error: unknown) => error))).toBeUndefined()
+    const network = failingLark('{"ok":false,"error":{"type":"network","subtype":"http_error","message":"bad gateway","retryable":true,"retry_after_seconds":12}}')
+    const notBefore = serverNotBeforeOf(await larkFor(network).lark(['im', '+messages-reply']).catch((error: unknown) => error))
+    expect(notBefore).toBeGreaterThanOrEqual(Date.now() + 11_000)
+  })
+  it('requests response headers for every gh api call and strips each interleaved block from successful paginated JSON', async () => {
+    const commands = new Commands(() => deployment, {}, new AbortController().signal)
+    const run = vi.spyOn(commands, 'run').mockResolvedValue('HTTP/2.0 200 OK\r\nContent-Type: application/json\r\n\r\n{"ok":true}')
+    await expect(commands.gh(['api', 'repos/acme/widgets/issues'])).resolves.toEqual({ ok: true })
+    expect(run).toHaveBeenCalledWith('/path/agent-gh', ['api', 'repos/acme/widgets/issues', '--include'], undefined, { responseHeaders: true })
+    run.mockClear()
+    run.mockResolvedValue('HTTP/2.0 200 OK\r\n\r\n[[{"id":1}],\nHTTP/2.0 200 OK\r\n\r\n[{"id":2}]]\n')
+    await expect(commands.gh(['api', 'repos/acme/widgets/issues', '--paginate', '--slurp'])).resolves.toEqual([[{ id: 1 }], [{ id: 2 }]])
+    expect(run).toHaveBeenCalledWith('/path/agent-gh', ['api', 'repos/acme/widgets/issues', '--paginate', '--slurp', '--include'], undefined, { responseHeaders: true })
+  })
 })

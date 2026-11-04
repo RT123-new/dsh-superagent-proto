@@ -24,7 +24,9 @@ export const UserSchema = z.looseObject({ login: z.string(), type: z.string().op
  * line, diff hunk, and `in_reply_to_id` (the root comment ID of its review thread).
  */
 export const CommentSchema = z.looseObject({
-  id: z.number(), body: z.string().nullish(), user: UserSchema, html_url: z.string().nullish(),
+  id: z.number(), body: z.string().nullish(),
+  // A comment without a `user` key (seen for deleted accounts) is still actionable text; treat it as the ghost user instead of dropping it.
+  user: z.preprocess(value => value ?? null, UserSchema), html_url: z.string().nullish(),
   created_at: z.string().nullish(), updated_at: z.string().nullish(), submitted_at: z.string().nullish(),
   state: z.string().nullish(), commit_id: z.string().nullish(),
   path: z.string().nullish(), line: z.number().nullish(), original_line: z.number().nullish(), diff_hunk: z.string().nullish(),

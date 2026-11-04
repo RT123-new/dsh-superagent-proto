@@ -1,0 +1,176 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/review/repo[39m
+
+ [31m❯[39m tests/issue-8-subagent-ancestry.spec.ts [2m([22m[2m11 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 147[2mms[22m[39m
+   [32m✓[39m keeps a subagent under the worker's restrictions through 1 nested subagent(s)[32m 6[2mms[22m[39m
+   [32m✓[39m keeps a subagent under the worker's restrictions through 8 nested subagent(s)[32m 5[2mms[22m[39m
+   [32m✓[39m keeps a subagent under the worker's restrictions through 9 nested subagent(s)[32m 5[2mms[22m[39m
+   [32m✓[39m keeps a subagent under the worker's restrictions through 20 nested subagent(s)[32m 12[2mms[22m[39m
+   [32m✓[39m fails closed when an ancestor Session is gone[32m 3[2mms[22m[39m
+   [32m✓[39m fails closed on cyclic parent metadata[32m 2[2mms[22m[39m
+   [32m✓[39m fails closed rather than walking without end past the safety bound[32m 51[2mms[22m[39m
+   [32m✓[39m fails closed a worker Session whose ticket is gone[32m 1[2mms[22m[39m
+   [32m✓[39m never touches independently created Sessions or their subagents[32m 3[2mms[22m[39m
+[31m   [31m×[31m does not restrict an independent user child just because its parent is unloaded[39m[32m 5[2mms[22m[39m
+[31m   [31m×[31m does not restrict an unrelated independently rooted deep chain[39m[32m 55[2mms[22m[39m
+(node:2280) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [31m❯[39m tests/issue-7-settings-notices.spec.ts [2m([22m[2m4 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 169[2mms[22m[39m
+   [32m✓[39m delivers every committed eval revision to the main Session through A→B→A→B[32m 56[2mms[22m[39m
+   [32m✓[39m delivers a redelivered revision only once[32m 25[2mms[22m[39m
+[31m   [31m×[31m keeps a durable settings notice pending while the main Session is unavailable[39m[32m 23[2mms[22m[39m
+[31m   [31m×[31m retains every required policy transition even when A-B-A-B occurs in one millisecond[39m[32m 64[2mms[22m[39m
+ [31m❯[39m tests/issue-6-stale-retries.spec.ts [2m([22m[2m9 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 18[2mms[22m[39m
+   [32m✓[39m delivers the retry under its stable idempotency id while the ticket and assignment stay authorized[32m 5[2mms[22m[39m
+   [32m✓[39m abandons a retry whose ticket ended during the backoff wait[32m 1[2mms[22m[39m
+   [32m✓[39m discards a retry whose ticket ended while its message awaited delivery, without a failure report[32m 1[2mms[22m[39m
+   [32m✓[39m discards a retry whose assignment was replaced while its message awaited delivery[32m 1[2mms[22m[39m
+   [32m✓[39m reschedules a retry when processing pauses during delivery, and delivers it once after the pause[32m 1[2mms[22m[39m
+   [32m✓[39m reports a failed delivery of an authorized retry on the ticket[32m 2[2mms[22m[39m
+[31m   [31m×[31m discards retry when current permissions are withdrawn during delivery[39m[32m 5[2mms[22m[39m
+[31m   [31m×[31m does not start a retry after permissions lapse during backoff[39m[32m 1[2mms[22m[39m
+   [32m✓[39m discards an in-flight retry on shutdown/restart[32m 1[2mms[22m[39m
+ [32m✓[39m tests/issue-8-ancestry-resolution.spec.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 6 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/issue-6-stale-retries.spec.ts[2m > [22mdiscards retry when current permissions are withdrawn during delivery
+[31m[1mAssertionError[22m: expected [ { sessionId: 'worker-t1', …(2) } ] to have a length of +0 but got 1[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 0[39m
+[31m+ 1[39m
+
+[36m [2m❯[22m tests/issue-6-stale-retries.spec.ts:[2m158:23[22m[39m
+    [90m156|[39m   h[33m.[39mpending[33m.[39m[34mat[39m([33m-[39m[34m1[39m)[33m![39m[33m.[39m[34mcommit[39m()
+    [90m157|[39m   [35mawait[39m vi[33m.[39m[34madvanceTimersByTimeAsync[39m([34m0[39m)
+    [90m158|[39m   [34mexpect[39m(h[33m.[39mdelivered)[33m.[39m[34mtoHaveLength[39m([34m0[39m)
+    [90m   |[39m                       [31m^[39m
+    [90m159|[39m   [34mexpect[39m(h[33m.[39mengine[33m.[39mreport)[33m.[39mnot[33m.[39m[34mtoHaveBeenCalled[39m()
+    [90m160|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-6-stale-retries.spec.ts[2m > [22mdoes not start a retry after permissions lapse during backoff
+[31m[1mAssertionError[22m: expected "vi.fn()" to not be called at all, but actually been called 1 times[90m
+
+Received:
+
+[1m  1st vi.fn() call:
+
+[22m    Array [
+      "worker-t1",
+      "retry:a1:1",
+      "Your last turn failed for a passing reason (Error: fetch failed). Continue the assignment where it stopped.",
+      "queue",
+      [Function anonymous],
+    ]
+[31m[90m
+
+Number of calls: [1m1[22m
+[31m[39m
+[36m [2m❯[22m tests/issue-6-stale-retries.spec.ts:[2m165:33[22m[39m
+    [90m163|[39m   [35mconst[39m h [33m=[39m [34msetup[39m()[33m;[39m h[33m.[39m[34mtransientError[39m()[33m;[39m h[33m.[39mstate[33m.[39mauthorized [33m=[39m [35mfalse[39m
+    [90m164|[39m   [35mawait[39m vi[33m.[39m[34madvanceTimersByTimeAsync[39m([33mBACKOFF_MS[39m)
+    [90m165|[39m   [34mexpect[39m(h[33m.[39msessions[33m.[39mprompt)[33m.[39mnot[33m.[39m[34mtoHaveBeenCalled[39m()
+    [90m   |[39m                                 [31m^[39m
+    [90m166|[39m })
+    [90m167|[39m [34mit[39m([32m'discards an in-flight retry on shutdown/restart'[39m[33m,[39m [35masync[39m () [33m=>[39m {
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-7-settings-notices.spec.ts[2m > [22mkeeps a durable settings notice pending while the main Session is unavailable
+[31m[1mAssertionError[22m: expected 'injected' to be 'pending' // Object.is equality[39m
+
+Expected: [32m"pending"[39m
+Received: [31m"injected"[39m
+
+[36m [2m❯[22m tests/issue-7-settings-notices.spec.ts:[2m55:35[22m[39m
+    [90m 53|[39m     [33m?[39m { error[33m:[39m { code[33m:[39m [32m'session/not-found'[39m } } [33m:[39m h[33m![39m[33m.[39m[34mresolveDefault[39m(id))
+    [90m 54|[39m   [35mconst[39m result [33m=[39m [35mawait[39m [34msaveEval[39m([34m75[39m)
+    [90m 55|[39m   [34mexpect[39m(result[33m.[39mcontext_delivery)[33m.[39m[34mtoBe[39m([32m'pending'[39m)
+    [90m   |[39m                                   [31m^[39m
+    [90m 56|[39m   expect(h.runtime.effects.pending('notice', 'settings:eval')).toBe(tr…
+    [90m 57|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-7-settings-notices.spec.ts[2m > [22mretains every required policy transition even when A-B-A-B occurs in one millisecond
+[31m[1mAssertionError[22m: expected [ { …(6) } ] to have a length of 2 but got 1[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 2[39m
+[31m+ 1[39m
+
+[36m [2m❯[22m tests/issue-7-settings-notices.spec.ts:[2m70:80[22m[39m
+    [90m 68|[39m   }
+    [90m 69|[39m   const transitions = h.runtime.store.tickets.get(ticket.id)!.inputs.f…
+    [90m 70|[39m   expect(transitions.filter(input => input.effect.requesterAllowed ===…
+    [90m   |[39m                                                                                [31m^[39m
+    [90m 71|[39m   vi[33m.[39m[34museRealTimers[39m()
+    [90m 72|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-8-subagent-ancestry.spec.ts[2m > [22mdoes not restrict an independent user child just because its parent is unloaded
+[31m[1mAssertionError[22m: expected "vi.fn()" to not be called at all, but actually been called 1 times[90m
+
+Received:
+
+[1m  1st vi.fn() call:
+
+[22m    Array [
+      Object {
+        "allow": Array [],
+      },
+    ]
+[31m[90m
+
+Number of calls: [1m1[22m
+[31m[39m
+[36m [2m❯[22m tests/issue-8-subagent-ancestry.spec.ts:[2m115:30[22m[39m
+    [90m113|[39m   const child = fakeAgent('independent-child', 'unloaded-independent-p…
+    [90m114|[39m   ctx[33m.[39m[34memit[39m([32m'agent/created'[39m[33m,[39m { agent[33m:[39m child[33m.[39magent } [35mas[39m never)
+    [90m115|[39m   [34mexpect[39m(child[33m.[39mrestrict)[33m.[39mnot[33m.[39m[34mtoHaveBeenCalled[39m()
+    [90m   |[39m                              [31m^[39m
+    [90m116|[39m   [34mexpect[39m(child[33m.[39mguard)[33m.[39mnot[33m.[39m[34mtoHaveBeenCalled[39m()
+    [90m117|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-8-subagent-ancestry.spec.ts[2m > [22mdoes not restrict an unrelated independently rooted deep chain
+[31m[1mAssertionError[22m: expected "vi.fn()" to not be called at all, but actually been called 1 times[90m
+
+Received:
+
+[1m  1st vi.fn() call:
+
+[22m    Array [
+      Object {
+        "allow": Array [],
+      },
+    ]
+[31m[90m
+
+Number of calls: [1m1[22m
+[31m[39m
+[36m [2m❯[22m tests/issue-8-subagent-ancestry.spec.ts:[2m125:30[22m[39m
+    [90m123|[39m   [35mconst[39m child [33m=[39m [34mfakeAgent[39m([32m'independent-deep'[39m[33m,[39m parent)
+    [90m124|[39m   ctx[33m.[39m[34memit[39m([32m'agent/created'[39m[33m,[39m { agent[33m:[39m child[33m.[39magent } [35mas[39m never)
+    [90m125|[39m   [34mexpect[39m(child[33m.[39mrestrict)[33m.[39mnot[33m.[39m[34mtoHaveBeenCalled[39m()
+    [90m   |[39m                              [31m^[39m
+    [90m126|[39m })
+    [90m127|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[31m6 failed[39m[22m[2m | [22m[1m[32m29 passed[39m[22m[90m (35)[39m
+[2m   Start at [22m 06:39:46
+[2m   Duration [22m 1.65s[2m (transform 457ms, setup 0ms, import 956ms, tests 339ms, environment 0ms)[22m
+

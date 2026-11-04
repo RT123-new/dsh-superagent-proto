@@ -1,0 +1,4 @@
+start {"tag":"BODY","id":"","cls":"","aria":null,"sl":null,"sw":null,"cw":null,"docW":345,"winW":360}
+tab1 {"tag":"BUTTON","id":"first","cls":"","aria":null,"sl":null,"sw":null,"cw":null,"docW":345,"winW":360}
+tab2 {"tag":"DIV","id":"","cls":"dt-metrics-scroll","aria":"Successful attempts: Stage / source","sl":0,"sw":505,"cw":313,"docW":345,"winW":360}
+after ArrowRight {"tag":"DIV","id":"","cls":"dt-metrics-scroll","aria":"Successful attempts: Stage / source","sl":192,"sw":505,"cw":313,"docW":345,"winW":360}

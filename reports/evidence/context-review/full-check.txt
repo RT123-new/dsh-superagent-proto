@@ -1,0 +1,172 @@
+$ pnpm typecheck && pnpm test && pnpm build
+$ tsc --noEmit
+$ vitest run
+
+ RUN  v4.1.8 /tmp/superagent-context
+
+(node:3880) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/runtime-concurrency.spec.ts (56 tests) 8174ms
+     ✓ holds a delivery that reached a worker while a hand-off stopped its subagents until the stop ended  4042ms
+ ✓ tests/service-script.spec.ts (15 tests) 5338ms
+   ✓ restarts the service, and a restart whose graceful stop timed out does not keep recovery off  1150ms
+   ✓ exits 1 when the started service does not answer in time, and leaves its process running  2063ms
+   ✓ does not signal a process that took the recorded service PID, and keeps a stop that timed out  1098ms
+(node:4021) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/runtime.spec.ts (91 tests) 4125ms
+(node:4032) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/sources.spec.ts (72 tests) 3838ms
+     ✓ drops the events it reads once the Source is off  1362ms
+     ✓ starts the consumer again after it exits, and is ready once the next run listens  1060ms
+(node:4084) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-2-github-stream-pagination.spec.ts (11 tests) 3873ms
+     ✓ reads a stream of 201 events completely  432ms
+     ✓ reads a stream of 1000 events completely  1404ms
+     ✓ never advances the checkpoint past unread pages when a later page fails  307ms
+     ✓ re-presents an interrupted burst exactly once logically  420ms
+     ✓ follows pagination links instead of re-requesting the first page  361ms
+(node:4091) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/tools.spec.ts (26 tests) 1210ms
+ ✓ tests/panel-source.spec.tsx (15 tests) 1190ms
+(node:4110) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/followups.spec.ts (16 tests) 971ms
+ ✓ tests/panel-eval.spec.tsx (10 tests) 964ms
+ ✓ tests/panel-trigger.spec.tsx (8 tests) 976ms
+   ✓ reads back the Triggers between the newest page and the earlier ones it shows, once more arrive than a page holds  475ms
+(node:4137) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-3-feishu-history-recovery.spec.ts (10 tests) 957ms
+ ✓ tests/panel-execution.spec.tsx (12 tests) 744ms
+ ✓ tests/panel-deployment.spec.tsx (7 tests) 716ms
+ ✓ tests/panel-prompts.spec.tsx (15 tests) 718ms
+ ✓ tests/panel-settings.spec.tsx (6 tests) 702ms
+ ✓ tests/panel-overview.spec.tsx (13 tests) 633ms
+(node:4185) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-1-3-adversarial.spec.ts (9 tests) 583ms
+     ✓ does not use a first-page ETag to hide changed later pages  357ms
+ ✓ tests/panel-panel.spec.tsx (8 tests) 356ms
+ ✓ tests/issue-5-preparation-cancellation.spec.ts (7 tests) 351ms
+(node:4213) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/effects.spec.ts (13 tests) 345ms
+(node:4220) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-1-github-notification-delivery.spec.ts (10 tests) 344ms
+(node:4227) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/model-surface.spec.ts (7 tests) 280ms
+ ✓ tests/issue-4-5-adversarial.spec.ts (12 tests) 270ms
+(node:4249) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/migration.spec.ts (19 tests) 252ms
+(node:4256) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/settings.spec.ts (4 tests) 173ms
+ ✓ tests/core-engine.spec.ts (113 tests) 155ms
+(node:4274) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/views.spec.ts (15 tests) 131ms
+(node:4281) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/store.spec.ts (17 tests) 130ms
+(node:4288) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/health.spec.ts (3 tests) 126ms
+(node:4299) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-23-review-handoff.spec.ts (3 tests) 121ms
+ ✓ tests/environment.spec.ts (13 tests) 104ms
+(node:4354) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/issue-5-session-creation-gates.spec.ts (4 tests) 111ms
+(node:4365) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/prompts.spec.ts (18 tests) 97ms
+ ✓ tests/client.spec.tsx (5 tests) 92ms
+(node:4380) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/outbox.spec.ts (2 tests) 85ms
+ ✓ tests/issue-4-workspace-preparation.spec.ts (10 tests) 91ms
+ ✓ tests/deployment.spec.ts (5 tests) 83ms
+(node:4440) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/queue.spec.ts (2 tests) 81ms
+ ✓ tests/controls.spec.tsx (6 tests) 62ms
+ ✓ tests/policy.spec.ts (328 tests) 75ms
+ ✓ tests/index.spec.ts (3 tests) 56ms
+ ✓ tests/bundle-patch.spec.ts (2 tests) 29ms
+(node:4480) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/timeline.spec.ts (4 tests) 35ms
+ ✓ tests/commands.spec.ts (19 tests) 32ms
+ ✓ tests/delivery.spec.ts (15 tests) 33ms
+ ✓ tests/assessment.spec.ts (7 tests) 28ms
+ ✓ tests/styles.spec.ts (2 tests) 28ms
+ ✓ tests/issue-21-context.spec.ts (6 tests) 27ms
+ ✓ tests/feishu-image.spec.ts (4 tests) 27ms
+ ✓ tests/role-models.spec.ts (5 tests) 20ms
+ ✓ tests/feishu-read.spec.ts (8 tests) 18ms
+ ✓ tests/registry.spec.ts (10 tests) 17ms
+ ✓ tests/cards.spec.ts (55 tests) 13ms
+ ✓ tests/http.spec.ts (4 tests) 12ms
+ ✓ tests/github-read.spec.ts (7 tests) 13ms
+ ✓ tests/issue-24-repository-scope.spec.ts (7 tests) 13ms
+ ✓ tests/admission-context.spec.ts (4 tests) 10ms
+ ✓ tests/retry-health.spec.ts (29 tests) 10ms
+ ✓ tests/docs.spec.ts (6 tests) 10ms
+ ✓ tests/class-docs.spec.ts (1 test) 10ms
+(node:4618) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ tests/background.spec.ts (5 tests) 9ms
+ ✓ tests/navigation.spec.ts (7 tests) 7ms
+ ✓ tests/passes.spec.ts (4 tests) 7ms
+ ✓ tests/draft.spec.ts (11 tests) 6ms
+ ✓ tests/stage.spec.ts (31 tests) 6ms
+ ✓ tests/locales.spec.ts (6 tests) 5ms
+ ✓ tests/prompt-config.spec.ts (3 tests) 4ms
+ ✓ tests/markdown.spec.ts (3 tests) 4ms
+ ✓ tests/marks.spec.ts (2 tests) 3ms
+ ✓ tests/cache.spec.ts (1 test) 2ms
+
+ Test Files  70 passed (70)
+      Tests  1287 passed (1287)
+   Start at  06:54:58
+   Duration  61.68s (transform 2.36s, setup 0ms, import 10.28s, tests 40.12s, environment 5.24s)
+
+$ tsdown
+ℹ tsdown v0.22.14 powered by rolldown v1.2.7
+ℹ config file: /tmp/superagent-context/tsdown.config.ts 
+ℹ entry: src/index.ts, src/sources/github.ts, src/sources/feishu.ts
+ℹ target: es2024
+ℹ tsconfig: tsconfig.json
+ℹ entry: src/client/index.tsx
+ℹ target: node22.19.0
+ℹ tsconfig: tsconfig.json
+ℹ Build start
+
+ WARN  We recommend using the ESM format instead of CommonJS.
+The ESM format is compatible with modern platforms and runtimes, and most new libraries are now distributed only in ESM format.
+Learn more at https://nodejs.org/en/learn/modules/publishing-a-package#how-did-we-get-here
+
+ℹ [CJS] lib/client.js  358.52 kB │ gzip: 86.64 kB
+ℹ [CJS] 1 files, total: 358.52 kB
+✔ Build complete in 1906ms
+ℹ [ESM] lib/index.js                 459.48 kB │ gzip: 130.01 kB
+ℹ [ESM] lib/github-watch.js           37.59 kB │ gzip:  11.97 kB
+ℹ [ESM] lib/feishu-watch.js            0.60 kB │ gzip:   0.29 kB
+ℹ [ESM] lib/feishu-QbMmNHu3.js        49.43 kB │ gzip:  14.85 kB
+ℹ [ESM] lib/poll-NOliGu3s.js          39.27 kB │ gzip:  14.12 kB
+ℹ [ESM] lib/github-pull-CgK6knA-.js   25.42 kB │ gzip:   8.23 kB
+ℹ [ESM] lib/index.d.ts                24.97 kB │ gzip:   7.72 kB
+ℹ [ESM] lib/feishu-watch.d.ts          6.13 kB │ gzip:   2.02 kB
+ℹ [ESM] lib/github-watch.d.ts          0.39 kB │ gzip:   0.22 kB
+ℹ [ESM] lib/kind-BLJgmLFJ.d.ts        36.00 kB │ gzip:   9.08 kB
+ℹ [ESM] lib/intake-BntR4bhz.d.ts      29.31 kB │ gzip:   9.22 kB
+ℹ [ESM] 11 files, total: 708.60 kB
+✔ Build complete in 2570ms

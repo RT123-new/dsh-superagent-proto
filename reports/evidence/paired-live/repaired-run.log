@@ -1,0 +1,39 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/paired-work/repo[39m
+
+(node:2478) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [31m❯[39m scripts/paired-validation/workloads.spec.ts [2m([22m[2m10 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 2295[2mms[22m[39m
+[31m     [31m×[31m normal seed 11[39m[33m 2291[2mms[22m[39m
+     [90m·[39m late-30s seed 11
+     [90m·[39m late-10m-reconcile seed 11
+     [90m·[39m unauthorized seed 11
+     [90m·[39m restart-duplicate seed 11
+     [90m·[39m normal seed 29
+     [90m·[39m late-30s seed 29
+     [90m·[39m late-10m-reconcile seed 29
+     [90m·[39m unauthorized seed 29
+     [90m·[39m restart-duplicate seed 29
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m scripts/paired-validation/workloads.spec.ts[2m > [22mpaired synthetic completion workloads[2m > [22mnormal seed 11
+[31m[1mError[22m: Invalid expression[39m
+[36m [2m❯[22m expression scripts/paired-validation/workloads.spec.ts:[2m26:137[22m[39m
+    [90m 24|[39m  if(!value||typeof value!=='object'||Array.isArray(value))throw Error(…
+    [90m 25|[39m  [35mconst[39m x[33m=[39mvalue [35mas[39m [33mRecord[39m[33m<[39mstring[33m,[39munknown[33m>[39m
+    [90m 26|[39m  if(Object.keys(x).sort().join(',')!=='args,op'||!['min','max'].includ…
+    [90m   |[39m                                                                                                                                         [31m^[39m
+    [90m 27|[39m  return {op:x.op as 'min'|'max',args:[expression(x.args[0],depth+1),ex…
+    [90m 28|[39m }
+[90m [2m❯[22m expression scripts/paired-validation/workloads.spec.ts:[2m27:39[22m[39m
+[90m [2m❯[22m expression scripts/paired-validation/workloads.spec.ts:[2m27:39[22m[39m
+[90m [2m❯[22m scripts/paired-validation/workloads.spec.ts:[2m66:16[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[90m (10)[39m
+[2m   Start at [22m 06:52:43
+[2m   Duration [22m 2.90s[2m (transform 366ms, setup 0ms, import 517ms, tests 2.30s, environment 0ms)[22m

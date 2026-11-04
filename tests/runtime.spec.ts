@@ -10,7 +10,9 @@ import { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import { Runtime } from '../src/app/runtime.ts'
 import { jobRegistry } from './fixtures/host.ts'
 import { evalsHealth } from '../src/app/views/overview.ts'
-import { mandateInstructions } from '../src/executor/dsh.ts'
+import { DshExecutor, mandateInstructions } from '../src/executor/dsh.ts'
+import { Effects } from '../src/app/effects.ts'
+import { Passes } from '../src/app/passes.ts'
 import { masterPrompt } from '../src/app/context.ts'
 import { reference, testMachine } from './fixtures/deployment.ts'
 import type { Machine } from '../src/deployment.ts'
@@ -36,6 +38,7 @@ import { decisionList, search, threadDetail, threadList } from '../src/app/views
 import { executorLoad, ticketDetail, ticketList } from '../src/app/views/tickets.ts'
 
 let runtime: Runtime
+let unregisterFeishu: () => void = () => {}
 const viewsOf = (value: Runtime) => ({ store: value.store, sources: value.sources, links: value.links() })
 const overviewOf = (value: Runtime) => overview(viewsOf(value), value.health, policyVersion(value.store.settings()), executorLoad(value.store, value.executor.activeCount()), value.setupProblem ?? value.feishuProblem)
 let directory: string
@@ -91,7 +94,7 @@ const subprocess = { spawn: vi.fn((spec: { argv: readonly string[] }) => {
   while (argv[0] === 'env' || /^[A-Z_]+=/.test(argv[0] ?? '')) argv.shift()
   const answer = answers[argv.join(' ')] ?? ''
   const reader = (text: string) => ({ readFrom: () => ({ text, nextOffset: text.length, lossy: false }) })
-  return { done: Promise.resolve({ exitCode: answer instanceof Error ? 1 : 0, signal: null }), collected: { stdout: reader(answer instanceof Error ? '' : answer), stderr: reader(answer instanceof Error ? answer.message : '') } }
+  return { waitForExit: async () => true, terminate: () => {}, done: Promise.resolve({ exitCode: answer instanceof Error ? 1 : 0, signal: null }), collected: { stdout: reader(answer instanceof Error ? '' : answer), stderr: reader(answer instanceof Error ? answer.message : '') } }
 }) }
 /** Source account overrides for test setup; `feishu: null` disables the Feishu source. */
 interface Accounts { github?: Record<string, unknown>; feishu?: Record<string, unknown> | null }
@@ -203,14 +206,14 @@ beforeEach(async () => {
     inspect: vi.fn(async () => ({ events: [] })),
   }
   jobs = jobRegistry()
-  services = { agents, llm: { resolveCallConfig: vi.fn(async value => value) }, sessionController: controller, sessionPersistence: { flush: vi.fn(async () => {}), open: vi.fn(async () => ({ read: async () => ({ events: [] }), [Symbol.asyncDispose]: async () => {} })) }, workspaceRegistry: { create: async (cwd: string) => ({ id: cwd }) }, permissionPresets: { set: () => {} }, subprocess, webServer: { host: '127.0.0.1', port: 3082, register: (route: { handler: HttpHandler }) => { http = route.handler; return () => {} } }, jobs: jobs.service }
+  services = { agents, llm: { resolveCallConfig: vi.fn(async value => value) }, sessionController: controller, sessionPersistence: { flush: vi.fn(async () => {}), open: vi.fn(async () => ({ read: async () => ({ events: [] }), [Symbol.asyncDispose]: async () => {} })) }, workspaceRegistry: { create: async (cwd: string) => ({ id: cwd }) }, permissionPresets: { set: vi.fn(), defaultPreset: 'workspace-write' }, subprocess, webServer: { host: '127.0.0.1', port: 3082, register: (route: { handler: HttpHandler }) => { http = route.handler; return () => {} } }, jobs: jobs.service }
   for (const [name, service] of Object.entries(services)) ctx.reflect.provide(name, service)
   for (const cli of [AGENT(), OTHER(), BOT()]) writeFileSync(cli, '#!/bin/sh\n', { mode: 0o755 })
   const store = new Store(join(directory, 'orchestrator.sqlite')); seed(store); store.close()
   runtime = new Runtime(ctx, testMachine({ stateDir: directory }), restarts)
   await runtime.ready
   // Source kinds are normally registered by plugins that are not loaded in unit tests.
-  runtime.sources.register(feishuKind); runtime.sources.register(githubKind)
+  unregisterFeishu = runtime.sources.register(feishuKind); runtime.sources.register(githubKind)
   runtime.store.saveSettings({ ...runtime.store.settings(), policy: { ...runtime.store.settings().policy, sources: { feishu: { allowed: [{ id: MEMBER, name: 'Alice' }], syncChat: CHAT }, github: { allowed: [{ id: 'alice' }] } } }, eval: { ...runtime.store.settings().eval, mode: 'auto' }, sources: { github: { enabled: true, config: { repository: 'acme/widgets', cli: AGENT() } }, feishu: { enabled: true, config: { cli: BOT(), chats: [{ chatId: CHAT, listen: 'all' }], directMessages: true } } } })
   deliveries.mockClear()
 })
@@ -1096,7 +1099,7 @@ it('runs the prepare command once for a new ticket, under the execution root wit
   expect(waitsForPerson(runtime.store.tickets.get(failed.ticket.id)!)).toBe(true)
 })
 
-it('counts a ticket whose directory the host prepared before prepare commands existed as prepared', async () => {
+it('blocks non-empty unrecorded legacy workspace under configured preparation without changing files', async () => {
   const { ticket, sessionId } = await acceptedTicket()
   await runTool(sessionId, 'orchestrator_report', { state: 'failed', summary: 'offline' })
   // A ticket from before prepare commands has its worktree.
@@ -1107,7 +1110,7 @@ it('counts a ticket whose directory the host prepared before prepare commands ex
   await runtime.engine.retryTicket(ticket.id)
   await runtime.idle()
   expect(subprocess.spawn.mock.calls.some(([spec]) => spec.argv[0] === 'sh')).toBe(false)
-  expect(runtime.store.tickets.get(ticket.id)!.assignments.at(-1)!.state).toBe('running')
+  expect(runtime.store.tickets.get(ticket.id)!.assignments.at(-1)!.report).toMatchObject({ state: 'failed', summary: expect.stringContaining('Files were preserved') })
 })
 
 it('runs a GitHub-only deployment: the GitHub part of the Policy decides alone, and the Feishu part has nothing to sync', async () => {
@@ -1150,11 +1153,15 @@ it('shows a failed reply as a problem with its attempts, an error of the reply e
     try { await runtime.sendReplies() } finally { vi.useRealTimers() }
   }
   await runtime.sendReplies()
-  expect(outgoing()).toEqual([{ kind: 'outgoing', outgoing: expect.objectContaining({ id: 'stuck', attempts: 1, error: expect.stringContaining('2200') }) }])
+  // Section 10: the overview problem renders the typed class only - the stored record keeps its bounded prose privately.
+  expect(outgoing()).toEqual([{ kind: 'outgoing', outgoing: expect.objectContaining({ id: 'stuck', attempts: 1, error: expect.stringContaining('transient') }) }])
+  expect(outgoing()[0]!.kind === 'outgoing' ? outgoing()[0]!.outgoing.error : '').not.toContain('2200')
   expect(runtime.health.reply).toMatchObject({ state: 'ready', detail: expect.stringContaining('1 waiting') })
   // Its retries come after 5 and then 10 more seconds.
   await at(5000); await at(15_000)
-  expect(runtime.health.reply).toMatchObject({ state: 'error', detail: expect.stringContaining('2200') })
+  // Section 10: the operator health detail carries the typed class only - arbitrary error prose ('2200') never renders.
+  expect(runtime.health.reply).toMatchObject({ state: 'error', detail: expect.stringContaining('transient') })
+  expect(runtime.health.reply?.detail ?? '').not.toContain('2200')
   expect(runtime.health.runtime).toMatchObject({ state: 'ready' })
   // A withdrawn reply takes its effect with it, which clears the error at once.
   runtime.outbox.withdraw('stuck')
@@ -1306,10 +1313,20 @@ it('refuses a settings save with an unknown model or a Source kind that is not i
     await http(req, { writeHead: (code: number) => { status = code }, end: (data: string) => { text = data } })
     return { status, body: JSON.parse(text) as Record<string, unknown> }
   }
-  vi.mocked(services.llm as { resolveCallConfig: ReturnType<typeof vi.fn> }).resolveCallConfig.mockRejectedValueOnce(new Error('unknown provider nowhere'))
+  const marker = 'REMOTE-CONTROLLED-CODE-MUST-NOT-LEAK'
+  vi.mocked(services.llm as { resolveCallConfig: ReturnType<typeof vi.fn> }).resolveCallConfig
+    .mockRejectedValueOnce(Object.assign(new Error('safe message'), { code: marker }))
   const evalBlock = { ...runtime.store.settings().eval, model: { provider: 'nowhere', model: 'x' } }
-  expect(await request('PUT', 'settings/eval', { value: evalBlock, revision: runtime.store.blockRevision('eval') }))
-    .toMatchObject({ status: 400, body: { code: 'modelUnavailable', values: { block: 'eval', error: 'unknown provider nowhere' } } })
+  const reply = await request('PUT', 'settings/eval', { value: evalBlock, revision: runtime.store.blockRevision('eval') })
+  expect(JSON.stringify(reply)).not.toContain(marker)
+  // Complement to the wire probe above: a code from the pinned dsh-llm LlmError contract is shown; prose-only failures become 'unavailable'.
+  vi.mocked(services.llm as { resolveCallConfig: ReturnType<typeof vi.fn> }).resolveCallConfig
+    .mockRejectedValueOnce(Object.assign(new Error('provider "nowhere" answered: sk-live-9f8e7d body'), { code: 'NO_ADAPTER' }))
+    .mockRejectedValueOnce(new Error('provider "nowhere" answered: sk-live-9f8e7d body'))
+  expect((await request('PUT', 'settings/eval', { value: evalBlock, revision: runtime.store.blockRevision('eval') })).body)
+    .toMatchObject({ code: 'modelUnavailable', values: { block: 'eval', error: 'NO_ADAPTER' } })
+  expect((await request('PUT', 'settings/eval', { value: evalBlock, revision: runtime.store.blockRevision('eval') })).body)
+    .toMatchObject({ code: 'modelUnavailable', values: { block: 'eval', error: 'unavailable' } })
   const stored = runtime.store.settings()
   runtime.store.saveSettings({ ...stored, sources: { ...stored.sources, slack: { enabled: false, config: {} } } })
   expect(await request('PUT', 'settings/source:slack', { value: { enabled: true, config: {} }, revision: 0 }))
@@ -1722,11 +1739,21 @@ it('gives a subagent of a worker only the worker\'s work tools, and none once th
   runtime.engine.stopTicket(ticket.id)
   expect(guards.get('child-1')!()).toBe('Ticket ended; new work needs a new authorized ticket')
   // Another Session's subagent is left as it is.
+  await (controller.create as (options: { sessionId: string }) => Promise<void>)({ sessionId: 'someone-else' })
+  ;(agents.get('someone-else')! as unknown as { session: { header: object } }).session.header = {}
   await (controller.create as (options: { sessionId: string }) => Promise<void>)({ sessionId: 'child-2' })
   const other = agents.get('child-2')! as unknown as { session: { header: { parentSession?: string } } }
   other.session.header = { parentSession: 'someone-else' }
   await (runtime as unknown as { ctx: Context }).ctx.parallel('agent/created', { agent: other } as never)
   expect(restricts.get('child-2')).toBeUndefined()
+  // Unresolved ancestry alone must not cause this bundle to restrict an unrelated user Session.
+  await (controller.create as (options: { sessionId: string }) => Promise<void>)({ sessionId: 'child-3' })
+  const stranded = agents.get('child-3')! as unknown as { session: { header: { parentSession?: string } } }
+  stranded.session.header = { parentSession: 'ghost' }
+  await (runtime as unknown as { ctx: Context }).ctx.parallel('agent/created', { agent: stranded } as never)
+  // No observed managed provenance: this could be an unrelated user's unloaded parent.
+  expect(restricts.has('child-3')).toBe(false)
+  expect(guards.has('child-3')).toBe(false)
 })
 
 it('gives a subagent of a worker\'s subagent the same work tools and guard', async () => {
@@ -1754,6 +1781,8 @@ it('gives the Assignment a restart starts the messages the replaced one had deli
   const inbox = (agents.get(sessionId)! as unknown as { inbox: { nextTurn: unknown[]; nextStep: unknown[] } }).inbox
   inbox.nextTurn.length = 0; inbox.nextStep.length = 0
   const next = await restart()
+  // Migration (final review 2.2): a relaunch grants a privileged Session only once its Source kind is installed, as in production.
+  next.sources.register(feishuKind); next.sources.register(githubKind)
   await next.ready; await next.idle()
   expect(next.store.tickets.get(ticket.id)!.assignments.map(item => item.state)).toEqual(['ended', 'running'])
   expect(sent()).toBe(2)
@@ -1794,3 +1823,258 @@ it('keeps the Policy the main Session judges by in its prompt, after admission a
   expect(policy()).toContain('No rule is enabled: a proactive candidate can only be ignored.')
   expect(policy()).toContain('The accept mode and the rules decide proactive candidates only')
 })
+
+it('serves the live metrics snapshot through the HTTP host: the real Runtime, not an adapter that omits it (Issue 9)', async () => {
+  const host = (runtime as unknown as { httpHost(): { metricsSnapshot?(): { version: number; counters: Record<string, number>; durations: Record<string, unknown> } | undefined } }).httpHost()
+  expect(typeof host.metricsSnapshot).toBe('function')
+  const before = host.metricsSnapshot!()!
+  expect(before.version).toBe(1)
+  expect(runtime.metricsSnapshot()).toBeDefined()
+  expect(runtime.receive(feishu('9001', 'hello metrics'))).toBe('stored')
+  const after = host.metricsSnapshot!()!
+  expect(after.counters.trigger_stored).toBe(1)
+  expect(Object.keys(after.durations)).toContain('trigger_intake|internal')
+  await runtime.idle()
+})
+
+it('final review 2.2: a pause that lands while the worker Session is being created leaves no danger-full-access (real launch path)', async () => {
+  const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+  const entered = Promise.withResolvers<void>(), release = Promise.withResolvers<void>()
+  const original = controller.create.getMockImplementation() as (...a: unknown[]) => Promise<unknown>
+  controller.create.mockImplementation((async (...args: unknown[]) => {
+    const id = (args[0] as { sessionId: string }).sessionId
+    if (id.startsWith('worker-')) { entered.resolve(); await release.promise }
+    return original(...args)
+  }) as never)
+  presets.mockClear()
+  const trigger = feishu('1', '@bot 修一下回归')
+  await receive(trigger)
+  const accepted = route({ kind: 'accept', trigger_id: trigger.id, title: '修复回归', worktree_name: worktreeName, acknowledgement: '收到，修复回归。' })
+  await Promise.race([entered.promise, new Promise((_r, reject) => setTimeout(() => reject(new Error('worker create never started')), 5000))])
+  await runtime.settings.pause(true, 'panel')
+  release.resolve()
+  await accepted.catch(() => {})
+  await new Promise(resolve => setTimeout(resolve, 300))
+  expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(0)
+  await runtime.settings.pause(false, 'panel')
+}, 20000)
+
+let stopping: Promise<void> | undefined
+for (const [reason, interrupt] of [
+  ['the ticket is stopped (replacement/ended assignment)', (ticketId: string) => { runtime.engine.stopTicket(ticketId) }],
+  ['the host shuts down', () => { stopping = runtime.stop() }],
+] as const) {
+  it(`final review 2.2: ${reason} while the worker Session is being created leaves no danger-full-access (real launch path)`, async () => {
+    const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+    const entered = Promise.withResolvers<void>(), release = Promise.withResolvers<void>()
+    const original = controller.create.getMockImplementation() as (...a: unknown[]) => Promise<unknown>
+    controller.create.mockImplementation((async (...args: unknown[]) => {
+      if ((args[0] as { sessionId: string }).sessionId.startsWith('worker-')) { entered.resolve(); await release.promise }
+      return original(...args)
+    }) as never)
+    presets.mockClear()
+    const trigger = feishu('1', '@bot 修一下回归')
+    await receive(trigger)
+    const accepted = route({ kind: 'accept', trigger_id: trigger.id, title: '修复回归', worktree_name: worktreeName, acknowledgement: '收到，修复回归。' })
+    await Promise.race([entered.promise, new Promise((_r, reject) => setTimeout(() => reject(new Error('worker create never started')), 5000))])
+    const ticketId = runtime.store.tickets.list()[0]!.id
+    interrupt(ticketId)
+    release.resolve()
+    await stopping
+    await accepted.catch(() => {})
+    await new Promise(resolve => setTimeout(resolve, 300))
+    expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(0)
+  }, 30000)
+}
+
+it('final review 2.2: stopping a ticket cancels its active worker turn (real stop path)', async () => {
+  const { ticket, sessionId } = await acceptedTicket()
+  await vi.waitFor(() => expect(agents.get(sessionId)).toBeDefined())
+  const agent = agents.get(sessionId)! as unknown as { cancel: ReturnType<typeof vi.fn>; status: string }
+  agent.status = 'running'
+  agent.cancel.mockClear()
+  runtime.engine.stopTicket(ticket.id)
+  await vi.waitFor(() => expect(agent.cancel).toHaveBeenCalled())
+  expect(agent.cancel.mock.calls[0]![1]).toMatchObject({ keepInbox: false })
+}, 20000)
+
+it('final review 2.2: stopping a ticket drops the worker Session privilege, which must not outlive its ticket (real stop path)', async () => {
+  const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+  const { ticket, sessionId } = await acceptedTicket()
+  await runtime.idle()
+  const agent = agents.get(sessionId)! as unknown as { session: unknown }
+  expect(presets.mock.calls.filter(call => call[0] === agent.session && call[1] === 'danger-full-access')).toHaveLength(1)
+  presets.mockClear()
+  runtime.engine.stopTicket(ticket.id)
+  await runtime.idle()
+  expect(presets.mock.calls).toContainEqual([agent.session, 'workspace-write'])
+}, 20000)
+
+it('ADV NF5-a: a throwing preset revoke must not skip killing the stopped worker shell jobs', async () => {
+  const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+  const { ticket, sessionId } = await acceptedTicket()
+  await runtime.idle()
+  const job = jobs.run(sessionId, 'adv job')
+  presets.mockImplementation((_s: unknown, preset: string) => { if (preset === 'workspace-write') throw new Error('revoke boom') })
+  try { runtime.engine.stopTicket(ticket.id) } catch {}
+  await runtime.idle()
+  await new Promise(resolve => setTimeout(resolve, 200))
+  expect(jobs.service.kill.mock.calls.map(call => call[0])).toContain(job)
+  // The failed revoke is visible, not swallowed as done: the attempt is on record and the probe counter fires.
+  expect(presets.mock.calls.filter(call => call[1] === 'workspace-write')).toHaveLength(1)
+  expect(runtime.metricsSnapshot()!.counters['session_revoke_failed']).toBe(1)
+  // The stop itself completed; the unknown grant state is what remains, not a stuck ticket.
+  expect(runtime.store.tickets.get(ticket.id)!.ended).toMatchObject({ outcome: 'stopped' })
+}, 20000)
+
+it('ADV NF5-b: a retry on a live ticket must not revoke the worker preset', async () => {
+  const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+  const { ticket, sessionId } = await acceptedTicket()
+  await runtime.idle()
+  presets.mockClear()
+  try { runtime.engine.retryTicket(ticket.id) } catch {}
+  await runtime.idle()
+  expect(presets.mock.calls.filter(call => call[1] === 'workspace-write')).toHaveLength(0)
+  void sessionId
+}, 20000)
+
+it('final review 2.2: a restart reconciles persisted assignments before passes or effects start, so no intake is processed before reconciliation', async () => {
+  const { ticket } = await acceptedTicket()
+  await runtime.idle()
+  const order: string[] = []
+  const resume = DshExecutor.prototype.resume, effectsStart = Effects.prototype.start, passesStart = Passes.prototype.start
+  vi.spyOn(DshExecutor.prototype, 'resume').mockImplementation(function (this: DshExecutor) { order.push('resume'); return resume.call(this) })
+  vi.spyOn(Passes.prototype, 'start').mockImplementation(function (this: Passes) { order.push('passes'); return passesStart.call(this) })
+  vi.spyOn(Effects.prototype, 'start').mockImplementation(function (this: Effects) { order.push('effects'); return effectsStart.call(this) })
+  await restart()
+  await runtime.ready
+  expect(order).toEqual(['resume', 'passes', 'effects'])
+  // Source kinds are registered by plugins after startup; the reconciled replacement launch waits for that gate, then runs.
+  unregisterFeishu = runtime.sources.register(feishuKind); runtime.sources.register(githubKind)
+  await runtime.idle()
+  // The assignment that was running when the host stopped was reconciled, not left running beside new work.
+  expect(runtime.store.tickets.get(ticket.id)!.assignments[0]).toMatchObject({ state: 'ended', endedAt: expect.any(String) })
+}, 30000)
+
+it('final review 2.2: a requester removed from the allowed list cannot get a recreated worker Session granted danger-full-access', async () => {
+  const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+  const { ticket, sessionId } = await acceptedTicket()
+  await runtime.idle()
+  const current = runtime.store.settings().policy
+  await runtime.settings.save('policy', { ...current, sources: { ...current.sources, feishu: { ...current.sources.feishu!, allowed: [] } } }, runtime.store.blockRevision('policy'), 'panel')
+  await runtime.idle()
+  expect(runtime.store.tickets.get(ticket.id)!.ended).toBeUndefined()      // by design the ticket goes on and the live worker is told
+  agents.delete(sessionId)                                                 // the Session is deleted externally
+  presets.mockClear()
+  const follow = feishu('20', '再加一个', { root_id: undefined, mentions: [{ id: 'ou_bot' }] })
+  await receive(follow)
+  await route({ kind: 'attach', ticket_id: ticket.id, trigger_id: follow.id, note: 'x' }).catch(() => {})
+  await new Promise(resolve => setTimeout(resolve, 500)); await runtime.idle()
+  expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(0)
+}, 20000)
+
+it('final review 2.2: while the ticket\'s Source kind is not installed, a recreated worker Session gets no grant (fail closed), and it is granted once installed', async () => {
+  const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+  const { ticket, sessionId } = await acceptedTicket()
+  await runtime.idle()
+  agents.delete(sessionId)
+  presets.mockClear()
+  const gate = Promise.withResolvers<boolean>()
+  vi.spyOn(runtime.sources, 'installed').mockImplementation(() => gate.promise)
+  const follow = feishu('21', '再加一个', { root_id: undefined, mentions: [{ id: 'ou_bot' }] })
+  await receive(follow)
+  const attached = route({ kind: 'attach', ticket_id: ticket.id, trigger_id: follow.id, note: 'x' }).catch(() => {})
+  await new Promise(resolve => setTimeout(resolve, 300))
+  expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(0)     // waiting, nothing granted
+  gate.resolve(true)
+  await attached
+  await vi.waitFor(() => expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(1))
+}, 20000)
+
+it('final review 2.2: a disabled Source (plugin installed) denies a recreated worker Session grant', async () => {
+  const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+  const { ticket, sessionId } = await acceptedTicket()
+  await runtime.idle()
+  const settings = runtime.store.settings()
+  runtime.store.saveSettings({ ...settings, sources: { ...settings.sources, feishu: { ...settings.sources.feishu!, enabled: false } } })
+  agents.delete(sessionId); presets.mockClear()
+  const follow = feishu('22', '再加一个', { root_id: undefined, mentions: [{ id: 'ou_bot' }] })
+  await receive(follow).catch(() => {})
+  await route({ kind: 'attach', ticket_id: ticket.id, trigger_id: follow.id, note: 'x' }).catch(() => {})
+  await new Promise(resolve => setTimeout(resolve, 400)); await runtime.idle()
+  expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(0)
+}, 20000)
+
+for (const enabled of [true, false]) {
+  it(`final review 2.2: with the Source plugin really unregistered and the stored Source ${enabled ? 'enabled' : 'disabled'}, a recreated worker Session gets no grant while waiting, and is granted only once the plugin registers (real registry, no spy)`, async () => {
+    const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+    const { ticket, sessionId } = await acceptedTicket()
+    await runtime.idle()
+    const settings = runtime.store.settings()
+    runtime.store.saveSettings({ ...settings, sources: { ...settings.sources, feishu: { ...settings.sources.feishu!, enabled } } })
+    unregisterFeishu()
+    expect(runtime.sources.kind('feishu')).toBeUndefined()
+    agents.delete(sessionId); presets.mockClear()
+    const follow = feishu('23', '再加一个', { root_id: undefined, mentions: [{ id: 'ou_bot' }] })
+    await receive(follow).catch(() => {})
+    void route({ kind: 'attach', ticket_id: ticket.id, trigger_id: follow.id, note: 'x' }).catch(() => {})
+    await new Promise(resolve => setTimeout(resolve, 600))
+    expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(0)
+    unregisterFeishu = runtime.sources.register(feishuKind)
+    await new Promise(resolve => setTimeout(resolve, 800)); await runtime.idle()
+    const grants = presets.mock.calls.filter(call => call[1] === 'danger-full-access').length
+    expect(grants).toBe(enabled ? 1 : 0)
+  }, 30000)
+}
+
+async function recreateAfter(sessionId: string, ticketId: string, id: string) {
+  const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+  agents.delete(sessionId); presets.mockClear()
+  const follow = feishu(id, '再加一个', { root_id: undefined, mentions: [{ id: 'ou_bot' }] })
+  await receive(follow).catch(() => {})
+  await route({ kind: 'attach', ticket_id: ticketId, trigger_id: follow.id, note: 'x' }).catch(() => {})
+  await new Promise(resolve => setTimeout(resolve, 500)); await runtime.idle()
+  return presets.mock.calls.filter(call => call[1] === 'danger-full-access').length
+}
+
+it('final review 2.2: a chat removed from the Source configuration denies a recreated worker Session grant (real runtime)', async () => {
+  const { ticket, sessionId } = await acceptedTicket()
+  await runtime.idle()
+  const settings = runtime.store.settings()
+  runtime.store.saveSettings({ ...settings, sources: { ...settings.sources, feishu: { ...settings.sources.feishu!, config: { ...(settings.sources.feishu!.config as object), chats: [], directMessages: false } } } })
+  expect(await recreateAfter(sessionId, ticket.id, '24')).toBe(0)
+}, 20000)
+
+it('final review 2.2: an inferred (auto mode) Mandate gets no recreated worker grant once auto mode is off (real runtime)', async () => {
+  const observe = (mode: 'observe' | 'auto' | 'off') => runtime.settings.save('eval', { ...runtime.store.settings().eval, mode }, runtime.store.blockRevision('eval'), 'panel')
+  await observe('auto')
+  const trigger = feishu('25', '这个文案好奇怪，改成“浏览网页”吧', { mentions: [] })
+  await receive(trigger)
+  vi.spyOn(Commands.prototype, 'lark').mockResolvedValue({ items: [{ message_id: 'om_25', chat_id: CHAT }] })
+  await runTool(runtime.masterId, 'orchestrator_eval', { trigger_id: trigger.id })
+  const accepted = await runTool(runtime.masterId, 'orchestrator_eval_decide', { trigger_id: trigger.id, decision: 'accept', title: '文案修订', worktree_name: 'copy-fix', scope: '改副标题', reason: 'explicit copy change', intent_evidence: 'quoted', acknowledgement: '收到。',
+    rule_assessments: [{ rule_id: 'copy', matched: true, reason: 'copy change' }, { rule_id: 'visual', matched: false, reason: 'not visual' }],
+    direction: { implementation_requested: true, target_basis: 'specified', requires_design_decision: false, evidence: 'the message names the replacement' } })
+  const ticket = runtime.store.tickets.get((accepted.ticket as { ticket_id: string }).ticket_id)!
+  expect(ticket.mandate.strength).toBe('inferred')
+  await runtime.idle()
+  await observe('off')
+  expect(await recreateAfter(`worker-${ticket.id}`, ticket.id, '26')).toBe(0)
+}, 30000)
+
+it('final review 2.2: a requester removed while the grant waits for the plugin gets no grant when the plugin registers (revocation during wait)', async () => {
+  const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+  const { ticket, sessionId } = await acceptedTicket()
+  await runtime.idle()
+  unregisterFeishu()
+  agents.delete(sessionId); presets.mockClear()
+  const follow = feishu('27', '再加一个', { root_id: undefined, mentions: [{ id: 'ou_bot' }] })
+  await receive(follow).catch(() => {})
+  void route({ kind: 'attach', ticket_id: ticket.id, trigger_id: follow.id, note: 'x' }).catch(() => {})
+  await new Promise(resolve => setTimeout(resolve, 400))
+  const current = runtime.store.settings().policy
+  runtime.store.saveSettings({ ...runtime.store.settings(), policy: { ...current, sources: { ...current.sources, feishu: { ...current.sources.feishu!, allowed: [] } } } })
+  unregisterFeishu = runtime.sources.register(feishuKind)
+  await new Promise(resolve => setTimeout(resolve, 800)); await runtime.idle()
+  expect(presets.mock.calls.filter(call => call[1] === 'danger-full-access')).toHaveLength(0)
+}, 30000)

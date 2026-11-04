@@ -1619,3 +1619,17 @@ describe('ignores from the card', () => {
     expect(() => h.engine.decide('5', { kind: 'accept', title: 'Fix', scope: 'small', reason: 'chat' })).toThrow(new UserError('notExplicit'))
   })
 })
+
+describe('trigger.received queued flag (Issue 9)', () => {
+  it('reports queued only when the intake actually queued the trigger for an Eval; duplicate and filtered emit nothing', () => {
+    const seen: { id: unknown; queued: unknown }[] = []
+    const h = harness({}, { emit: event => { if (event.type === 'trigger.received') seen.push({ id: event.data.triggerId, queued: event.data.queued }) } })
+    h.engine.receive(trigger('1')); h.engine.receive(trigger('1')); h.engine.receive(trigger('9', { meta: { blocked: true } }))
+    expect(seen).toEqual([{ id: '1', queued: true }])
+    h.pump()
+    h.decide(h.requests.at(-1)!, { kind: 'accept', title: 'Fix', scope: 'small', reason: 'requested', acknowledgement: 'ok' }); h.settle()
+    // A person's follow-up on the open ticket is decided by that ticket, so no Eval queue entry exists.
+    h.engine.receive(trigger('2'))
+    expect(seen.at(-1)).toEqual({ id: '2', queued: false })
+  })
+})

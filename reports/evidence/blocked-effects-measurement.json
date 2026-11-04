@@ -1,0 +1,38 @@
+{
+  "generatedAt": "2026-11-04T13:12:07.549Z",
+  "sizes": {
+    "n-100": {
+      "rows": 100,
+      "sqlMedianMs": 0.09,
+      "endpointMs": 0.47,
+      "responseBytes": 14411,
+      "heapGrowthBytes": 148656
+    },
+    "n-1000": {
+      "rows": 1000,
+      "sqlMedianMs": 0.73,
+      "endpointMs": 1.78,
+      "responseBytes": 144011,
+      "heapGrowthBytes": 1311112
+    },
+    "n-10000": {
+      "rows": 10000,
+      "sqlMedianMs": 10.53,
+      "endpointMs": 20.52,
+      "responseBytes": 1440011,
+      "heapGrowthBytes": 5257704
+    },
+    "ui-n-100": {
+      "rows": 100,
+      "renderMs": 88
+    },
+    "ui-n-1000": {
+      "rows": 1000,
+      "renderMs": 138
+    },
+    "ui-n-10000": {
+      "rows": 10000,
+      "renderMs": 1536
+    }
+  }
+}

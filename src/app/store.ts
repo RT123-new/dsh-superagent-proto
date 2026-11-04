@@ -15,7 +15,9 @@ export interface TimelinePlace { at: string; id: string }
 /** Why a message was dropped: its conversation can never receive it (`channelGone`), or its Source no longer listens to it (`channelIgnored`). */
 export type DropReason = 'channelGone' | 'channelIgnored'
 /** Outbound message receipt tracked in the outbox from the moment it is queued (`pending`, `sent`, or `dropped`); delivery attempt counts live on its `reply` effect. */
-export interface Receipt extends OutboundMessage { status: ReplyStatus; dropped?: { at: string; reason: DropReason } }
+export interface Receipt extends OutboundMessage { status: ReplyStatus; queuedAt?: string; dropped?: { at: string; reason: DropReason }
+  /** True once a delivery dispatch reached the point where the provider may have been invoked; SendNotAttempted failures never set it. */
+  providerContact?: boolean }
 /** A dropped outbound message receipt, with the timestamp and reason it was dropped. */
 export type Dropped = Receipt & { dropped: { at: string; reason: DropReason } }
 /** Saved settings snapshot with the policy version and ticket notifications it produced (`internal` saves have no origin). */
@@ -28,6 +30,7 @@ export interface SettingsVersion {
  * Older databases missing a column get it added on open and populated by SQLite from stored JSON rows.
  */
 const SETS: Record<string, Record<string, string>> = {
+  trigger: { source: "TEXT AS (value ->> '$.source')" },
   ticket: {
     open: "INTEGER AS (CASE WHEN value -> '$.ended' IS NULL THEN 1 END)",
     // Only the latest assignment can be pending or running because the Engine closes one before adding the next.
@@ -68,6 +71,8 @@ export class Store implements Repositories {
       const migrating = version !== undefined && version < SCHEMA_VERSION
       try {
         this.atomic(() => {
+          const linked = this.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='decision_trigger'").get() !== undefined
+          const maintained = this.db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'trigger' AND name IN ('decision_link_insert_v2','decision_link_update_v2','decision_link_delete_v2')").get()?.n === 3
           this.db.exec(`
             CREATE TABLE IF NOT EXISTS trigger (id TEXT PRIMARY KEY, value TEXT NOT NULL, at TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS disposition (id TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -84,8 +89,29 @@ export class Store implements Repositories {
             CREATE INDEX IF NOT EXISTS trigger_thread_at ON trigger_thread(thread, at);
             CREATE INDEX IF NOT EXISTS decision_thread ON decision(thread);
             CREATE INDEX IF NOT EXISTS effect_due ON effect(kind, due, seq);
+            CREATE TABLE IF NOT EXISTS decision_trigger (trigger TEXT NOT NULL, decision TEXT NOT NULL, PRIMARY KEY (trigger, decision)) WITHOUT ROWID;
           `)
           this.addColumns()
+          // Keep the derived index correct for every writer, including direct SQL/imports and older clients.
+          // Index by decision as well: updates/deletes must not scan all historical trigger links.
+          this.db.exec(`
+            CREATE INDEX IF NOT EXISTS decision_trigger_decision ON decision_trigger(decision);
+            DROP TRIGGER IF EXISTS decision_link_insert_v1; DROP TRIGGER IF EXISTS decision_link_update_v1; DROP TRIGGER IF EXISTS decision_link_delete_v1;
+            CREATE TRIGGER IF NOT EXISTS decision_link_insert_v2 AFTER INSERT ON decision BEGIN
+              DELETE FROM decision_trigger WHERE decision = new.id;
+              INSERT INTO decision_trigger SELECT DISTINCT j.value, new.id FROM json_each(CASE WHEN json_valid(new.value) AND json_type(new.value, '$.triggerIds') = 'array' THEN json_extract(new.value, '$.triggerIds') ELSE '[]' END) j WHERE j.type = 'text';
+            END;
+            CREATE TRIGGER IF NOT EXISTS decision_link_update_v2 AFTER UPDATE OF id,value ON decision BEGIN
+              DELETE FROM decision_trigger WHERE decision = old.id;
+              INSERT INTO decision_trigger SELECT DISTINCT j.value, new.id FROM json_each(CASE WHEN json_valid(new.value) AND json_type(new.value, '$.triggerIds') = 'array' THEN json_extract(new.value, '$.triggerIds') ELSE '[]' END) j WHERE j.type = 'text';
+            END;
+            CREATE TRIGGER IF NOT EXISTS decision_link_delete_v2 AFTER DELETE ON decision BEGIN
+              DELETE FROM decision_trigger WHERE decision = old.id;
+            END;
+          `)
+          // One-time reconciliation also repairs any drift produced by the earlier application-only link writer.
+          if (!maintained || !linked) this.db.exec(`DELETE FROM decision_trigger;
+            INSERT OR IGNORE INTO decision_trigger SELECT j.value, d.id FROM decision d, json_each(CASE WHEN json_valid(d.value) AND json_type(d.value, '$.triggerIds') = 'array' THEN json_extract(d.value, '$.triggerIds') ELSE '[]' END) j WHERE j.type = 'text'`)
           if (migrating) migrateTo11(this)
           if (version !== SCHEMA_VERSION) this.set(KV.store.schema, SCHEMA_VERSION)
         })
@@ -116,6 +142,8 @@ export class Store implements Repositories {
         this.db.exec(`CREATE INDEX IF NOT EXISTS ${table}_${name} ON ${table}(${name}) WHERE ${name} IS NOT NULL`)
       }
     }
+    // Source-and-time index lets per-source counts and last-arrival read an index range instead of scanning every Trigger.
+    this.db.exec('CREATE INDEX IF NOT EXISTS trigger_source_at ON trigger(source, at)')
     if (!columns('effect').has('generation')) this.db.exec('ALTER TABLE effect ADD COLUMN generation INTEGER NOT NULL DEFAULT 0')
   }
   /** Closes the underlying SQLite database connection. */
@@ -264,8 +292,12 @@ export class Store implements Repositories {
      * @returns Whether the message ID was newly recorded.
      */
     add: (message: OutboundMessage): boolean => {
-      const receipt: Receipt = { ...message, status: 'pending' }
+      const receipt: Receipt = { ...message, status: 'pending', queuedAt: new Date().toISOString() }
       return Number(this.db.prepare('INSERT OR IGNORE INTO outbox (id, value) VALUES (?, ?)').run(message.id, JSON.stringify(receipt)).changes) > 0
+    },
+    /** Records that a dispatch of `id` may have reached the provider (an ambiguous failure); never cleared except by settle. */
+    markProviderContact: (id: string): void => {
+      this.db.prepare("UPDATE outbox SET value = json_patch(value, ?) WHERE id = ? AND value ->> '$.status' = 'pending'").run(JSON.stringify({ providerContact: true }), id)
     },
     /**
      * Marks a pending receipt as sent or dropped (with drop reason and timestamp), recreating the receipt if the message

@@ -3,7 +3,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { z } from 'zod'
-import { THREAD_FILTERS, TICKET_FILTERS, type Api, type ApiResponse, type RouteParams } from './api.ts'
+import { THREAD_FILTERS, TICKET_FILTERS, type Api, type ApiResponse, type BlockedEffect, type RouteParams } from './api.ts'
 import { sourceSkills } from './context.ts'
 import type { ModelCatalog } from '@deepseek-ai/dsh-api-session-controller/types'
 import { PromptConflict, SKILL_NAME, SKILL_PREFIX, TEAM_SECTIONS, builtInBase, builtInParts, defaultPrompts, savePrompts, type Prompts }
@@ -17,6 +17,7 @@ import type { DshExecutor } from '../executor/dsh.ts'
 import type { Health } from '../sources/host.ts'
 import type { SourceRegistry } from '../sources/registry.ts'
 import type { Sessions } from './sessions.ts'
+import { ATTEMPT_UNKNOWN, type EffectKind, type Effects } from './effects.ts'
 import type { Store } from './store.ts'
 import type { TextCache } from './cache.ts'
 import type { LinkTarget, ViewHost } from './views/records.ts'
@@ -27,6 +28,7 @@ import { settingsView } from './views/settings.ts'
 import { sourcesStatus, type SetupState } from './views/sources.ts'
 import { decisionList, search, threadDetail, threadList } from './views/threads.ts'
 import { executorLoad, ticketDetail, ticketList } from './views/tickets.ts'
+import type { MetricsSnapshot } from '../infra/metrics.ts'
 
 export interface HttpHost {
   readonly store: Store
@@ -38,6 +40,7 @@ export interface HttpHost {
   readonly settings: Pick<Settings, 'view' | 'save' | 'pause' | 'sync' | 'refreshLabels'>
   readonly engine: EngineForPeople
   readonly executor: Pick<DshExecutor, 'activeCount'>
+  readonly effects: Pick<Effects, 'blocked' | 'blockedPage' | 'blockedCount' | 'rearm'>
   readonly health: Record<string, Health>
   readonly machine: Machine
   readonly masterId: string
@@ -52,6 +55,10 @@ export interface HttpHost {
   ticketEnvironment(ticket: Ticket): Variable[]
   checkSetup(): void
   requestPass(): void
+  /** A point-in-time metrics snapshot, or undefined when instrumentation is off or not wired. */
+  metricsSnapshot?(): MetricsSnapshot | undefined
+  /** Optional: state of the latest metricsSnapshot() read, to explain a missing snapshot without a second read. */
+  metricsState?(): 'off' | 'ok' | 'failed'
   models(): Promise<ModelCatalog>
 }
 /**
@@ -148,14 +155,22 @@ const SourceBlock = z.templateLiteral(['source:', z.string().regex(/^[a-z][a-z0-
 const SettingsBlockSchema = z.union([z.enum(['policy', 'eval', 'executor']), SourceBlock])
 const SaveRequest = z.object({ value: z.unknown(), revision: z.number().int().nonnegative() })
 
+function metricsFields(runtime: HttpHost): { metrics?: MetricsSnapshot; metricsState: 'off' | 'ok' | 'failed' } {
+  // Exactly one read per request: metricsSnapshot() is authoritative (hosts may override it). A missing snapshot is explained by
+  // the state that same read recorded; a state of 'ok' without a snapshot (an override returned nothing) is reported as 'off'.
+  const metrics = runtime.metricsSnapshot?.()
+  if (metrics) return { metrics, metricsState: 'ok' }
+  const state = runtime.metricsState?.() ?? 'off'
+  return { metricsState: state === 'failed' ? 'failed' : 'off' }
+}
 function routes(runtime: HttpHost): Routes {
   const { store } = runtime
   const ticket = (id: string) => { if (!store.tickets.get(id)) throw new RouteError(404, 'Ticket not found'); return id }
   const promptBody = (input: { body: (maxBytes?: number) => Promise<unknown> }) => input.body(4 * runtime.machine.promptMaxChars.get() + 4096)
   return {
     'GET state': () => stateView(runtime),
-    'GET overview': () => overview(views(runtime), runtime.health, policyVersion(store.settings()),
-      executorLoad(store, runtime.executor.activeCount()), runtime.setupProblem ?? runtime.feishuProblem),
+    'GET overview': () => ({ ...overview(views(runtime), runtime.health, policyVersion(store.settings()),
+      executorLoad(store, runtime.executor.activeCount()), runtime.setupProblem ?? runtime.feishuProblem), ...metricsFields(runtime) }),
     'GET search': ({ query }) => search(views(runtime), query.q ?? '', runtime.sourceLinks),
     'GET sources': () => sourcesStatus(views(runtime), runtime.health, setupState(runtime)),
     'GET settings': () => settingsView(store, runtime.sources, runtime.health, setupState(runtime), runtime.machine.stateDir),
@@ -191,6 +206,21 @@ function routes(runtime: HttpHost): Routes {
     },
     'GET tickets/:id': ({ params }) => ticketPage(runtime, params.id),
     'POST tickets/:id/retry': ({ params }) => { const id = ticket(params.id); runtime.engine.retryTicket(id); return { retried: true } },
+    'GET effects/blocked': ({ query }) => {
+      // Bounded by default; keyset by the global effect seq so growing history never shifts a continuation.
+      const { limit, cursor } = BlockedQuery.parse(query)
+      const rows = runtime.effects.blockedPage({ limit: limit + 1, after: cursor })
+      const page = rows.slice(0, limit)
+      const nextCursor = rows.length > limit ? String(page.at(-1)!.seq) : undefined
+      return { items: page.map(row => blockedItem(row.kind, row)), count: runtime.effects.blockedCount(), nextCursor }
+    },
+    'POST effects/:kind/rearm': async ({ params, body }) => {
+      const kind = z.enum(EFFECT_KINDS).safeParse(params.kind)
+      if (!kind.success) throw new RouteError(404, 'Unknown effect kind')
+      // The server independently validates an explicit acknowledgement before rearming an unknown-outcome row.
+      const { key, acknowledgeUnknownOutcome, expectedGeneration } = z.object({ key: z.string().min(1).max(512), acknowledgeUnknownOutcome: z.boolean().optional(), expectedGeneration: z.number().int().nonnegative().optional() }).strict().parse(await body())
+      return runtime.effects.rearm(kind.data, key, { acknowledgeUnknownOutcome, expectedGeneration })
+    },
     'POST tickets/:id/stop': ({ params }) => { const id = ticket(params.id); runtime.engine.stopTicket(id); return { stopped: true } },
     'POST executor/pause': async ({ body }) => runtime.settings.pause(z.object({ paused: z.boolean() }).parse(await body()).paused, 'panel'),
     'PUT settings/:block': async ({ params, body }) => {
@@ -226,6 +256,14 @@ function match(table: Routes, method: string, segments: string[]) {
     return { run: run as (input: Input<keyof Api>) => unknown, params }
   }
   return undefined
+}
+const EFFECT_KINDS = ['assessment', 'launch', 'delivery', 'relay', 'notice', 'reply'] as const satisfies readonly EffectKind[]
+const BlockedQuery = z.object({ limit: z.coerce.number().int().min(1).max(1000).default(200), cursor: z.coerce.number().int().nonnegative().optional() }).strict()
+const ERROR_CLASSES: ReadonlySet<string> = new Set(['cancelled', 'unauthorized', 'permanent', 'programming_error', 'rate_limited', 'provider_temporary', 'transient'])
+/** Only the static class and counters leave the host: the stored error text can carry remote content and is never returned. */
+export function blockedItem(kind: EffectKind, row: { key: string; error: string; attempts: number; since: string; generation: number }): BlockedEffect {
+  const found = /^blocked:([a-z_]+):/.exec(row.error)?.[1] ?? ''
+  return { kind, key: row.key, class: ERROR_CLASSES.has(found) ? found : 'unknown', attempts: row.attempts, since: row.since, attemptUnknown: row.error.endsWith(` ${ATTEMPT_UNKNOWN}`) || row.error === ATTEMPT_UNKNOWN, generation: row.generation }
 }
 export function registerHttp(ctx: Context, runtime: HttpHost): () => void {
   if (ctx.webServer.host !== '127.0.0.1') throw new Error('Orchestrator management requires a loopback Web server')

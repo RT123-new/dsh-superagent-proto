@@ -1,0 +1,199 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/review/repo[39m
+
+(node:8307) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [31m❯[39m tests/issue-15-adversarial.spec.ts [2m([22m[2m11 tests[22m[2m | [22m[31m11 failed[39m[2m)[22m[32m 28[2mms[22m[39m
+[31m   [31m×[31m never executes a blocked unauthorized operation again merely because time passed or host restarted[39m[32m 13[2mms[22m[39m
+[31m   [31m×[31m does not hide an older blocked row behind a newer transient error[39m[32m 8[2mms[22m[39m
+[31m   [31m×[31m uses actual CLI structured code 401[39m[32m 1[2mms[22m[39m
+[31m   [31m×[31m uses actual CLI structured code 403[39m[32m 1[2mms[22m[39m
+[31m   [31m×[31m uses actual CLI structured code 404[39m[32m 1[2mms[22m[39m
+[31m   [31m×[31m uses actual CLI structured code 429[39m[32m 0[2mms[22m[39m
+[31m   [31m×[31m uses actual CLI structured code 503[39m[32m 0[2mms[22m[39m
+[31m   [31m×[31m does not permanently park an unqualified fetch TypeError[39m[32m 0[2mms[22m[39m
+[31m   [31m×[31m ignores an arbitrary thrown object claiming a server schedule[39m[32m 1[2mms[22m[39m
+[31m   [31m×[31m normalizes Retry-After only as HTTP delta seconds or valid HTTP date, not epoch guesses/negative/empty[39m[32m 0[2mms[22m[39m
+[31m   [31m×[31m keeps structured persisted error JSON valid under long diagnostics[39m[32m 1[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 11 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/issue-15-adversarial.spec.ts[2m > [22mnever executes a blocked unauthorized operation again merely because time passed or host restarted
+[31m[1mAssertionError[22m: expected 2 to be 1 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 2[39m
+
+[36m [2m❯[22m tests/issue-15-adversarial.spec.ts:[2m24:48[22m[39m
+    [90m 22|[39m it('never executes a blocked unauthorized operation again merely becau…
+    [90m 23|[39m  const h=harness();h.fx.enqueue('relay','x',{text:'policy transition'}…
+    [90m 24|[39m  h[33m.[39m[34madvance[39m()[33m;[39m[35mawait[39m h[33m.[39mfx[33m.[39m[34midle[39m()[33m;[39m[34mexpect[39m(h[33m.[39mcalls)[33m.[39m[34mtoBe[39m([34m1[39m)
+    [90m   |[39m                                                [31m^[39m
+    [90m 25|[39m  [35mawait[39m h[33m.[39m[34mreopen[39m()[33m;[39m[35mawait[39m h[33m.[39mfx[33m.[39m[34midle[39m()[33m;[39m[34mexpect[39m(h[33m.[39mcalls)[33m.[39m[34mtoBe[39m([34m1[39m)
+    [90m 26|[39m  expect(h.fx.pending('relay','x')).toBe(true);expect(h.board.all.relay…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/11]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-15-adversarial.spec.ts[2m > [22mdoes not hide an older blocked row behind a newer transient error
+[31m[1mAssertionError[22m: expected 'ready' to be 'error' // Object.is equality[39m
+
+Expected: [32m"error"[39m
+Received: [31m"ready"[39m
+
+[36m [2m❯[22m tests/issue-15-adversarial.spec.ts:[2m31:52[22m[39m
+    [90m 29|[39m  const h=harness();h.fx.enqueue('relay','old',{text:'a'});await h.fx.i…
+    [90m 30|[39m  h.store.db.prepare("INSERT INTO effect(kind,key,value,seq,generation,…
+    [90m 31|[39m  await h.reopen();expect(h.board.all.relay?.state).toBe('error');expec…
+    [90m   |[39m                                                    [31m^[39m
+    [90m 32|[39m })
+    [90m 33|[39m it.each([[401,'unauthorized'],[403,'unauthorized'],[404,'permanent'],[…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/11]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-15-adversarial.spec.ts[2m > [22muses actual CLI structured code 401
+[41m[1m FAIL [22m[49m tests/issue-15-adversarial.spec.ts[2m > [22muses actual CLI structured code 403
+[31m[1mAssertionError[22m: expected 'transient' to be 'unauthorized' // Object.is equality[39m
+
+Expected: [32m"unauthorized"[39m
+Received: [31m"transient"[39m
+
+[36m [2m❯[22m tests/issue-15-adversarial.spec.ts:[2m34:75[22m[39m
+    [90m 32|[39m })
+    [90m 33|[39m it.each([[401,'unauthorized'],[403,'unauthorized'],[404,'permanent'],[…
+    [90m 34|[39m  expect(classifyError(new CliError('transport diagnostic',Number(code)…
+    [90m   |[39m                                                                           [31m^[39m
+    [90m 35|[39m })
+    [90m 36|[39m it('does not permanently park an unqualified fetch TypeError',()=>{exp…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/11]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-15-adversarial.spec.ts[2m > [22muses actual CLI structured code 404
+[31m[1mAssertionError[22m: expected 'transient' to be 'permanent' // Object.is equality[39m
+
+Expected: [32m"[7mperman[27ment"[39m
+Received: [31m"[7mtransi[27ment"[39m
+
+[36m [2m❯[22m tests/issue-15-adversarial.spec.ts:[2m34:75[22m[39m
+    [90m 32|[39m })
+    [90m 33|[39m it.each([[401,'unauthorized'],[403,'unauthorized'],[404,'permanent'],[…
+    [90m 34|[39m  expect(classifyError(new CliError('transport diagnostic',Number(code)…
+    [90m   |[39m                                                                           [31m^[39m
+    [90m 35|[39m })
+    [90m 36|[39m it('does not permanently park an unqualified fetch TypeError',()=>{exp…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/11]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-15-adversarial.spec.ts[2m > [22muses actual CLI structured code 429
+[31m[1mAssertionError[22m: expected 'transient' to be 'rate_limited' // Object.is equality[39m
+
+Expected: [32m"ra[7mte_limited[27m"[39m
+Received: [31m"[7mt[27mra[7mnsient[27m"[39m
+
+[36m [2m❯[22m tests/issue-15-adversarial.spec.ts:[2m34:75[22m[39m
+    [90m 32|[39m })
+    [90m 33|[39m it.each([[401,'unauthorized'],[403,'unauthorized'],[404,'permanent'],[…
+    [90m 34|[39m  expect(classifyError(new CliError('transport diagnostic',Number(code)…
+    [90m   |[39m                                                                           [31m^[39m
+    [90m 35|[39m })
+    [90m 36|[39m it('does not permanently park an unqualified fetch TypeError',()=>{exp…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/11]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-15-adversarial.spec.ts[2m > [22muses actual CLI structured code 503
+[31m[1mAssertionError[22m: expected 'transient' to be 'provider_temporary' // Object.is equality[39m
+
+Expected: [32m"provider_temporary"[39m
+Received: [31m"transient"[39m
+
+[36m [2m❯[22m tests/issue-15-adversarial.spec.ts:[2m34:75[22m[39m
+    [90m 32|[39m })
+    [90m 33|[39m it.each([[401,'unauthorized'],[403,'unauthorized'],[404,'permanent'],[…
+    [90m 34|[39m  expect(classifyError(new CliError('transport diagnostic',Number(code)…
+    [90m   |[39m                                                                           [31m^[39m
+    [90m 35|[39m })
+    [90m 36|[39m it('does not permanently park an unqualified fetch TypeError',()=>{exp…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/11]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-15-adversarial.spec.ts[2m > [22mdoes not permanently park an unqualified fetch TypeError
+[31m[1mAssertionError[22m: expected 'programming_error' to be 'transient' // Object.is equality[39m
+
+Expected: [32m"transient"[39m
+Received: [31m"programming_error"[39m
+
+[36m [2m❯[22m tests/issue-15-adversarial.spec.ts:[2m36:121[22m[39m
+    [90m 34|[39m  expect(classifyError(new CliError('transport diagnostic',Number(code)…
+    [90m 35|[39m })
+    [90m 36|[39m it('does not permanently park an unqualified fetch TypeError',()=>{exp…
+    [90m   |[39m                                                                                                                         [31m^[39m
+    [90m 37|[39m it('ignores an arbitrary thrown object claiming a server schedule',()=…
+    [90m 38|[39m  const decision=retryDecision({status:429,retryAfter:99999999},0,2000,…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/11]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-15-adversarial.spec.ts[2m > [22mignores an arbitrary thrown object claiming a server schedule
+[31m[1mAssertionError[22m: expected 99999999000 to be 1000 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1000[39m
+[31m+ 99999999000[39m
+
+[36m [2m❯[22m tests/issue-15-adversarial.spec.ts:[2m39:43[22m[39m
+    [90m 37|[39m it('ignores an arbitrary thrown object claiming a server schedule',()=…
+    [90m 38|[39m  const decision=retryDecision({status:429,retryAfter:99999999},0,2000,…
+    [90m 39|[39m  [34mexpect[39m(decision[33m.[39mretry [33m&&[39m decision[33m.[39mdelay)[33m.[39m[34mtoBe[39m([34m1000[39m)
+    [90m   |[39m                                           [31m^[39m
+    [90m 40|[39m })
+    [90m 41|[39m it('normalizes Retry-After only as HTTP delta seconds or valid HTTP da…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/11]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-15-adversarial.spec.ts[2m > [22mnormalizes Retry-After only as HTTP delta seconds or valid HTTP date, not epoch guesses/negative/empty
+[31m[1mAssertionError[22m: expected 1000 to be undefined[39m
+
+[32m- Expected:[39m
+undefined
+
+[31m+ Received:[39m
+1000
+
+[36m [2m❯[22m tests/issue-15-adversarial.spec.ts:[2m42:35[22m[39m
+    [90m 40|[39m })
+    [90m 41|[39m it('normalizes Retry-After only as HTTP delta seconds or valid HTTP da…
+    [90m 42|[39m  expect(serverNotBefore('',1000)).toBeUndefined();expect(serverNotBefo…
+    [90m   |[39m                                   [31m^[39m
+    [90m 43|[39m  [34mexpect[39m([34mserverNotBefore[39m([32m'1.5'[39m[33m,[39m[34m1000[39m))[33m.[39m[34mtoBeUndefined[39m()
+    [90m 44|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/11]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-15-adversarial.spec.ts[2m > [22mkeeps structured persisted error JSON valid under long diagnostics
+[31m[1mAssertionError[22m: expected [Function] to not throw an error but 'SyntaxError: Unterminated string in J…' was thrown[39m
+
+[32m- Expected:[39m
+undefined
+
+[31m+ Received:[39m
+"SyntaxError: Unterminated string in JSON at position 1000 (line 1 column 1001)"
+
+[36m [2m❯[22m tests/issue-15-adversarial.spec.ts:[2m46:83[22m[39m
+    [90m 44|[39m })
+    [90m 45|[39m it('keeps structured persisted error JSON valid under long diagnostics…
+    [90m 46|[39m  expect(()=>JSON.parse(errorRecord(new Error('x'.repeat(5000)),'transi…
+    [90m   |[39m                                                                                   [31m^[39m
+    [90m 47|[39m })
+    [90m 48|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/11]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m11 failed[39m[22m[90m (11)[39m
+[2m   Start at [22m 07:19:24
+[2m   Duration [22m 626ms[2m (transform 347ms, setup 0ms, import 475ms, tests 28ms, environment 0ms)[22m
+

@@ -1,6 +1,7 @@
 /** Feishu outbound channel: posts threaded bot replies and constructs chat deep links. */
 import type { OutboundMessage } from '../core/index.ts'
 import { CliError } from '../infra/commands.ts'
+import { checkedMessageId, SendNotAttempted } from './send.ts'
 import { checkedImText } from '../infra/text.ts'
 import type { SourceContext } from './host.ts'
 import type { ChannelLink, ChannelLinks } from './kind.ts'
@@ -18,9 +19,10 @@ const gone = (error: unknown): boolean => error instanceof CliError && error.cod
 /** Replies in the topic of the target message; Feishu keeps at most one reply per idempotency key (the outgoing message's `message.id`). */
 export async function sendFeishu(host: Pick<SourceContext, 'commands'>, message: OutboundMessage): Promise<'sent' | 'gone'> {
   const messageId = message.channel.address.messageId
-  if (!messageId) throw new Error('Missing Feishu reply target')
+  if (!messageId) throw new SendNotAttempted('Missing Feishu reply target', true)
   const text = checkedImText(message.text)
-  const reply = ['im', '+messages-reply', '--message-id', messageId, '--markdown', text, '--reply-in-thread', '--idempotency-key', message.id]
+  // Feishu keeps at most one reply per idempotency key; the durable message id is that key, validated before use.
+  const reply = ['im', '+messages-reply', '--message-id', messageId, '--markdown', text, '--reply-in-thread', '--idempotency-key', checkedMessageId(message.id)]
   try { await host.commands.lark(reply) }
   catch (error) {
     if (gone(error)) return 'gone'

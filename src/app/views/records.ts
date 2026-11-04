@@ -8,6 +8,7 @@ import type { SourceRegistry } from '../../sources/registry.ts'
 import { workerSessionId } from '../../executor/dsh.ts'
 import type { Store } from '../store.ts'
 import { attribute, markdown, plain, preview, readable } from './text.ts'
+import { healthStoredError } from '../retry-policy.ts'
 
 export type LinkTarget = (channel: ChannelRef) => ChannelLink
 export interface ViewHost { store: Store; sources: SourceRegistry; links: LinkTarget }
@@ -110,7 +111,8 @@ export type TriggerView = ReturnType<typeof triggerView>
 function ticketNote(ticket: Ticket, stage: TicketStage): { text: string; error: boolean } | undefined {
   if (stage.stage !== 'person') return undefined
   if (stage.action === 'answer' && ticket.attention) return { text: preview(ticket.attention.question), error: false }
-  if (stage.action === 'delivery' && ticket.delivery) return { text: preview(ticket.delivery.error), error: true }
+  // Section 10: the operator note renders the typed detail (or the generic class for legacy records), never the stored prose.
+  if (stage.action === 'delivery' && ticket.delivery) return { text: ticket.delivery.detail ?? healthStoredError(ticket.delivery.error), error: true }
   const summary = latestReport(ticket)?.summary
   if ((stage.action !== 'blocked' && stage.action !== 'failed') || !summary) return undefined
   return { text: preview(summary.split('\n')[0]!), error: stage.action === 'failed' }
@@ -124,7 +126,7 @@ export function ticketSummary(ticket: Ticket) {
     attention: ticket.attention && { ...ticket.attention, question: markdown(ticket.attention.question) },
       assignments: ticket.assignments.length, inputs: ticket.inputs.length, undelivered: ticket.undelivered.length,
     // Every started Assignment of a Ticket runs in its one shared worker Session.
-    deliveryError: attribute(ticket.delivery?.error), sessionId: ticket.assignments.some(item => item.startedAt)
+    deliveryError: attribute(ticket.delivery?.detail) ?? (ticket.delivery?.error ? healthStoredError(ticket.delivery.error) : undefined), sessionId: ticket.assignments.some(item => item.startedAt)
       ? workerSessionId(ticket.id) : '',
     directory: attribute(ticket.execution?.directory), summary: latestReport(ticket)?.summary ?? '', createdAt: ticket.createdAt,
     updatedAt: ticket.updatedAt }

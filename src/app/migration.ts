@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 /**
  * Migrates a schema 10 database to schema 11 in a single transaction so runtime readers never convert legacy shapes.
  * Databases older than schema 10 are rejected: this version cannot migrate them.
@@ -28,6 +29,11 @@ type Stored = Record<string, unknown>
 const isObject = (value: unknown): value is Stored => !!value && typeof value === 'object' && !Array.isArray(value)
 const text = (value: unknown): string | undefined => typeof value === 'string' && value ? value : undefined
 
+/** Label for a stored row whose id is untrusted data (it may be shaped like a secret, at any length): the SQLite rowid, the id length and a short hash of the id, never the id itself. */
+function rowLabel(row: { rowid?: unknown; id?: unknown }): string {
+  const id = String(row.id)
+  return `row ${String(row.rowid)} (id ${id.length} characters, sha256 ${createHash('sha256').update(id).digest('hex').slice(0, 12)})`
+}
 /** Runs one migration step, prefixing any thrown error with the name of the record that failed. */
 function step<T>(record: string, work: () => T): T {
   try { return work() } catch (error) { throw new Error(`${record}: ${error instanceof Error ? error.message : String(error)}`, { cause: error }) }
@@ -46,6 +52,9 @@ export function migrateTo11(store: Store): void {
   for (const row of store.db.prepare('SELECT id, value FROM ticket').all()) {
     step(`ticket ${String(row.id)}`, () => { store.tickets.save(ticketOf(JSON.parse(String(row.value)) as Stored, answers, human, closed)) })
   }
+  // A decision that is not valid JSON stops the upgrade (nothing is skipped or removed); name its rowid and a hash of its id, never the id or payload, so it can be repaired.
+  const unreadable = store.db.prepare('SELECT rowid, id FROM decision WHERE NOT json_valid(value) ORDER BY rowid LIMIT 1').get()
+  if (unreadable) step(`decision ${rowLabel(unreadable)}`, () => { throw new Error('its stored value is not valid JSON') })
   for (const row of store.db.prepare("SELECT id, value FROM decision WHERE json_type(value, '$.mandate') = 'object'").all()) {
     step(`decision ${String(row.id)}`, () => {
       const decision = JSON.parse(String(row.value)) as Decision

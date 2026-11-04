@@ -5,6 +5,7 @@ import type { SetupProblem } from '../../setup.ts'
 import { anyoneAllowed } from '../../policy.ts'
 import type { Store } from '../store.ts'
 import { awaitingEval, dayAgo, newestFirst, ownersOf, snapshot, threadSummary, type ViewHost } from './records.ts'
+import { healthStoredError } from '../retry-policy.ts'
 import { sourceHealth, type HealthMap } from './sources.ts'
 import { ticketRow, type ExecutorLoad } from './tickets.ts'
 import { preview } from './text.ts'
@@ -62,7 +63,7 @@ export function overview(host: ViewHost, health: HealthMap, policyVersionValue: 
       thread: threadSummary(view, thread), reason: decision.reason, triggerId: decision.triggerIds[0] ?? '' })),
     ...store.read.failingReplies().map(item => ({ kind: 'outgoing' as const, outgoing: { id: item.id, channel: item.channel,
       text: preview(item.text),
-      attempts: item.attempts, error: item.error } })),
+      attempts: item.attempts, error: healthStoredError(item.error) } })),
   ]
   const open = store.tickets.open().sort(newestFirst)
   const stats = Object.values(store.read.triggerStats(since))

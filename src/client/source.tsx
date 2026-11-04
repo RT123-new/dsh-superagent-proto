@@ -100,8 +100,9 @@ function SourceRow({ source }: { source: SourceStatusRow }) {
   const { dot, label: state } = sourceMark(t, source.state)
   const { received, filtered, lastAt } = source.stats
   // Omit healthy parts and suppress per-part notes when a setup problem already explains why the Source is stopped.
+  // A ready part with a health code carries a deliberate caveat (such as reduced-capability intake) and stays visible.
   const notes = source.enabled && !problem && !setup?.problem ? source.health.filter(item => item.state === 'error'
-    || item.state === 'paused') : []
+    || item.state === 'paused' || item.code !== undefined) : []
   return <li className="dt-row">
     <Dot state={dot} label={state} />
     <div className="dt-row-main">

@@ -2,6 +2,7 @@
 import { z } from 'zod'
 import type { OutboundMessage } from '../core/index.ts'
 import { CliError } from '../infra/commands.ts'
+import { checkedMessageId, SendNotAttempted } from './send.ts'
 import { sameName } from '../infra/text.ts'
 import type { SourceContext } from './host.ts'
 import type { ChannelLink, ChannelLinks } from './kind.ts'
@@ -19,23 +20,38 @@ export async function sendGithub(host: Pick<SourceContext, 'commands'>, message:
   const { commands } = host
   const { repository, github } = commands.deployment
   const number = Number(message.channel.address.number)
-  if (!number) throw new Error('Missing GitHub reply target')
+  if (!number) throw new SendNotAttempted('Missing GitHub reply target', true)
+  const marker = `<!-- dsh-superagent:${checkedMessageId(message.id)} -->`
   try {
     // Retained trigger URLs also route replies queued before thread-aware delivery.
+    // Every failure before the POST is provably not-attempted (read-only calls) and may retry automatically.
     const address = githubAddress(message.channel.address.url ?? '', repository)
     let rootId: number | undefined
     if (address?.pr && address.discussion && address.number === number) {
       // Fall back to a top-level PR comment if the target inline review comment was deleted.
       const source = await commands.api(CommentSchema, `pulls/comments/${address.discussion}`)
-        .catch((error: unknown) => { if (missing(error)) return undefined; throw error })
+        .catch((error: unknown) => {
+          if (missing(error)) return undefined
+          // A permanently gone target keeps its settlement; every other pre-POST read failure is provably not-attempted.
+          if (gone(error)) throw error
+          throw new SendNotAttempted(error instanceof Error ? error.message : String(error), false, error)
+        })
       rootId = source ? source.in_reply_to_id ?? source.id : undefined
     }
     const path = rootId === undefined ? `issues/${number}/comments` : `pulls/${number}/comments`
-    const marker = `<!-- dsh-superagent:${message.id} -->`
     const mine = (comment: z.infer<typeof CommentSchema>) => sameName(comment.user?.login ?? '', github.login)
       && (rootId === undefined || comment.in_reply_to_id === rootId) && (comment.body ?? '').includes(marker)
-    if ((await commands.pages(CommentSchema, path)).some(mine)) return 'sent'
+    let posted: boolean
+    try { posted = (await commands.pages(CommentSchema, path)).some(mine) }
+    catch (error) {
+      // A permanently gone target keeps its settlement; every other pre-POST failure is provably not-attempted.
+      if (gone(error)) throw error
+      throw new SendNotAttempted(error instanceof Error ? error.message : String(error), false, error)
+    }
+    if (posted) return 'sent'
     const target = rootId === undefined ? path : `${path}/${rootId}/replies`
+    // Past this point the request may have been accepted: a failure here is an unknown outcome, parked unless the
+    // channel proves idempotency (GitHub does not); an acknowledged operator rearm re-checks the marker and converges.
     await commands.api(z.unknown(), target, '--method', 'POST', '-f', `body=${message.text}\n\n${marker}`)
     return 'sent'
   } catch (error) {

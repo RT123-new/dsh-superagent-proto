@@ -1,6 +1,6 @@
 /** Execution status view (active Tickets and pause control) and Execution settings group (Executor capacity and workspace environment). */
 import { useRef, useState } from 'react'
-import { TICKET_FILTERS, type TicketFilter } from '../app/api.ts'
+import { TICKET_FILTERS, type BlockedEffect, type TicketFilter } from '../app/api.ts'
 import { LIMITS } from '../limits.ts'
 import { usePoll, type SettingsView, type SourceView, type StateView } from './api.ts'
 import { DisclosureRow, Icon, InfoTip, Input, Pill } from './controls.tsx'
@@ -14,9 +14,65 @@ import { ConfirmButton, Hint, LabelValue, LoadMore, LoadState, Section, StatusHe
 export function ExecutionStatus({ filter: current, state, reload }: {
   filter: TicketFilter; state: StateView; reload: () => Promise<void>
 }) {
-  const { t, call, navigate } = usePanel()
+  const { t, call, navigate, notify } = usePanel()
   const [limit, setLimit] = useState(20)
   const { data, error, reload: reloadTickets } = usePoll(() => call('GET tickets', { query: { state: current, limit } }), [current, limit])
+  // The first page of blocked effects polls fresh; older pages are appended on demand so a long
+  // blocked history never arrives or renders in one unbounded response.
+  const blocked = usePoll(() => call('GET effects/blocked', { query: { limit: 200 } }), [])
+  const [olderBlocked, setOlderBlocked] = useState<BlockedEffect[]>([])
+  // Handlers frozen into an armed confirmation must maintain the collection functionally: pages that settle while
+  // the dialog is open belong to the current state, never to the render the dialog was opened from.
+  const olderCount = useRef(0)
+  olderCount.current = olderBlocked.length
+  const [olderCursor, setOlderCursor] = useState<string | undefined>()
+  // The polled first page is fresher than appended pages: when a rearm shifts the boundary, the same row can sit in
+  // both - keep the first-page copy and drop the stale duplicate.
+  const seenBlocked = new Set<string>()
+  const blockedItems = [...(blocked.data?.items ?? []), ...olderBlocked].filter(item => {
+    const id = `${item.kind}:${item.key}`
+    return !seenBlocked.has(id) && !!seenBlocked.add(id)
+  })
+  const blockedNext = olderBlocked.length ? olderCursor : blocked.data?.nextCursor
+  const [blockedPage, setBlockedPage] = useState<{ loading?: boolean; error?: Error }>({})
+  const blockedPageBusy = useRef(false)                                                 // synchronous guard: same-tick clicks see one load
+  const moreBlocked = async () => {
+    if (!blockedNext || blockedPageBusy.current) return                                 // one page at a time
+    blockedPageBusy.current = true
+    setBlockedPage({ loading: true })
+    try {
+      const page = await call('GET effects/blocked', { query: { limit: 200, cursor: Number(blockedNext) } })
+      setOlderBlocked(rows => [...rows, ...page.items])
+      setOlderCursor(page.nextCursor)
+      olderPages.current += 1
+      setBlockedPage({})
+    } catch (failure) {
+      // Keep the rows already shown and surface the page failure in place; Load More stays available as the retry.
+      setBlockedPage({ error: failure instanceof Error ? failure : new Error(String(failure)) })
+    } finally {
+      blockedPageBusy.current = false
+    }
+  }
+  // Refetch every loaded blocked page (first page plus appended ones) so a refused rearm keeps the row visible with
+  // the generation the server actually holds - a retried approval then carries a current expectedGeneration.
+  const olderPages = useRef(0)                                                          // counts successful page appends (merge epoch)
+  const reloadBlockedPages = async () => {
+    const wanted = Math.ceil(olderCount.current / 200)
+    const pagesAtStart = olderPages.current
+    const first = await call('GET effects/blocked', { query: { limit: 200 } })
+    const fresh: BlockedEffect[] = []
+    let cursor = first.nextCursor
+    for (let page = 0; page < wanted && cursor != null; page++) {
+      const next = await call('GET effects/blocked', { query: { limit: 200, cursor: Number(cursor) } })
+      fresh.push(...next.items)
+      cursor = next.nextCursor
+    }
+    // Merge against the live collection: a page that settled while the refetch ran is newer than this extent - keep
+    // it and its cursor instead of regressing to the snapshot taken at refetch start.
+    setOlderBlocked(rows => [...fresh, ...rows.slice(wanted * 200)])
+    if (olderPages.current === pagesAtStart) setOlderCursor(cursor)
+    await blocked.reload()
+  }
   const { paused, load: { maxWorkers } } = state
   // Pausing uses its own block revision so toggling pause does not invalidate an open Execution settings draft.
   const pause = async () => { await call('POST executor/pause', { body: { paused: !paused } }); await reload() }
@@ -42,6 +98,21 @@ export function ExecutionStatus({ filter: current, state, reload }: {
           true) }}>{t(`ticketFilter.${value}`)}</Pill>)}
     </div>
     {current === 'idle' && <Hint>{t('idleHint')}</Hint>}
+    {blocked.error && !blockedItems.length
+      // The blocked list failed while the rest of the view is healthy: surface the targeted failure instead of silently hiding the section.
+      ? <p className="dt-error" role="alert">{blocked.error.message}</p>
+      : null}
+    {blockedItems.length ? <section className="dt-blocked-effects"><h3>{t('blockedEffectsTitle')} <span className="dt-count">{blocked.data?.count ?? blockedItems.length}</span></h3>
+      {blocked.error ? <Hint>{t('blockedEffectsStale', { error: blocked.error.message })}</Hint> : null}<ul className="dt-list">
+      {blockedItems.map(item => <li key={`${item.kind}:${item.key}`} className="dt-row dt-att dt-att-error"><div className="dt-row-main">
+        <div className="dt-att-what dt-mono">{t('blockedEffectLine', { kind: item.kind, key: item.key, class: item.class, attempts: item.attempts })}</div>
+        {item.attemptUnknown && <Hint>{t('blockedEffectUnknown')}</Hint>}
+        <div className="dt-row-meta dt-row-buttons"><ConfirmButton variant="outline" icon="refresh" label={t('rearmEffect')} title={t('rearmEffect')}
+          message={item.attemptUnknown ? `${t('rearmEffectConfirm')} ${t('blockedEffectUnknown')}` : t('rearmEffectConfirm')}
+          onConfirm={async () => { const result = await call('POST effects/:kind/rearm', { kind: item.kind, body: { key: item.key, expectedGeneration: item.generation, ...(item.attemptUnknown ? { acknowledgeUnknownOutcome: true } : {}) } }); if (result.rearmed) { setOlderBlocked(rows => rows.filter(row => !(row.kind === item.kind && row.key === item.key))); await blocked.reload() } else { notify(t('rearmEffectRefused')); await reloadBlockedPages() } }} /></div>
+      </div></li>)}</ul>
+      {blockedPage.error ? <p className="dt-error" role="alert">{blockedPage.error.message}</p> : null}
+      {blockedNext && <LoadMore onMore={moreBlocked} busy={blockedPage.loading} />}</section> : null}
     <LoadState error={error} loading={!data} />
     {data && (data.items.length ? <ul className="dt-list">{data.items.map(ticket => ticket.stage === 'person'
       ? <TicketLine key={ticket.id} ticket={ticket} question

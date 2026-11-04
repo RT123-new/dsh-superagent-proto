@@ -1,0 +1,136 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/review45/repo[39m
+
+ [31m❯[39m tests/issue-4-5-adversarial.spec.ts [2m([22m[2m5 tests[22m[2m | [22m[31m5 failed[39m[2m)[22m[32m 197[2mms[22m[39m
+[31m     [31m×[31m does not promote an unrecorded partial legacy directory on credential-config verification alone[39m[32m 10[2mms[22m[39m
+[31m     [31m×[31m does not promote a partial workspace when the atomic marker is corrupted[39m[32m 3[2mms[22m[39m
+[31m     [31m×[31m propagates assignment cancellation into post-command directory verification[39m[32m 55[2mms[22m[39m
+[31m     [31m×[31m revalidates preparation configuration after asynchronous session creation[39m[32m 51[2mms[22m[39m
+[31m     [31m×[31m waits for managed-range quiescence, not only direct shell exit, before replacement reuse[39m[32m 78[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 5 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/issue-4-5-adversarial.spec.ts[2m > [22mindependent adversarial review: Issues 4-5[2m > [22mdoes not promote an unrecorded partial legacy directory on credential-config verification alone
+[31m[1mAssertionError[22m: expected "vi.fn()" to not be called at all, but actually been called 1 times[90m
+
+Received:
+
+[1m  1st vi.fn() call:
+
+[22m    Array [
+      "worker-legacy",
+      "assignment:legacy",
+      "{"ticket_id":"legacy","title":"Ticket legacy","assignment":"Fix the thing"}",
+      "queue",
+      [Function anonymous],
+      [Function anonymous],
+    ]
+[31m[90m
+
+Number of calls: [1m1[22m
+[31m[39m
+[36m [2m❯[22m tests/issue-4-5-adversarial.spec.ts:[2m20:35[22m[39m
+    [90m 18|[39m     f.intercept = spec => spec.argv[0] === 'sh' ? immediate(1, 'setup …
+    [90m 19|[39m     [35mawait[39m f[33m.[39m[34mlaunch[39m(ticket[33m,[39m assignment)
+    [90m 20|[39m     [34mexpect[39m(f[33m.[39msessions[33m.[39mprompt)[33m.[39mnot[33m.[39m[34mtoHaveBeenCalled[39m()
+    [90m   |[39m                                   [31m^[39m
+    [90m 21|[39m     expect((await readPreparation(f.stateDir, ticket.execution!.name))…
+    [90m 22|[39m   })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-4-5-adversarial.spec.ts[2m > [22mindependent adversarial review: Issues 4-5[2m > [22mdoes not promote a partial workspace when the atomic marker is corrupted
+[31m[1mAssertionError[22m: expected "vi.fn()" to not be called at all, but actually been called 1 times[90m
+
+Received:
+
+[1m  1st vi.fn() call:
+
+[22m    Array [
+      "worker-corrupt",
+      "assignment:corrupt",
+      "{"ticket_id":"corrupt","title":"Ticket corrupt","assignment":"Fix the thing"}",
+      "queue",
+      [Function anonymous],
+      [Function anonymous],
+    ]
+[31m[90m
+
+Number of calls: [1m1[22m
+[31m[39m
+[36m [2m❯[22m tests/issue-4-5-adversarial.spec.ts:[2m32:35[22m[39m
+    [90m 30|[39m     f.intercept = spec => spec.argv[0] === 'sh' ? immediate(1) : undef…
+    [90m 31|[39m     [35mawait[39m f[33m.[39m[34mlaunch[39m(ticket[33m,[39m assignment)
+    [90m 32|[39m     [34mexpect[39m(f[33m.[39msessions[33m.[39mprompt)[33m.[39mnot[33m.[39m[34mtoHaveBeenCalled[39m()
+    [90m   |[39m                                   [31m^[39m
+    [90m 33|[39m   })
+    [90m 34|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-4-5-adversarial.spec.ts[2m > [22mindependent adversarial review: Issues 4-5[2m > [22mpropagates assignment cancellation into post-command directory verification
+[31m[1mAssertionError[22m: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m tests/issue-4-5-adversarial.spec.ts:[2m46:21[22m[39m
+    [90m 44|[39m     verification[33m![39m[33m.[39m[34mfinish[39m([34m1[39m)
+    [90m 45|[39m     [35mawait[39m launch
+    [90m 46|[39m     [34mexpect[39m(aborted)[33m.[39m[34mtoBe[39m([35mtrue[39m)
+    [90m   |[39m                     [31m^[39m
+    [90m 47|[39m     [34mexpect[39m(f[33m.[39msessions[33m.[39mprompt)[33m.[39mnot[33m.[39m[34mtoHaveBeenCalled[39m()
+    [90m 48|[39m   })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-4-5-adversarial.spec.ts[2m > [22mindependent adversarial review: Issues 4-5[2m > [22mrevalidates preparation configuration after asynchronous session creation
+[31m[1mAssertionError[22m: expected "vi.fn()" to not be called at all, but actually been called 1 times[90m
+
+Received:
+
+[1m  1st vi.fn() call:
+
+[22m    Array [
+      "worker-config",
+      "assignment:config",
+      "{"ticket_id":"config","title":"Ticket config","assignment":"Fix the thing"}",
+      "queue",
+      [Function anonymous],
+      [Function anonymous],
+    ]
+[31m[90m
+
+Number of calls: [1m1[22m
+[31m[39m
+[36m [2m❯[22m tests/issue-4-5-adversarial.spec.ts:[2m63:35[22m[39m
+    [90m 61|[39m     creating[33m.[39m[34mresolve[39m()
+    [90m 62|[39m     [35mawait[39m launch[33m.[39m[35mcatch[39m(() [33m=>[39m {})
+    [90m 63|[39m     [34mexpect[39m(f[33m.[39msessions[33m.[39mprompt)[33m.[39mnot[33m.[39m[34mtoHaveBeenCalled[39m()
+    [90m   |[39m                                   [31m^[39m
+    [90m 64|[39m   })
+    [90m 65|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-4-5-adversarial.spec.ts[2m > [22mindependent adversarial review: Issues 4-5[2m > [22mwaits for managed-range quiescence, not only direct shell exit, before replacement reuse
+[31m[1mAssertionError[22m: expected "vi.fn()" to be called at least once[39m
+[36m [2m❯[22m tests/issue-4-5-adversarial.spec.ts:[2m88:25[22m[39m
+    [90m 86|[39m     range[33m.[39m[34mresolve[39m()
+    [90m 87|[39m     [35mawait[39m [33mPromise[39m[33m.[39m[34mall[39m([old[33m,[39m next])
+    [90m 88|[39m     [34mexpect[39m(waitForExit)[33m.[39m[34mtoHaveBeenCalled[39m()
+    [90m   |[39m                         [31m^[39m
+    [90m 89|[39m     [34mexpect[39m(countWhileDescendantAlive)[33m.[39m[34mtoBe[39m([34m1[39m)
+    [90m 90|[39m     expect(f.engine.assignmentStarted).toHaveBeenCalledWith(ticket.id,…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m5 failed[39m[22m[90m (5)[39m
+[2m   Start at [22m 06:32:16
+[2m   Duration [22m 699ms[2m (transform 296ms, setup 0ms, import 412ms, tests 197ms, environment 0ms)[22m
+

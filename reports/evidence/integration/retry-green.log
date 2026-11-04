@@ -1,0 +1,142 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/home/sandbox/work/dsh-superagent-proto[39m
+
+(node:5905) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/issue-15-adversarial.spec.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+(node:5912) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/effects.spec.ts [2m([22m[2m13 tests[22m[2m)[22m[33m 358[2mms[22m[39m
+(node:5919) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [31m❯[39m tests/issue-15-retry-backoff.spec.ts [2m([22m[2m6 tests[22m[2m | [22m[31m5 failed[39m[2m)[22m[32m 137[2mms[22m[39m
+[31m   [31m×[31m BASELINE: backoff doubles deterministically to the configured cap (no jitter, no classification)[39m[32m 26[2mms[22m[39m
+[31m   [31m×[31m BASELINE FAULT: 50 relays failing at the same instant retry in lockstep — zero spread, one synchronized burst[39m[32m 55[2mms[22m[39m
+[31m   [31m×[31m BASELINE FAULT: a permanent (401) failure is retried forever, indistinguishable from a transient one[39m[32m 7[2mms[22m[39m
+[31m   [31m×[31m CANDIDATE: classification retires permanent, unauthorised, cancelled and programming failures[39m[32m 7[2mms[22m[39m
+[31m   [31m×[31m CANDIDATE: delay follows a_n = min(d_max, d_base*2^n), j_n ~ Uniform(0.5 a_n, a_n), clamped by server_not_before[39m[32m 35[2mms[22m[39m
+   [32m✓[39m CANDIDATE: jitter desynchronizes a correlated 50-failure burst (paired with the lockstep fault above)[32m 5[2mms[22m[39m
+(node:5926) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/issue-15-retry-seam.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 57[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 5 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/issue-15-retry-backoff.spec.ts[2m > [22mBASELINE: backoff doubles deterministically to the configured cap (no jitter, no classification)
+[31m[1mAssertionError[22m: expected [ 1498.891845703125, …(7) ] to deeply equal [ Array(8) ][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  [[22m
+[32m-   2000,[39m
+[32m-   4000,[39m
+[32m-   8000,[39m
+[32m-   16000,[39m
+[32m-   32000,[39m
+[32m-   60000,[39m
+[32m-   60000,[39m
+[32m-   60000,[39m
+[31m+   1498.891845703125,[39m
+[31m+   2302.23095703125,[39m
+[31m+   4825.93798828125,[39m
+[31m+   15988.3623046875,[39m
+[31m+   19208.92333984375,[39m
+[31m+   32458.540771484375,[39m
+[31m+   56649.73046875,[39m
+[31m+   41370.2509765625,[39m
+[2m  ][22m
+
+[36m [2m❯[22m tests/issue-15-retry-backoff.spec.ts:[2m47:20[22m[39m
+    [90m 45|[39m     effects[33m.[39m[34mkick[39m()[33m;[39m [35mawait[39m [34mflush[39m()
+    [90m 46|[39m   }
+    [90m 47|[39m   expect(schedule).toEqual([2000, 4000, 8000, 16000, 32000, 60000, 600…
+    [90m   |[39m                    [31m^[39m
+    [90m 48|[39m   [90m// Same for the launch/reply configuration [5000, 300000].[39m
+    [90m 49|[39m   const launchDelay = (attempts: number) => Math.min(300_000, 5000 * 2…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-15-retry-backoff.spec.ts[2m > [22mBASELINE FAULT: 50 relays failing at the same instant retry in lockstep — zero spread, one synchronized burst
+[31m[1mAssertionError[22m: expected 50 to be 1 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 50[39m
+
+[36m [2m❯[22m tests/issue-15-retry-backoff.spec.ts:[2m60:26[22m[39m
+    [90m 58|[39m   [35mawait[39m [34mflush[39m()
+    [90m 59|[39m   [35mconst[39m firstDues [33m=[39m [35mnew[39m [33mSet[39m([34mdues[39m())
+    [90m 60|[39m   expect(firstDues.size).toBe(1) // every row is due at exactly the sa…
+    [90m   |[39m                          [31m^[39m
+    [90m 61|[39m   wave [33m=[39m [34m1[39m
+    [90m 62|[39m   clock [33m=[39m [34mdues[39m()[[34m0[39m][33m![39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-15-retry-backoff.spec.ts[2m > [22mBASELINE FAULT: a permanent (401) failure is retried forever, indistinguishable from a transient one
+[31m[1mAssertionError[22m: expected 1 to be 11 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 11[39m
+[31m+ 1[39m
+
+[36m [2m❯[22m tests/issue-15-retry-backoff.spec.ts:[2m79:17[22m[39m
+    [90m 77|[39m     effects[33m.[39m[34mkick[39m()[33m;[39m [35mawait[39m [34mflush[39m()
+    [90m 78|[39m   }
+    [90m 79|[39m   expect(calls).toBe(11) // eleven paid attempts against a failure tha…
+    [90m   |[39m                 [31m^[39m
+    [90m 80|[39m   const row = store.db.prepare("SELECT attempts, error FROM effect WHE…
+    [90m 81|[39m   [34mexpect[39m(row[33m.[39mattempts)[33m.[39m[34mtoBe[39m([34m11[39m)
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-15-retry-backoff.spec.ts[2m > [22mCANDIDATE: classification retires permanent, unauthorised, cancelled and programming failures
+[31m[1mAssertionError[22m: expected 'transient' to be 'programming_error' // Object.is equality[39m
+
+Expected: [32m"programming_error"[39m
+Received: [31m"transient"[39m
+
+[36m [2m❯[22m tests/issue-15-retry-backoff.spec.ts:[2m92:108[22m[39m
+    [90m 90|[39m   expect(retryDecision(Object.assign(new Error('gone'), { status: 410 …
+    [90m 91|[39m   expect(retryDecision(Object.assign(new Error('aborted'), { name: 'Ab…
+    [90m 92|[39m   expect(retryDecision(new TypeError('undefined is not a function'), 0…
+    [90m   |[39m                                                                                                            [31m^[39m
+    [90m 93|[39m   expect(retryDecision(Object.assign(new Error('slow down'), { status:…
+    [90m 94|[39m   expect(retryDecision(Object.assign(new Error('oops'), { status: 503 …
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/issue-15-retry-backoff.spec.ts[2m > [22mCANDIDATE: delay follows a_n = min(d_max, d_base*2^n), j_n ~ Uniform(0.5 a_n, a_n), clamped by server_not_before
+[31m[1mAssertionError[22m: expected { retry: true, …(2) } to match object { retry: true, delay: 30000 }
+(1 matching property omitted from actual)[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  {[22m
+[32m-   "delay": 30000,[39m
+[31m+   "delay": 1000,[39m
+[2m    "retry": true,[22m
+[2m  }[22m
+
+[36m [2m❯[22m tests/issue-15-retry-backoff.spec.ts:[2m118:16[22m[39m
+    [90m116|[39m   // server_not_before wins when it exceeds the jittered delay; an ela…
+    [90m117|[39m   const late = retryDecision(new Error('x'), 0, 2000, 60000, () => 0, …
+    [90m118|[39m   [34mexpect[39m(late)[33m.[39m[34mtoMatchObject[39m({ retry[33m:[39m [35mtrue[39m[33m,[39m delay[33m:[39m [34m30_000[39m })
+    [90m   |[39m                [31m^[39m
+    [90m119|[39m   const elapsed = retryDecision(new Error('x'), 0, 2000, 60000, () => …
+    [90m120|[39m   expect(elapsed).toMatchObject({ retry: true, delay: 1000 }) // 0.5 *…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m3 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[31m5 failed[39m[22m[2m | [22m[1m[32m36 passed[39m[22m[90m (41)[39m
+[2m   Start at [22m 07:27:30
+[2m   Duration [22m 1.83s[2m (transform 371ms, setup 0ms, import 875ms, tests 594ms, environment 0ms)[22m
+

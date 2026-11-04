@@ -1,0 +1,27 @@
+{
+  "scenario": "capacity 1; job left running past the 30-minute background limit (fake timers)",
+  "reportState": "waiting",
+  "summary": "Background jobs ran 30 minutes after the worker's turn ended and were killed: bash-1 (forgotten job).",
+  "jobsLeftRunning": 0,
+  "stateAfter": "idle",
+  "activeCount": 0,
+  "windowMs": 1860012,
+  "capacitySlotMs": 1860012,
+  "stateSlotMs": {
+    "starting": 11,
+    "turn": 1,
+    "background-wait": 1860000,
+    "handed-off": 0,
+    "idle": 0
+  },
+  "occupancyFraction": {
+    "starting": 0.000005913940340169848,
+    "turn": 5.376309400154407e-7,
+    "background-wait": 0.9999935484287198,
+    "handed-off": 0,
+    "idle": 0
+  },
+  "peakUsed": 1,
+  "peakPerson": 0,
+  "sampleCount": 11
+}

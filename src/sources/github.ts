@@ -3,7 +3,8 @@ import type { Context } from '@deepseek-ai/cordis'
 import { key, type Thread } from '../core/index.ts'
 import { sameName } from '../infra/text.ts'
 import { GithubAccountsSchema } from '../deployment.ts'
-import { CliError, validItems, type Tally } from '../infra/commands.ts'
+import { classifyError, retryDecision, serverNotBeforeOf } from '../app/retry-policy.ts'
+import { CliError, validItems, type Commands, type Tally } from '../infra/commands.ts'
 import { ciCounts, ciFact, ciFailures, ciSummary, githubThreadContext, pullChecks } from './github-read.ts'
 import { branchCiTrigger, ciTrigger, commentTrigger, CommentSchema, githubAddress, issueTrigger, IssueSchema, pullTrigger, SOURCE }
   from './github-trigger.ts'
@@ -12,7 +13,7 @@ import type { GithubComment, PullRef } from './github-trigger.ts'
 import { observePull, pullsOf, readPull, type Pull } from './github-pull.ts'
 import { health, sourceContext, type Health, type SourceContext } from './host.ts'
 import { KV } from '../kv.ts'
-import { cursorAt, pause, POLL_HORIZON_MS, pollThreads as pollEach } from './poll.ts'
+import { cursorAt, pause, POLL_HORIZON_MS, pollThreads as pollEach, reconcileDue } from './poll.ts'
 import type { Localized, SourceKind } from './kind.ts'
 import { z } from 'zod'
 
@@ -24,6 +25,9 @@ const NotificationSchema = z.looseObject({
 
 const GithubConfigSchema = GithubAccountsSchema.extend({ pollSeconds: z.number().int().min(60).max(3600).default(60),
   failuresBeforeError: z.number().int().min(1).max(20).default(3),
+  replaySeconds: z.number().int().min(5).max(3600).default(120),
+  reconcileMinutes: z.number().int().min(0).max(1440).default(30),
+  reconcileHorizonSeconds: z.number().int().min(60).max(86400).default(3600),
   observeIssues: z.boolean().default(false), observePulls: z.boolean().default(false), observeComments: z.boolean().default(false),
   observeCi: z.boolean().default(false) }).strict()
 export type GithubConfig = z.infer<typeof GithubConfigSchema>
@@ -61,12 +65,18 @@ export const githubKind: SourceKind<GithubConfig> = {
     return { listened: true, observed: row !== undefined && config[OBSERVED[row]], ...row ? { row } : {} }
   },
   health: ['github'],
+  // GitHub offers no provider idempotency key. The message-id marker pre-check makes an explicit operator rearm
+  // converge (the first post is visible by then), but it cannot prove an immediate automatic retry sees the first
+  // post (read-visibility race), so ambiguous post-attempt failures park for explicit recovery instead of auto-retrying.
   channel: { send: sendGithub, link: githubLink },
   threadContext: githubThreadContext,
-  // `#12`, `12`, or the page of an Issue or PR, of any repository, names Thread 12.
-  find: query => {
-    const number = (/^#?(\d+)$/.exec(query.trim()) ?? /github\.com\/[^/]+\/[^/]+\/(?:pull|issues)\/(\d+)/.exec(query))?.[1]
-    return { threads: number ? [`${SOURCE}:${number}`] : [], terms: [] }
+  // Bare numbers are local shorthand; qualified URLs must name this instance's repository.
+  find: (query, config) => {
+    const value = query.trim()
+    const local = /^#?(\d+)$/.exec(value)?.[1]
+    const address = !local && config?.repository ? githubAddress(value, config.repository) : undefined
+    const number = local ?? address?.number
+    return { threads: number !== undefined ? [`${SOURCE}:${number}`] : [], terms: [] }
   },
   policy: {
     schema: z.object({ allowed: z.array(z.object({ id: z.string().regex(/^[A-Za-z0-9-]+$/) }).strict()).default([]),
@@ -124,42 +134,113 @@ export function apply(ctx: Context): void {
 export function pollFailure(failures: number, threshold: number, error: unknown): Health | undefined {
   return failures >= threshold ? health('error', 'pollFailures', { count: String(failures), error: String(error) }) : undefined
 }
+/**
+ * Seconds to wait before the next poll. A rate-limited failure backs off exponentially with jitter (via the shared retry policy, capped at one hour)
+ * instead of re-polling every interval into the same limit; no delay is ever read from error text, and other outcomes keep the configured interval.
+ */
+export function pollPauseSeconds(configured: number, failures: number, error: unknown, rng: () => number = Math.random, now = Date.now()): number {
+  const base = Number.isFinite(configured) && configured > 0 ? configured : 60
+  // A trusted server not-before is never shortened or capped: polling earlier would dispatch inside a known embargo.
+  const notBefore = error ? serverNotBeforeOf(error) : undefined
+  const server = notBefore !== undefined && Number.isFinite(now) && notBefore > now ? Math.ceil((notBefore - now) / 1000) : 0
+  if (!error || classifyError(error) !== 'rate_limited') return Math.max(base, server)
+  const decision = retryDecision(error, Number.isFinite(failures) ? Math.max(0, failures - 1) : 0, base * 1000, 3600_000, rng, now)
+  const backoff = decision.retry ? Math.ceil(decision.delay / 1000) : 0
+  return Math.max(base, backoff, server)
+}
+/** Clears a stored embargo once a round has succeeded; a failed write leaves the older, longer-or-equal value, which at worst waits once more. */
+function clearEmbargo(ctx: SourceContext): void {
+  try { if (ctx.state.get(KV.github.notBefore) !== undefined) ctx.state.set(KV.github.notBefore, undefined) } catch { /* retained until the next success */ }
+}
+/** Rearm: switching the Source back on makes every parked read eligible again, keeping its original `since`, and gives the notifications lane a fresh probe, since the credential may have changed. A restart rearms neither. */
+export function rearmParked(ctx: SourceContext): number {
+  const retries = { ...ctx.state.get(KV.github.retries) }
+  let count = 0
+  for (const [number, retry] of Object.entries(retries)) if (retry.parked) { const { parked: _parked, ...rest } = retry; retries[number] = { ...rest, failedAt: new Date().toISOString() }; count += 1 }
+  if (count) ctx.state.set(KV.github.retries, retries)
+  if (ctx.state.get(KV.github.notificationsLane) !== undefined) ctx.state.set(KV.github.notificationsLane, undefined)
+  return count
+}
 async function watch(ctx: SourceContext, signal: AbortSignal): Promise<void> {
   let interval = 60
   let failures = 0
+  let lastError: unknown
   await ctx.ready
   // Setup restarts dsh-superagent once it resolves the accounts; until then nothing is polled.
   if (!ctx.configured()) { ctx.report('github', health('paused', 'setupPending')); return }
+  // A plain start or restart never rearms: a parked read stays blocked until the owner switches the Source off and on.
+  // A trusted server not-before from a failure survives a restart: nothing is read inside a known embargo, yet the loop stays responsive to the Source setting and to stopping.
+  let floor = Number(ctx.state.get(KV.github.notBefore))
+  if (!Number.isFinite(floor)) floor = 0
+  let embargo = floor
+  let unsaved = false
+  let wasOn = true
   while (!signal.aborted) {
     const config = ctx.config<GithubConfig>(SOURCE)
+    if (config && !wasOn) rearmParked(ctx)
+    wasOn = !!config
+    if (config && embargo > Date.now()) {
+      // An embargo that could not be saved stays an error for as long as it is held in memory only; each slice retries the write.
+      if (unsaved) {
+        try { ctx.state.set(KV.github.notBefore, String(Math.min(Math.floor(floor), 8.64e15))); unsaved = false } catch { /* still unsaved */ }
+      }
+      const until = new Date(Math.min(embargo, 8.64e15)).toISOString()
+      ctx.report('github', unsaved
+        ? { state: 'error', detail: `The server's not-before (${until}) could not be saved, so a restart would forget it; nothing is read until then`, at: new Date().toISOString() }
+        : { state: 'paused', detail: `Waiting for the server's not-before (${until}); nothing is read until then`, at: new Date().toISOString() })
+      await pause(Math.min(embargo - Date.now(), 60_000), signal)
+      continue
+    }
     try {
-      if (config) interval = await pollRound(ctx, signal)
+      if (config) { interval = await pollRound(ctx, signal); embargo = 0; floor = 0; unsaved = false; clearEmbargo(ctx) }
       else ctx.report('github', health('paused', 'sourceOff'))
-      failures = 0
+      failures = 0; lastError = undefined
     } catch (error) {
-      failures += 1
+      failures += 1; lastError = error
+      const notBefore = serverNotBeforeOf(error)
+      const typed = notBefore !== undefined && Number.isFinite(notBefore) && notBefore > Date.now()
+      if (typed) floor = Math.max(floor, Math.min(notBefore!, 8.64e15))
+      if (typed) {
+        try { ctx.state.set(KV.github.notBefore, String(Math.min(Math.floor(notBefore), 8.64e15))) } catch { unsaved = true }
+      }
       const failed = pollFailure(failures, config?.failuresBeforeError ?? 1, error)
       if (!signal.aborted && failed) ctx.report('github', failed)
+      // The embargo is still honoured in this process; only its survival across a restart is lost. The error text is never copied into health.
+      if (unsaved && !signal.aborted) ctx.report('github', { state: 'error', detail: "The server's not-before could not be saved, so a restart would forget it", at: new Date().toISOString() })
     }
-    await pause(Math.max(interval, ctx.config<GithubConfig>(SOURCE)?.pollSeconds ?? 60) * 1000, signal)
+    const waitMs = pollPauseSeconds(Math.max(interval, ctx.config<GithubConfig>(SOURCE)?.pollSeconds ?? 60), failures, lastError) * 1000
+    // With a typed server floor the loop above holds and waits in slices, so settings changes, retries of the save and stopping stay responsive.
+    if (config && floor > Date.now()) { embargo = Math.max(embargo, floor, Math.min(Date.now() + waitMs, 8.64e15)); continue }
+    await pause(waitMs, signal)
   }
 }
 interface Round {
   started: string; signal?: AbortSignal | undefined
-  pulls: Map<number, Promise<Pull>>; read: Set<number>; failures: string[]; dropped: number[]; abandoned: number[]
+  pulls: Map<number, Promise<Pull>>; read: Set<number>; failures: string[]; dropped: number[]; abandoned: number[]; parked: number[]
   tally: Tally
+  /** Set when the notifications lane failed this round with the fine-grained-token marker and was parked. */
+  notificationsParked: boolean
 }
 const newRound = (signal?: AbortSignal): Round => ({ started: new Date().toISOString(), signal, pulls: new Map(), read: new Set(),
-  failures: [], dropped: [], abandoned: [], tally: { skipped: 0 } })
+  failures: [], dropped: [], abandoned: [], parked: [], tally: { skipped: 0 }, notificationsParked: false })
 const stopped = (ctx: SourceContext, round: Round): boolean => !!round.signal?.aborted || !ctx.config(SOURCE)
-export interface Retry { since: string; pr: boolean; failedAt?: string; attempts?: number }
+/** `parked` marks a read that kept failing past the retry window: it is kept with its original `since`, not retried, and reported as an error until the Source is rearmed. */
+export interface Retry { since: string; pr: boolean; failedAt?: string; attempts?: number; parked?: boolean }
 const RETRY_WINDOW_MS = 24 * 3600_000
 /** True when GitHub returns HTTP 410 (Gone); HTTP 404 is retried because it can indicate revoked access to a private repository. */
 const deleted = (error: unknown): boolean => error instanceof CliError && error.code === 410
+/**
+ * Marker of GitHub's HTTP 403 when a fine-grained personal access token calls an endpoint it cannot use at all; the notifications
+ * endpoints are documented as accepting only personal access tokens (classic). Kept distinct from rate limiting (a different
+ * message with typed retry headers) and from bad or revoked credentials (HTTP 401): only this exact 403 parks the lane.
+ */
+const FINE_GRAINED_UNSUPPORTED = 'Resource not accessible by personal access token'
+export const notificationsUnsupported = (error: unknown): boolean =>
+  error instanceof CliError && error.code === 403 && error.message.includes(FINE_GRAINED_UNSUPPORTED)
 /** Records a failed read on the Thread and in the round; deleted (410) or abandoned (24h+) threads do not fail the round. */
-function failed(ctx: SourceContext, round: Round, number: number, error: unknown, abandoned = false): void {
+function failed(ctx: SourceContext, round: Round, number: number, error: unknown, parked = false): void {
   if (deleted(error)) round.dropped.push(number)
-  else if (abandoned) round.abandoned.push(number)
+  else if (parked) round.parked.push(number)
   else round.failures.push(`#${number}: ${String(error)}`)
   ctx.threads.patch(`github:${number}`, { pollError: String(error) })
 }
@@ -195,9 +276,10 @@ async function pollRepository(ctx: SourceContext, round: Round): Promise<void> {
   catch (error) { if (!stopped(ctx, round)) round.failures.push(`default branch CI: ${String(error)}`) }
 }
 /**
- * Polls one repository-wide event stream (oldest first) since its cursor and steps the cursor to five seconds before the
- * newest item (`cursorAt`), relying on Trigger ID deduplication so repeated messages are no-ops. While the cursor stays
- * unchanged (including when clamped to the hourly horizon), sending the last page's ETag makes an unchanged list return
+ * Polls one repository-wide event stream (oldest first) since its cursor, following every pagination page before the
+ * cursor steps one configured replay window before the newest item (`cursorAt`), relying on Trigger ID deduplication so repeated
+ * messages are no-ops; a burst sharing one timestamp therefore cannot starve the stream. While the cursor stays
+ * unchanged (including when clamped to the hourly horizon), a single-page response ETag makes an unchanged list return
  * HTTP 304 and cost no rate limit. Items from before their kind was switched on or beyond the horizon are ignored.
  */
 async function readStream(ctx: SourceContext, round: Round, id: string, path: string, config: GithubConfig): Promise<void> {
@@ -207,8 +289,10 @@ async function readStream(ctx: SourceContext, round: Round, id: string, path: st
   const before = typeof stored?.started === 'object' ? stored.started : {}
   const started: Record<string, string> = Object.fromEntries(kinds.map(kind => [kind, before[kind] ?? round.started]))
   const horizon = Math.floor((Date.parse(round.started) - POLL_HORIZON_MS) / 3_600_000) * 3_600_000
-  const since = new Date(Math.max(Date.parse(stored?.since ?? round.started), horizon)).toISOString()
-  const conditional = stored?.etag && stored.since === since ? ['-H', `If-None-Match: ${stored.etag}`] : []
+  const reconcile = stored !== undefined && reconcileDue(stored.lastReconciliation, round.started, config.reconcileMinutes)
+  const baseSince = Math.max(Date.parse(stored?.since ?? round.started), horizon)
+  const since = new Date(reconcile ? Math.max(horizon, Math.min(baseSince, Date.parse(round.started) - config.reconcileHorizonSeconds * 1000)) : baseSince).toISOString()
+  const conditional = !reconcile && stored?.etag && stored.since === since ? ['-H', `If-None-Match: ${stored.etag}`] : []
   let raw: string
   const listed = `${path}&sort=updated&direction=asc&per_page=100&since=${encodeURIComponent(since)}`
   try { raw = await ctx.commands.withSignal(round.signal).api(listed, '--include', ...conditional) }
@@ -217,7 +301,14 @@ async function readStream(ctx: SourceContext, round: Round, id: string, path: st
     throw error
   }
   const { headers, body } = included(raw)
-  const items = validItems(ListedSchema, z.array(z.unknown()).parse(JSON.parse(body)), round.tally)
+  // Read every page before staging anything: a failed later page ingests nothing and leaves the cursor where it was.
+  const first = validItems(ListedSchema, z.array(z.unknown()).parse(JSON.parse(body)), round.tally)
+  const rest = /rel="next"/.test(headers)
+    ? await ctx.commands.withSignal(round.signal).pages(ListedSchema, `${listed}&page=2`, round.tally)
+    : []
+  // Deterministic order by (updated_at, id) keeps identical-timestamp bursts stable; trigger identity deduplicates replays.
+  const items = [...first, ...rest]
+    .sort((a, b) => Date.parse(a.updated_at ?? '') - Date.parse(b.updated_at ?? '') || a.id - b.id)
   const { login } = ctx.deployment.github
   const fresh = (at: string | null | undefined, kind: string) =>
     kind in started && Date.parse(at ?? '') >= Math.max(Date.parse(started[kind]!), horizon)
@@ -241,11 +332,13 @@ async function readStream(ctx: SourceContext, round: Round, id: string, path: st
     if (trigger.text) await ctx.receive(trigger)
   }
   const newest = Math.max(...items.map(item => Date.parse(item.updated_at ?? '')).filter(Number.isFinite))
-  const moved = Number.isFinite(newest) ? cursorAt(new Date(newest).toISOString()) : since
-  const next = Date.parse(moved) > Date.parse(since) ? moved : since
+  const moved = Number.isFinite(newest) ? cursorAt(new Date(newest).toISOString(), (config.replaySeconds + 1) * 1000) : since
+  const next = new Date(Math.max(baseSince, Date.parse(moved))).toISOString()
   const etag = /^etag:\s*(.+)$/im.exec(headers)?.[1]?.trim()
-  // The ETag belongs to this request, which the next round repeats only while the cursor stays unchanged.
-  ctx.state.set(name, { since: next, started, ...etag && next === since ? { etag } : {} })
+  // A page-one ETag cannot certify later pages. Cache only single-page lists with the exact unchanged request.
+  ctx.state.set(name, { since: next, started,
+    ...reconcile ? { lastReconciliation: round.started } : stored?.lastReconciliation ? { lastReconciliation: stored.lastReconciliation } : {},
+    ...etag && next === since && !/rel="next"/.test(headers) ? { etag } : {} })
 }
 /** Polls default-branch CI checks, emitting a trigger only when the set of failing checks changes after the initial baseline. */
 async function pollBranchCi(ctx: SourceContext, round: Round): Promise<void> {
@@ -275,71 +368,154 @@ async function pollBranchCi(ctx: SourceContext, round: Round): Promise<void> {
  * subscribed Threads. Each step and each Issue, PR, or Thread fails independently so all steps run before the round fails.
  * Other read failures (including 404) fail the round toward the error threshold, whereas deleted (410) or abandoned
  * (24h+) threads are recorded only on the thread and in health detail.
+ * A notifications lane parked on the documented fine-grained-token limitation is skipped between reconciliation-cadence
+ * probes instead of failing every round; the repository streams, ticket PRs and subscribed Threads still run, and their
+ * failures still fail the round.
  * @returns the polling interval requested by GitHub, in seconds.
  */
 export async function pollRound(ctx: SourceContext, signal?: AbortSignal): Promise<number> {
   const round = newRound(signal)
-  const notified = await pollNotifications(ctx, round).then(value => ({ value }), (error: unknown) => ({ error }))
+  const config = ctx.config<GithubConfig>(SOURCE)
+  // A parked notifications lane is skipped between probes; the reconciliation cadence probes it again so a credential or
+  // endpoint change resumes the full intake without a restart. A probe failure that is not the unsupported-marker fails the round.
+  const lane = ctx.state.get(KV.github.notificationsLane)
+  const probe = lane !== undefined && reconcileDue(lane.probeAt, round.started, config?.reconcileMinutes ?? 30)
+  const skipped = lane !== undefined && !probe
+  const notified = skipped
+    ? { value: { count: 0, interval: Math.max(60, config?.pollSeconds ?? 60), reconciled: 0 } }
+    : await pollNotifications(ctx, round).then(value => ({ value }), (error: unknown) => ({ error }))
   await pollRepository(ctx, round)
   await pollTicketPulls(ctx, signal, round)
   await pollThreads(ctx, signal, round)
-  if ('error' in notified) throw notified.error
-  const { count, interval } = notified.value
+  let laneParked = skipped
+  let result: { count: number; interval: number; reconciled: number }
+  if ('error' in notified) {
+    if (!notificationsUnsupported(notified.error)) throw notified.error
+    ctx.state.set(KV.github.notificationsLane, { since: lane?.since ?? round.started, probeAt: round.started })
+    round.notificationsParked = true
+    laneParked = true
+    result = { count: 0, interval: Math.max(60, config?.pollSeconds ?? 60), reconciled: 0 }
+  } else {
+    // Only a real probe that ran and succeeded clears the lane; the skipped-round value must not.
+    if (!skipped && lane !== undefined) {
+      ctx.state.set(KV.github.notificationsLane, undefined)
+      laneParked = false
+    }
+    result = notified.value
+  }
+  const { count, interval, reconciled } = result
   if (signal?.aborted) return interval
   if (round.failures.length) throw new Error(`${round.failures.length} GitHub reads failed: ${round.failures.slice(0, 3).join('; ')}`)
   const named = (numbers: number[]) => [...new Set(numbers)].sort((a, b) => a - b).map(number => `#${number}`).join(', ')
-  const dropped = (round.dropped.length ? `; deleted on GitHub: ${named(round.dropped)}` : '')
+  const parkedNote = round.parked.length ? `; parked, not retried until the source is rearmed: ${named(round.parked)}` : ''
+  const dropped = parkedNote + (round.dropped.length ? `; deleted on GitHub: ${named(round.dropped)}` : '')
     + (round.abandoned.length ? `; dropped after their reads kept failing: ${named(round.abandoned)}` : '')
-    + (round.tally.skipped ? `; ${round.tally.skipped} unreadable items skipped` : '')
-  ctx.report('github', { state: 'ready', detail: `${count} notifications; next poll ≥ ${interval}s${dropped}`, at: round.started })
+    + (round.tally.skipped ? `; ${round.tally.skipped} unreadable items skipped${round.tally.rejected?.length ? ` (${round.tally.rejected.slice(0, 5).map(item => `${item.id ?? '?'}: ${item.fields.join('/')}`).join(', ')})` : ''}` : '')
+    + (reconciled ? `; reconciliation recovered ${reconciled} earlier` : '')
+  if (round.parked.length) {
+    ctx.report('github', { state: 'error', detail: `${count} notifications; next poll ≥ ${interval}s${dropped}`, at: round.started })
+  } else if (laneParked) {
+    // Honest capability labels: ready only names the repository streams that actually carry intake; with every observe switch
+    // off the Source receives nothing, so it reports paused with the reason instead of a silent healthy idle.
+    const streams = ([['new Issues', config?.observeIssues], ['new pull requests', config?.observePulls], ['comments', config?.observeComments],
+      ['default-branch CI', config?.observeCi]] as const).filter(([, on]) => on).map(([name]) => name).join(', ')
+    ctx.report('github', streams
+      ? { ...health('ready', 'notificationsUnsupported', { streams }), detail: `${health('ready', 'notificationsUnsupported', { streams }).detail}; next poll ≥ ${interval}s${dropped}`, at: round.started }
+      : { ...health('paused', 'notificationsUnsupportedIdle'), at: round.started })
+  } else {
+    ctx.report('github', { state: 'ready', detail: `${count} notifications; next poll ≥ ${interval}s${dropped}`, at: round.started })
+  }
   return interval
 }
-/** Reads notifications since the cursor and each Issue or PR they name, advancing the cursor atomically with the retry map for failed reads; deleted (410) Issues are dropped once their error is recorded. */
-async function pollNotifications(ctx: SourceContext, round: Round): Promise<{ count: number; interval: number }> {
-  const { state } = ctx
-  const commands = ctx.commands.withSignal(round.signal)
-  const since = state.get(KV.github.since) ?? round.started
-  if (state.get(KV.github.since) === undefined) state.set(KV.github.since, since)
-  const { repository } = ctx.deployment
-  const path = `notifications?all=true&per_page=50&since=${encodeURIComponent(since)}`
+/** Fetches the first notifications page with `--include`, then follows Link rel="next" pages from page 2 so the first page is never re-requested. */
+async function fetchNotifications(commands: Commands, path: string, tally: Tally): Promise<{ headers: string; notifications: z.infer<typeof NotificationSchema>[] }> {
   const raw = await commands.api(path, '--include')
   const split = raw.search(/\r?\n\r?\n/)
   if (split < 0) throw new Error('GitHub returned no HTTP headers')
   const headers = raw.slice(0, split)
   const body = raw.slice(split).trim()
+  const first = validItems(NotificationSchema, z.array(z.unknown()).parse(JSON.parse(body)), tally)
+  const rest = /rel="next"/.test(headers) ? await commands.pages(NotificationSchema, `${path}&page=2`, tally) : []
+  return { headers, notifications: [...first, ...rest] }
+}
+/**
+ * Reads notifications since the replay cursor and each Issue or PR they name, advancing the cursor atomically with the
+ * retry map for failed reads; deleted (410) Issues are dropped once their error is recorded. The cursor trails each
+ * completed scan by the configured replay window (plus a one-second edge guard, because `since` filters strictly
+ * after), so a notification GitHub delivers late is still listed; trigger identity deduplicates the overlap. A periodic
+ * reconciliation scan over a wider horizon recovers notifications delayed beyond the replay window, at the configured
+ * cadence; `reconcileMinutes: 0` switches it off and accepts the residual risk.
+ */
+async function pollNotifications(ctx: SourceContext, round: Round): Promise<{ count: number; interval: number; reconciled: number }> {
+  const { state } = ctx
+  const commands = ctx.commands.withSignal(round.signal)
+  const config = ctx.config<GithubConfig>(SOURCE)
+  const replayMs = ((config?.replaySeconds ?? 120) + 1) * 1000
+  const since = state.get(KV.github.since) ?? round.started
+  if (state.get(KV.github.since) === undefined) state.set(KV.github.since, since)
+  const { repository } = ctx.deployment
+  const path = `notifications?all=true&per_page=50&since=${encodeURIComponent(since)}`
+  const { headers, notifications } = await fetchNotifications(commands, path, round.tally)
   const asked = Number(/x-poll-interval:\s*(\d+)/i.exec(headers)?.[1] ?? 60)
   const interval = Math.max(60, Number.isFinite(asked) ? asked : 60)
-  const notifications = /rel="next"/.test(headers)
-    ? await commands.pages(NotificationSchema, path, round.tally)
-    : validItems(NotificationSchema, z.array(z.unknown()).parse(JSON.parse(body)), round.tally)
   const retries = { ...state.get(KV.github.retries) }
   // Failed items from the previous round run first, followed by newly notified items in chronological order; each is read once.
   const items = new Map(Object.entries(retries).map(([number, retry]) => [Number(number), retry]))
-  for (const notification of notifications.reverse()) {
-    if (!sameName(notification.repository.full_name, repository)) continue
-    const address = githubAddress(notification.subject.url ?? '', repository)
-    if (!address || address.discussion || items.has(address.number)) continue
-    const { number, pr } = address
-    items.set(number, { since: [state.get(KV.github.cursor(number)) ?? since, since].sort().at(-1)!, pr })
+  const enqueue = (listed: z.infer<typeof NotificationSchema>[], listedSince: string, reconcile = false): number => {
+    let added = 0
+    for (const notification of [...listed].reverse()) {
+      if (!sameName(notification.repository.full_name, repository)) continue
+      const address = githubAddress(notification.subject.url ?? '', repository)
+      if (!address || address.discussion) continue
+      const { number, pr } = address
+      const previous = items.get(number)
+      const boundary = reconcile ? listedSince : [state.get(KV.github.cursor(number)) ?? listedSince, listedSince].sort().at(-1)!
+      // Reconciliation must read behind a newer thread cursor; merge repeated subjects at the earliest required boundary.
+      items.set(number, { ...previous, since: previous ? [previous.since, boundary].sort()[0]! : boundary, pr })
+      if (previous) continue
+      added += 1
+    }
+    return added
+  }
+  enqueue(notifications, since)
+  // Periodic reconciliation: a wider scan recovers notifications GitHub delivered later than the replay window covers.
+  let reconciled = 0
+  let lastReconciliation = state.get(KV.github.scan)?.lastReconciliation
+  if (state.get(KV.github.scan) !== undefined && reconcileDue(lastReconciliation, round.started, config?.reconcileMinutes ?? 30)) {
+    const horizonMs = (config?.reconcileHorizonSeconds ?? 3600) * 1000
+    const wideSince = new Date(Math.min(Date.parse(since), Date.parse(round.started) - horizonMs)).toISOString()
+    try {
+      const wide = await fetchNotifications(commands, `notifications?all=true&per_page=50&since=${encodeURIComponent(wideSince)}`, round.tally)
+      reconciled = enqueue(wide.notifications, wideSince, true)
+      lastReconciliation = round.started
+    } catch (error) {
+      if (!stopped(ctx, round)) round.failures.push(`notification reconciliation: ${String(error)}`)
+    }
   }
   for (const [number, item] of items) {
-    if (stopped(ctx, round)) return { count: notifications.length, interval }
+    if (stopped(ctx, round)) return { count: notifications.length, interval, reconciled }
+    if (item.parked) { round.parked.push(number); retries[number] = item; continue }
     round.read.add(number)
     try {
       await readNotified(ctx, round, number, item)
       delete retries[number]
     } catch (error) {
-      if (stopped(ctx, round)) return { count: notifications.length, interval }
+      if (stopped(ctx, round)) return { count: notifications.length, interval, reconciled }
       const retry = { ...item, failedAt: item.failedAt ?? round.started, attempts: (item.attempts ?? 0) + 1 }
       // Abandon notification retries after 24 hours of failures so a permanently unreadable thread does not hold source health in error; its cursor stays so a later notification or thread poll still reads what was missed.
-      const abandoned = Date.parse(round.started) - Date.parse(retry.failedAt) >= RETRY_WINDOW_MS
-      failed(ctx, round, number, error, abandoned)
-      if (!deleted(error) && !abandoned) { retries[number] = retry; continue }
+      const parked = !deleted(error) && Date.parse(round.started) - Date.parse(retry.failedAt) >= RETRY_WINDOW_MS
+      failed(ctx, round, number, error, parked)
+      if (!deleted(error)) { retries[number] = parked ? { ...retry, parked: true } : retry; continue }
       delete retries[number]
     }
   }
-  ctx.atomic(() => { state.set(KV.github.since, cursorAt(round.started)); state.set(KV.github.retries, retries) })
-  return { count: notifications.length, interval }
+  // The checkpoint advances only after every notified item is durably processed, atomically with the retry and scan records.
+  ctx.atomic(() => {
+    state.set(KV.github.since, cursorAt(round.started, replayMs))
+    state.set(KV.github.retries, retries)
+    state.set(KV.github.scan, { lastCompletedScan: round.started, ...lastReconciliation ? { lastReconciliation } : {} })
+  })
+  return { count: notifications.length, interval, reconciled }
 }
 async function readNotified(ctx: SourceContext, round: Round, number: number, item: Retry): Promise<void> {
   const { since } = item
@@ -369,7 +545,8 @@ async function readNotified(ctx: SourceContext, round: Round, number: number, it
     await intakeComments(ctx, { number, isPr: true, url: pr.html_url, prAuthor: pr.user.login }, since, round)
     if (pr.title) nameThread(ctx, number, pr.title)
   }
-  ctx.state.set(KV.github.cursor(number), cursorAt(round.started))
+  const replayMs = ((ctx.config<GithubConfig>(SOURCE)?.replaySeconds ?? 120) + 1) * 1000
+  ctx.state.set(KV.github.cursor(number), cursorAt(round.started, replayMs))
   ctx.threads.patch(`github:${number}`, { pollError: undefined })
 }
 /** Reads and observes a PR at most once per polling round. */
@@ -455,5 +632,6 @@ async function pollThread(ctx: SourceContext, round: Round, thread: Thread): Pro
     const pr = await pull(ctx, round, number)
     await intakeComments(ctx, { number, isPr: true, url: pr.html_url, prAuthor: pr.user.login }, since, round)
   } else await intakeComments(ctx, { number, isPr: false }, since, round)
-  ctx.state.set(checkpoint, cursorAt(round.started))
+  const replayMs = ((ctx.config<GithubConfig>(SOURCE)?.replaySeconds ?? 120) + 1) * 1000
+  ctx.state.set(checkpoint, cursorAt(round.started, replayMs))
 }

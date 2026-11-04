@@ -1,0 +1,40 @@
+[
+  {
+    "promptVersion": "v2",
+    "variant": "repaired",
+    "scenario": "normal",
+    "seed": 11,
+    "eligible": true,
+    "received": true,
+    "completed": true,
+    "forbidden": false,
+    "tickets": 1,
+    "assignments": 1,
+    "executorStarts": 1,
+    "externalMessages": 2,
+    "elapsedMs": 1989.52963,
+    "modelMs": 1966.3089710000002,
+    "billingTokens": 526,
+    "cost": 0.000211968,
+    "live": true
+  },
+  {
+    "promptVersion": "v2",
+    "variant": "repaired",
+    "scenario": "late-30s",
+    "seed": 11,
+    "eligible": true,
+    "received": true,
+    "completed": true,
+    "forbidden": false,
+    "tickets": 1,
+    "assignments": 1,
+    "executorStarts": 1,
+    "externalMessages": 2,
+    "elapsedMs": 2021.4192579999994,
+    "modelMs": 2007.0019480000005,
+    "billingTokens": 525,
+    "cost": 0.000210768,
+    "live": true
+  }
+]

@@ -12,7 +12,8 @@ import { feishuRef, feishuTime, feishuTrigger, HistoricalMessageSchema, historyE
   from './feishu-trigger.ts'
 import { health, type SourceContext } from './host.ts'
 import { KV } from '../kv.ts'
-import { cursorAt, POLL_HORIZON_MS, polled, pollThreads as pollEach } from './poll.ts'
+import { cursorAt, POLL_HORIZON_MS, polled, pollThreads as pollEach, reconcileDue, recoverySince } from './poll.ts'
+export { reconcileDue, recoverySince } from './poll.ts'
 import type { FeishuConfig } from './feishu.ts'
 
 export const runFeishu = (ctx: SourceContext, signal: AbortSignal): Promise<unknown> =>
@@ -72,7 +73,7 @@ async function consume(ctx: SourceContext, signal: AbortSignal): Promise<void> {
     { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, LARKSUITE_CLI_NO_UPDATE_NOTIFIER: '1',
       LARKSUITE_CLI_NO_SKILLS_NOTIFIER: '1' } })
   const stdout = createInterface({ input: child.stdout }); const stderr = createInterface({ input: child.stderr })
-  let chain = Promise.resolve(); let diagnostic = ''; let ready = false
+  let chain = Promise.resolve(); let diagnostic = ''; let ready = false; let reportedError = false
   const stop = (): void => { child.stdin.end(); child.kill('SIGTERM') }
   signal.addEventListener('abort', stop, { once: true })
   const timeout = setTimeout(() => { diagnostic = 'Feishu event consumer did not become ready within 45 seconds'; stop() }, 45_000)
@@ -80,8 +81,9 @@ async function consume(ctx: SourceContext, signal: AbortSignal): Promise<void> {
     diagnostic = line.slice(0, 4000)
     if (line.startsWith('[event] ready')) {
       ready = true; clearTimeout(timeout)
-      ctx.report('feishu', { state: 'ready', detail: 'Listening for bot events', at: new Date().toISOString() })
-    } else if (/WARN|drop|error/.test(line)) ctx.report('feishu', { state: 'error', detail: diagnostic })
+      // stdout/stderr are independent streams: readiness must not erase an error already observed in this run.
+      if (!reportedError) ctx.report('feishu', { state: 'ready', detail: 'Listening for bot events', at: new Date().toISOString() })
+    } else if (/WARN|drop|error/.test(line)) { reportedError = true; ctx.report('feishu', { state: 'error', detail: diagnostic }) }
   })
   stdout.on('line', (line: string) => {
     chain = chain.then(async () => {
@@ -93,7 +95,7 @@ async function consume(ctx: SourceContext, signal: AbortSignal): Promise<void> {
       chats[String(trigger.meta.chatId)] = trigger.meta.direct === true
       ctx.state.set(KV.feishu.chats, chats)
       await receive(ctx, trigger)
-    }).catch(error => { ctx.report('feishu', { state: 'error', detail: String(error) }) })
+    }).catch(error => { reportedError = true; ctx.report('feishu', { state: 'error', detail: String(error) }) })
   })
   try {
     await new Promise<void>((resolve, reject) => {
@@ -145,10 +147,24 @@ async function backfillLoop(ctx: SourceContext, signal: AbortSignal): Promise<vo
       const started = new Date().toISOString()
       const cursorKey = KV.feishu.history(chatId)
       const since = ctx.state.get(cursorKey)
-      if (since === undefined) { ctx.state.set(cursorKey, started); continue }
+      if (since === undefined) {
+        ctx.atomic(() => { ctx.state.set(cursorKey, started); ctx.state.set(KV.feishu.started(chatId), started) })
+        continue
+      }
+      // Legacy cursors have no first-seen boundary. Adopt conservatively, never authorizing older historical requests.
+      const floor = ctx.state.get(KV.feishu.started(chatId)) ?? since
+      if (ctx.state.get(KV.feishu.started(chatId)) === undefined) ctx.state.set(KV.feishu.started(chatId), floor)
       try {
-        await backfillChat(ctx, chatId, direct, since, started, signal, tally)
-        if (!signal.aborted) ctx.state.set(cursorKey, cursorAt(started))
+        // The cursor trails each completed scan by the configured replay window so a message Feishu indexes late is
+        // still scanned; when the reconciliation cadence is due, the round scans the wider horizon instead.
+        const reconcile = reconcileDue(ctx.state.get(KV.feishu.reconcile(chatId)), started, config.reconcileMinutes)
+        const window = new Date(Math.max(Date.parse(floor), Date.parse(recoverySince(since, started, reconcile, config.reconcileHorizonSeconds)))).toISOString()
+        await backfillChat(ctx, chatId, direct, window, started, signal, tally)
+        if (!signal.aborted) {
+          // The checkpoint advances only after the whole chat (and its active topics) completed durably.
+          ctx.state.set(cursorKey, cursorAt(started, (config.replaySeconds + 1) * 1000))
+          if (reconcile) ctx.state.set(KV.feishu.reconcile(chatId), started)
+        }
       } catch (error) { if (!signal.aborted) errors.push(`${chatId}: ${String(error)}`) }
     }
     await pollThreads(ctx, signal, tally)
@@ -183,6 +199,8 @@ export async function backfillChat(ctx: SourceContext, chatId: string, direct: b
         if (outside) throw new Error('Feishu history returned a message outside the requested chat or thread')
         if (message.deleted) continue
         const at = feishuTime(message.create_time)
+        const floor = ctx.state.get(KV.feishu.started(chatId))
+        if (floor && Date.parse(at) < Date.parse(floor)) continue
         if (message.thread_id && !(Date.parse(topics[message.thread_id] ?? '') >= Date.parse(at))) topics[message.thread_id] = at
         const trigger = feishuTrigger(historyEvent(message, chatId, direct), bot(ctx).botId, bot(ctx).appId)
         if (trigger) await receive(ctx, trigger)

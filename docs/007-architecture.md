@@ -321,6 +321,8 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/app/store.ts` | The Store, and `Receipt`, a message of the outbox |
 | `src/app/store-read.ts` | `storeReads`: the Store's read queries for the views, the tools and the Sources' polls, which never write |
 | `src/app/migration.ts` | The schema 11 migration: one step from schema 10 that writes every stored record in its current shape |
+| `src/app/retry-policy.ts` | Classified effect retry decisions, bounded jitter, typed transport metadata |
+| `src/infra/transport-failure.ts` | Strict HTTP Retry-After normalization and trusted transport error metadata |
 | `src/app/effects.ts` | Effects |
 | `src/app/versions.ts` | `Versions`: a record kept as numbered snapshots with a pointer to the current one, for the settings and the prompts |
 | `src/app/cache.ts` | `TextCache`: texts kept in memory within a size, the least recently used dropped first |
@@ -331,6 +333,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/app/skill-files.ts` | Packaged text: `promptFile`, which joins a file's one-sentence lines into paragraphs, and the bundled skills |
 | `src/app/sessions.ts` | Sessions |
 | `src/app/delivery.ts` | `AgentDelivery`: delivers a message to a DeepSeek Harness agent once per request id, also across a restored Session |
+| `src/app/ancestry.ts` | `resolveWorkerAncestry` and `WorkerAncestry`: validated worker-ancestry resolution for managed subagents, with terminal conditions, cycle detection and a defensive bound; caller uses recorded managed provenance |
 | `src/app/retry-health.ts` | `RetryHealth`: which Sessions wait on a model budget retry, for the `models` health entry |
 | `src/app/role-models.ts` | Resolves the Eval and Executor models, and seeds a new Session with its role's model |
 | `src/app/assessment.ts` | The MasterAssessor, the assessment schema and the window `orchestrator_eval` answers |
@@ -352,13 +355,20 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/app/views/settings.ts` | The settings page's view: each block with its revision, each Source's settings with its kind's form, and the execution environment |
 | `src/app/views/overview.ts` | The overview: Tickets that need a person, problems, the last day's flow and the Executor's load |
 | `src/executor/dsh.ts` | The DshExecutor, `WorkerSlots`, `ticketExecution`, `inputMessage` and `mandateInstructions` |
+| `src/executor/preparation-command.ts` | Preparation-specific managed-process-range quiescence; direct shell exit alone is not completion |
+| `src/executor/workspace.ts` | Durable workspace preparation state: the atomic preparation record, its states (`preparing`, `prepared`, `failed`, `cancelled`), and the preparation configuration identity that invalidates stale success |
 | `src/executor/background.ts` | A worker's background work in DeepSeek Harness, the shell jobs its Session owns (`ctx.jobs`) and its subagents (`ctx.subagents`): `runningJobs`, `untilQuiet`, `killJobs`, `collectJobs`, `stopSubagents`, `stopBackground`, `until`, and `cancelled`, the workers whose turn a stop of their subagents cancelled |
 | `src/infra/commands.ts` | `Commands`, the CLI transport: `run`; `api` and `pages`, limited to the configured repository and validated; `lark` as the bot; `git`. `CliError` carries the code a command's output reports, such as a GitHub HTTP status, and a command that prints nothing fails with how it ended, never with its arguments; `validItems` skips and counts the malformed items of a list |
 | `src/infra/environment.ts` | The agent's process environment: command shims, the git configuration and credential helper, `runAsWorker`, and the checks of the environment and of a Ticket's directory |
 | `src/infra/paths.ts` | The package's root, where packaged files are |
 | `src/infra/text.ts` | Word counts and the chat message limit, `fill` and `sameName` |
 | `src/infra/health.ts` | The `HealthBoard`, every part's health entry, each claimed by its one writer |
+| `src/infra/metrics-lifecycle.ts` | Stage durations derived from Engine domain events and worker Session events, with bounded pending state |
+| `src/infra/metrics-process.ts` | Process-wide CPU and memory read at snapshot time |
+| `src/infra/metrics-probe.ts` | The failure-isolated optional `Probe` that production hooks record through, never changing effect control flow |
+| `src/infra/metrics.ts` | The bounded Stage C `Metrics` collector: stage durations with nearest-rank quantiles, slot-state integrals, queue depth and oldest age, token and cost categories (not yet hooked into production code) |
 | `src/sources/kind.ts` | The `SourceKind` protocol |
+| `src/sources/send.ts` | Outbound send outcome contracts: `SendIdempotency`, `SendNotAttempted`, `AttemptUnknownError` and the message-id validation every idempotency key passes |
 | `src/sources/registry.ts` | `SourceRegistry` |
 | `src/sources/host.ts` | `SourceHost`, `SourceContext`, `Health`, `health` and the fixed health texts |
 | `src/sources/poll.ts` | What GitHub and Feishu polling share: `POLL_HORIZON_MS`, `polled`, `cursorAt`, and `pollThreads`, which keeps a failure on its Thread as `pollError` |
@@ -379,6 +389,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/client/provider.tsx` | What every page reads from its host: copy, calls, navigation, notices, the state poll, and `restart`, which reads the state quickly while dsh-superagent restarts |
 | `src/client/api.ts` | Calls and polls of the management API, typed by `src/app/api.ts`, and the Decision filters of the Eval status |
 | `src/client/route.ts` | The tabs, the settings groups, the typed routes that `parseRoute` reads, and the route memory with the settings group opened last |
+| `src/client/metrics.tsx` | Process-local metrics view, separate success/failure samples, partial coverage labels; no additional polling |
 | `src/client/overview.tsx` | The overview |
 | `src/client/source.tsx`, `trigger.tsx`, `eval.tsx`, `execution.tsx` | One file per stage: its status, and its settings where it has some |
 | `src/client/thread.tsx`, `ticket.tsx` | The record pages: a Thread with its timeline, and a Ticket with its authorization, Inputs and Assignments |
@@ -408,12 +419,19 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/policy.spec.ts` | Source scope, the gate, the admission table, Mandate revalidation, the Policy version, settings migrations and assessment outcomes |
 | `tests/registry.spec.ts` | `SourceRegistry`: instances, validation, Policy parts, Channels and Thread context |
 | `tests/sources.spec.ts` | The Feishu and GitHub Sources on a `SourceContext`: translation, polls and read positions, the pull request rules, health |
+| `tests/issue-1-3-adversarial.spec.ts` | Independent reconciliation, replay, cache and first-seen boundary regressions. |
+| `tests/issue-1-github-notification-delivery.spec.ts`, `tests/issue-2-github-stream-pagination.spec.ts`, `tests/issue-3-feishu-history-recovery.spec.ts` | Source-ingestion correctness: GitHub notification replay window and reconciliation, repository stream pagination, Feishu history recovery |
 | `tests/commands.spec.ts` | CLI calls as the deployment's accounts, the Channels' answers, and repository-scoped GitHub calls |
 | `tests/feishu-read.spec.ts`, `tests/github-read.spec.ts` | Feishu and GitHub reads |
 | `tests/admission-context.spec.ts`, `tests/feishu-image.spec.ts` | The Thread window of assessments, and Feishu image reads |
 | `tests/assessment.spec.ts` | What the MasterAssessor keeps per Eval, and when it lets go |
 | `tests/background.spec.ts` | Waiting for a worker's shell jobs and subagents: an end that woke it, and a host that stops |
 | `tests/bundle-patch.spec.ts` | The bundle's patch, read as DeepSeek Harness reads it, and the agent preset of Executor Sessions it defines |
+| `tests/issue-15-adversarial.spec.ts`, `tests/issue-15-retry-seam.spec.ts` | Persistent blocked effects, explicit rearm, transport classification, bounded jitter and server timing |
+| `tests/final-source-retry-review.spec.ts` | Final review: numeric safety of retry delays, bounded server waits, gh rate-limit 403 class, oversized and unreadable gh output through a real subprocess |
+| `tests/final-source-event-matrix.spec.ts` | Final review: stream pagination boundaries 49, 50 and 10,000 events |
+| `tests/final-source-faults.spec.ts` | Final review: comment edits, checkpoint write failure, revoked credentials and a two-day outage through pollRound |
+| `tests/final-feishu-matrix.spec.ts` | Final review of Feishu recovery: concurrent live and backfill delivery, the first-seen admission boundary, pagination that does not advance, duplicates within a page |
 | `tests/effects.spec.ts` | The effect queue: coalescing, limits, retries with backoff, health and shutdown |
 | `tests/passes.spec.ts` | Passes: one at a time, the ones asked for during a pass run as one after it, and the runtime health a failed pass reports |
 | `tests/outbox.spec.ts` | The Outbox on a running Runtime: messages wait while processing is paused or their Source is not installed |
@@ -421,11 +439,78 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/queue.spec.ts` | The Runtime's work through the effect queue, and what earlier versions stored |
 | `tests/followups.spec.ts` | A person's follow-up on a Ticket's Thread: its notice to the main Session, the tools that act on it, what a burst costs; a worker's hand-back and context follow, and the main Session's note |
 | `tests/health.spec.ts` | One health entry per part, each cleared by its own next success |
+| `tests/issue-22-dashboard.spec.tsx` | Metrics component coverage, outcome separation, unknown usage and locale tests |
+| `tests/pr-final-metrics-review.spec.tsx` | PR final review: counter saturation, backwards-clock rejection, invalid wall bounds, nearest-rank oracle, over-capacity marker, current slot counts |
+| `tests/pr-final-metrics-state.spec.tsx` | Overview metricsState off / ok / failed through the real runtime and HTTP path |
+| `tests/issue-22-http-review.spec.ts` | Optional overview metrics adapter serialization, backward compatibility and bounded populated payload measurement |
+| `tests/issue-22-runtime-proof.spec.ts` | Actual Runtime-to-HTTP metrics snapshot composition |
+| `tests/issue-9-adversarial.spec.ts` | Independent metric reconciliation, validation, bounds and snapshot tests |
+| `tests/issue-9-slot-atomic.spec.ts` | Atomic slot observation boundaries and validation. |
+| `tests/issue-9-hooks-adversarial.spec.ts` | Independent production metric hook boundaries and isolation tests. |
+| `tests/issue-9-coverage-review.spec.ts` | Independent card-delivery and command hook semantics. |
+| `tests/issue-9-lifecycle-adversarial.spec.ts` | Independent causal correlation, receipt and settlement boundary tests. |
+| `tests/issue-9-lifecycle.spec.ts` | The lifecycle timelines: durations between observed events, failures kept apart, unmatched starts never guessed |
+| `tests/issue-9-hooks.spec.ts` | The metrics hooks: failure isolation, disjoint slot states, effect timings, intake timing and usage attribution |
+| `tests/issue-9-source-queue-review.spec.ts` | Receipt hook noninterference, committed queue boundaries and owner followups. |
+| `tests/issue-9-slot-wait-review.spec.ts` | Committed launch scheduling wait and clock isolation. |
+| `tests/issue-9-slot-wait.spec.ts` | The launch slot wait: enqueue to slot reserved, repeat attempts, denied reservations, ended, stopped and restarted launches, and the bounded stamp map |
+| `tests/issue-9-metrics.spec.ts` | The metrics collector's quantiles, bounded labels, monotonic timing, slot integrals, queue gauge and unknown-stays-unknown token accounting |
 | `tests/delivery.spec.ts` | `AgentDelivery` |
 | `tests/retry-health.spec.ts`, `tests/role-models.spec.ts` | Model budget retries, and the models of the two roles |
 | `tests/runtime.spec.ts` | The whole application on a simulated DeepSeek Harness host, through tools and HTTP |
 | `tests/tools.spec.ts` | The Sessions' tools: what `orchestrator_read` reads for each role, and the shapes and checks of the other main Session tools |
 | `tests/runtime-concurrency.spec.ts` | Work that overlaps: Triggers during a pass, Tickets that change during deliveries and launches |
+| `tests/stage-d/issue-16-slots.spec.ts` | Stage D Issue 16 measurement: per-state worker slot occupancy, background work holding slots, handoff freeing them, cancellation, crash backoff, person +1 slot, 30-minute background limit |
+| `tests/stage-d/issue-17-concurrency.spec.ts` | Stage D Issue 17 measurement: capacity 3/6/12 throughput and completion distributions, FIFO starvation, slot-refill latency with and without a relay kick, failure injection |
+| `tests/stage-d/issue-18-startup.spec.ts` | Stage D Issue 18 measurement: cold vs warm launches with real prepare, partial-preparation recovery, restart storms, prompt-decoration microbenchmarks |
+| `tests/issue-5-decoration-races.spec.ts` | Skill-scope cancellation, generation-scoped release and concurrent decoration readiness |
+| `tests/issue-5-session-creation-gates.spec.ts` | Cancellation checks across session resolution, workspace creation, create RPC and model initialization |
+| `tests/issue-21-context.spec.ts` | Exact context paging, refresh, isolation, older-correction preservation and honest offline usage fields |
+| `tests/issue-23-review-handoff.spec.ts` | Complete review evidence behind compact reports, ready-vs-review state and merge identity boundaries |
+| `tests/issue-24-repository-scope.spec.ts` | Foreign same-number URL isolation through candidate cards, local shorthand and one-repository identity limits |
+| `tests/issue-20-adversarial.spec.ts` | Independent decision-link index, SQL-write, migration, rollback, reopen and process-kill proofs |
+| `tests/review-db-link-shapes.spec.ts` | Decision-link triggers: non-array, non-string and malformed triggerIds writes agree with the legacy query; v1 to v2 trigger replacement |
+| `tests/review-db-malformed-reads.spec.ts` | Scope of malformed-decision tolerance: metrics queries tolerate it, decision readers still reject it (baseline behaviour) |
+| `tests/review-db-flow-snapshot.spec.ts` | flow reads judged and accepted from one snapshot while another connection commits |
+| `tests/review-db-migrate-links.spec.ts` | Failed schema 10 migration rolls back link table and triggers; later open links valid rows once, idempotent |
+| `tests/review-poll-failure-recovery.spec.ts` | Reads that failed in one poll round are stored by the next round; none lost (explains the pool benchmark 189 of 200) |
+| `tests/review-ordered-blocked-head.spec.ts` | Characterisation: a parked (blocked) ordered head holds back later rows across time and restart |
+| `tests/stage-d/review-w-matrix.spec.ts` | Worker capacity 1/3/6/12 light and saturated matrix (opt-in) and pause under load (no start while paused) |
+| `tests/review-lock-compromised.spec.ts` | After the state lock is reported compromised, receive refuses and stores nothing, and stop() still completes (fail-closed, no distributed fence) |
+| `tests/review-integration-lock-dispatch.spec.ts` | After the state lock is reported compromised, no queued effect dispatches (fail-closed, no distributed fence) |
+| `tests/issue-19-20-storage.spec.ts` | Windowed triggerStats/flow equal the previous full-scan queries; decision link rebuild; index-range plans |
+| `tests/issue-4-5-adversarial.spec.ts` | Independent regressions for legacy/corrupt state, cancellation during verification, config-change races and descendant quiescence |
+| `tests/review-phase2-workspace.spec.ts` | Final review: preparation record unwritable/unreadable/corrupt fail closed before any command runs |
+| `tests/review-phase2-delivery.spec.ts` | Final review: flush failure after acceptance retries without duplicates; revoked authorization never reaches the inbox |
+| `tests/review-adv-exec.spec.ts` | Independent falsifiers: ownerless stale preparing record and corrupt record with absent directory block preparation |
+| `tests/review-phase2-ancestry.spec.ts` | Final review: self-parent cycle, worker behind unmanaged hops, missing link, bound edges |
+| `tests/review-adv-owner.spec.ts` | Independent falsifiers: same pid/host previous incarnation and dead parent with live descendant block reuse |
+| `tests/review-phase2-record-durability.spec.ts` | Final review: directory-sync failure handling and SIGKILL of a record writer |
+| `tests/review-phase2-session-gates.spec.ts` | Final review: cancelled assignment cannot receive work after an uncancellable create finishes |
+| `tests/review-phase2-outbox-crash.spec.ts` | Final review: retransmission with stable id after lost acknowledgement; failures never dropped |
+| `tests/review-phase2-outbox-kill.spec.ts` | Final review: real SIGKILL mid-send reconciles to attempted-unknown after restart |
+| `tests/review-phase2-effects-marker.spec.ts` | Final review: attempt marker across retries, repeated crashes, Later, coalescing and old rows |
+| `tests/review-phase2-effects-bench.spec.ts` | Final review: measured per-attempt marker overhead |
+| `tests/review-phase2-ensure-matrix.spec.ts` | Final review: ensure authorization sweep over pause, shutdown, ended ticket, replacement and external delete |
+| `tests/review-phase2-effects-rearm.spec.ts` | Final review: blocked ordered head listing, explicit rearm and discard |
+| `tests/ci-workflow.spec.ts` | The CI workflow's failure propagation: the explicit bash shell contract, the canonical result past the evidence tee, and the tested-SHA record surviving checkout |
+| `tests/review-phase2-effects-routes.spec.ts` | Final review: blocked-effects operator routes (safe class only, same-origin, explicit rearm, in-flight refusal) |
+| `tests/review-phase2-presend-classification.spec.ts` | Final review: a pre-POST provider read failure keeps its policy (401 parks blocked:unauthorized; a typed 429 embargo floors the next attempt) while the reply stays provably not attempted |
+| `tests/review-phase3-presend-read-failure-counter.spec.ts` | Final review: a retryable pre-POST provider read failure (503) advances the read-failure counter and persists a bounded classified error (backoff progresses, health trips) while no remote-attempt marker is written and no POST occurs |
+| `tests/review-phase3-health-error-redaction.spec.ts` | Final review (§10): effect-queue and pass failure health details carry a stable typed class and whitelisted HTTP status only; a synthetic secret marker in the error prose never reaches the operator panel |
+| `tests/review-phase3-operator-error-redaction.spec.ts` | Final review (§10): overview outgoing.error and ticket delivery note/deliveryError render the typed class and whitelisted status only (legacy records degrade to a generic class); the synthetic secret marker never renders, while the private bounded stored record is preserved |
+| `tests/review-phase4-real-gh-wire-shape.spec.ts` | Real-call validation repair: the real gh 2.103.2 `--paginate --slurp --include` wire shape (slurp-wrapped interleaved header blocks) parses through `pages()` - including JSON string content that literally contains header-block text - and the legacy headers-first shape stays typed |
+| `tests/review-final-outbox-recovery.spec.ts` | Final review Gate 1: ambiguous live sends park without proven idempotency, safe idempotent retries, server-validated rearm acknowledgement and the enqueue guard |
+| `tests/review-phase2-jsonl-kill.spec.ts` | Final review: delivery history over the real JSONL backend with a real SIGKILL of the writer |
+| `tests/review-phase2-agent-loop-kill.spec.ts` | Final review: real agent loop + real JSONL backend, real SIGKILL, restart resume and delivery; prefix sweep over the log (offline model) |
+| `tests/review-phase2-delivery-requeue.spec.ts` | Final review: AgentDelivery re-queue branches (idle, running, inject, throw-after-remove retry, revoked retry) on a fake agent |
+| `tests/review-phase2-markunrelated-ended.spec.ts` | Final review (NF-3): a stale orchestrator_thread_unrelated on an ended ticket is refused (ticketEnded) and mutates nothing; live control drops the subscription |
+| `tests/review-phase2-late-tools.spec.ts` | Final review: a worker whose assignment stopped during decoration keeps no registered tools (real decorate on the host fixture) |
+| `tests/review-phase9-symlink-containment.spec.ts` | Final review: workspace symlink/alias containment - an existing workspace path resolving outside its execution root fails closed (ticket failed, files preserved); root-itself-symlink supported |
+| `tests/review-phase9-containment-falsifiers.spec.ts` | Final review phase 9 (independent adversary): 12-case workspace containment falsifiers - outside/prepare/prefix-sibling/parent/relative/two-hop/record-reuse denied, in-root sibling and root-symlink allowed |
+| `tests/review-phase9-boundaries.spec.ts` | Final review phase 9: GitHub path and repository boundaries (cross-repository address, read resource, Commands.api, file tool) and the workspace-root symlink containment check |
+| `tests/issue-4-workspace-preparation.spec.ts` | Workspace preparation state: retries after failed and interrupted preparations, configuration invalidation, fail-closed legacy migration, timeout |
+| `tests/issue-5-preparation-cancellation.spec.ts` | Cancellation of a launch at every asynchronous boundary, and the settle a replacement Assignment waits for |
 | `tests/http.spec.ts` | The same-origin and loopback checks, the status of each kind of failure, the body limit, path parameters and queries |
 | `tests/settings.spec.ts` | Settings saves that race a model or account check, a Policy sync that a save outran, and the refusals of the pause, a sync and a block |
 | `tests/views.spec.ts` | What the management views derive from the Store, such as the Thread a dropped message belongs to |
@@ -442,10 +527,21 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/panel-settings.spec.tsx`, `panel-prompts.spec.tsx`, `panel-deployment.spec.tsx`, `panel-panel.spec.tsx` | The settings groups, drafts and history, the prompts, the Deployment page, and the panel's search, glossary and route memory |
 | `tests/draft.spec.ts`, `tests/prompt-config.spec.ts`, `tests/markdown.spec.ts`, `tests/marks.spec.ts` | Draft states, merges and the save bar's line; the prompt configuration by section and the line diff; the Markdown subset and its links; the mark of every state the views classify |
 | `tests/locales.spec.ts`, `tests/styles.spec.ts` | The copy in both languages, the stylesheet |
+| `tests/issue-6-stale-retries.spec.ts` | Issue 6: transient-failure retries revalidated as their message commits; stale retries discarded, a mid-delivery pause rescheduled |
+| `tests/issue-7-settings-notices.spec.ts`, `tests/issue-7-durable-notices.spec.ts` | Issue 7: settings notifications versioned by block revision; A→B→A→B all delivered, a redelivered revision injected once |
+| `tests/issue-8-subagent-ancestry.spec.ts`, `tests/issue-8-ancestry-resolution.spec.ts` | Issue 8: worker restrictions through validated or recorded managed ancestry, unloaded parents/restart, unrelated Sessions untouched |
 | `tests/class-docs.spec.ts` | Every class in `src` has a JSDoc block before it |
 | `tests/docs.spec.ts` | Numbered documents link only to earlier ones, every local link resolves, no document has merge conflict markers, and this document's tables list every module and every test |
 
 `tests/fixtures/` holds what several tests share: `host.ts`, a simulated DeepSeek Harness host; `panel-server.ts` and `panel.tsx`, the fake management API and the panel around a page; `deployment.ts`, a resolved deployment; `git.ts`, the environment of every git the tests start, which names no repository; and `async.ts`.
+
+| `tests/issue-13-coordinator-load.spec.ts` | Coordinator conservation and deterministic workload invariants. |
+| `tests/issue-14-hol-blocking.spec.ts` | Ordered head-of-line characterization and isolated partition fixture. |
+| `tests/issue-15-retry-backoff.spec.ts` | Retry baseline characterization and proposed jitter formula (under integration update). |
+
+| `tests/issue-17-disposal.spec.ts` | Disposed idle continuations and settlement abort, independently of slotwake. |
+
+| `tests/final-cross-scope-review.spec.ts` | Paused ordinary delivery and pre-create assignment cancellation guards. |
 
 ## Persistence
 
@@ -615,3 +711,11 @@ Point `DSH_HOME` at a temporary directory and create a new profile there. Copy t
 
 - Trust: which Trigger fields are trusted, such as the Source's actor and Thread membership, and which are not, such as the body and quotes.
 - Deployment isolation: the agent's profile on its own pinned DeepSeek Harness installation, so upgrading DeepSeek Harness elsewhere does not break it.
+
+### Independent safety review refinements (Issues 6-8)
+
+Automated transient retries revalidate current `settingsPolicy.revalidate(mandate)` before starting delivery and at its commit callback. This is a new-message boundary, not blanket revocation of active Mandates. Existing active work semantics remain unchanged.
+
+Settings notice delivery uses immutable `settings:<block>:<revision>` identity rather than payload serialization. Missing main Sessions leave notice effects pending. Informational notices coalesce per block; required policy inputs do not coalesce, and their append position distinguishes repeated transitions even within one millisecond.
+
+Observed managed descendants record one originating ticket ID per Session in `session-worker:` KV records. The record survives parent disposal and host restart, including ticket deletion. No unrelated Session records or event history are stored. This is constant data per managed Session, not a globally fixed-size store; records cannot be pruned on parent disposal without losing descendant protection. Upgrades require no schema change. Never-observed ancestry with missing parents, or a wholly unknown chain beyond the safety bound, cannot be proven managed. Such Sessions are logged but not restricted, preserving unrelated user Sessions. Universal protection for pre-upgrade or never-observed missing ancestry remains unproven. Async persistence header reads exist but would need a separate pre-execution gating design, not a silent permission change.

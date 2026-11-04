@@ -1,0 +1,55 @@
+Already up to date
+Done in 302ms using pnpm v11.7.0
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/backend-review[39m
+
+(node:2775) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+[90mstdout[2m | tests/zz-independent-presend.spec.ts[2m > [22m[2mpre-POST GitHub read HTTP 401 retains permanent/embargo policy
+[22m[39m{"status":401,"reads":1,"due":1005000,"error":"","attempts":0}
+
+[90mstdout[2m | tests/zz-independent-presend.spec.ts[2m > [22m[2mpre-POST GitHub read HTTP 429 retains permanent/embargo policy
+[22m[39m{"status":429,"reads":1,"due":1005000,"error":"","attempts":0}
+
+ [31m❯[39m tests/zz-independent-presend.spec.ts [2m([22m[2m2 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 23[2mms[22m[39m
+[31m   [31m×[31m pre-POST GitHub read HTTP 401 retains permanent/embargo policy[39m[32m 15[2mms[22m[39m
+[31m   [31m×[31m pre-POST GitHub read HTTP 429 retains permanent/embargo policy[39m[32m 7[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/zz-independent-presend.spec.ts[2m > [22mpre-POST GitHub read HTTP 401 retains permanent/embargo policy
+[31m[1mAssertionError[22m: expected '' to contain 'blocked:unauthorized'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- blocked:unauthorized[39m
+
+[36m [2m❯[22m tests/zz-independent-presend.spec.ts:[2m27:37[22m[39m
+    [90m 25|[39m  console[33m.[39m[34mlog[39m([33mJSON[39m[33m.[39m[34mstringify[39m({status[33m,[39mreads[33m,[39m[33m...[39mrow}))
+    [90m 26|[39m  [35mtry[39m {
+    [90m 27|[39m  [35mif[39m(status[33m===[39m[34m401[39m) [34mexpect[39m(row[33m.[39merror)[33m.[39m[34mtoContain[39m([32m'blocked:unauthorized'[39m)
+    [90m   |[39m                                     [31m^[39m
+    [90m 28|[39m  [35melse[39m [34mexpect[39m(row[33m.[39mdue)[33m.[39m[34mtoBeGreaterThanOrEqual[39m(now[33m+[39m[34m120_000[39m)
+    [90m 29|[39m  } finally {await effects.drain();store.close();rmSync(dir,{recursive:…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/zz-independent-presend.spec.ts[2m > [22mpre-POST GitHub read HTTP 429 retains permanent/embargo policy
+[31m[1mAssertionError[22m: expected 1005000 to be greater than or equal to 1120000[39m
+[36m [2m❯[22m tests/zz-independent-presend.spec.ts:[2m28:23[22m[39m
+    [90m 26|[39m  [35mtry[39m {
+    [90m 27|[39m  [35mif[39m(status[33m===[39m[34m401[39m) [34mexpect[39m(row[33m.[39merror)[33m.[39m[34mtoContain[39m([32m'blocked:unauthorized'[39m)
+    [90m 28|[39m  [35melse[39m [34mexpect[39m(row[33m.[39mdue)[33m.[39m[34mtoBeGreaterThanOrEqual[39m(now[33m+[39m[34m120_000[39m)
+    [90m   |[39m                       [31m^[39m
+    [90m 29|[39m  } finally {await effects.drain();store.close();rmSync(dir,{recursive:…
+    [90m 30|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[90m (2)[39m
+[2m   Start at [22m 14:05:43
+[2m   Duration [22m 628ms[2m (transform 382ms, setup 0ms, import 508ms, tests 23ms, environment 0ms)[22m
+

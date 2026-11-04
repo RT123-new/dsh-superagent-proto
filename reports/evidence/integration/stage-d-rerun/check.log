@@ -1,0 +1,25 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/home/sandbox/work/dsh-superagent-proto[39m
+
+(node:17399) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/stage-d/issue-16-slots.spec.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 1190[2mms[22m[39m
+   [33m[2m✓[22m[39m A: background work after a turn holds the slot until quiet; queued launches wait for it [33m 817[2mms[22m[39m
+(node:17410) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/stage-d/issue-18-startup.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 4603[2mms[22m[39m
+   [33m[2m✓[22m[39m restart recovery and restart storms: no lost or duplicated assignments, per-restart cost [33m 367[2mms[22m[39m
+   [33m[2m✓[22m[39m prompt decoration: triggerMessage, batchLine and inputMessage cost per delivery [33m 4137[2mms[22m[39m
+(node:17468) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/stage-d/issue-17-concurrency.spec.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 10202[2mms[22m[39m
+   [33m[2m✓[22m[39m capacity 3/6/12: throughput, completion times, memory, over three seeds [33m 6756[2mms[22m[39m
+   [33m[2m✓[22m[39m starvation: FIFO queues short tasks behind long ones; older queued tasks go first [33m 1061[2mms[22m[39m
+   [33m[2m✓[22m[39m slot refill after a turn end: prompt when the end relays, up to one 2s pass when it does not [33m 2052[2mms[22m[39m
+   [33m[2m✓[22m[39m failures: a hard worker failure fails its ticket without stalling the others [33m 333[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[32m14 passed[39m[22m[90m (14)[39m
+[2m   Start at [22m 07:11:12
+[2m   Duration [22m 17.26s[2m (transform 537ms, setup 0ms, import 1.02s, tests 15.99s, environment 0ms)[22m
+

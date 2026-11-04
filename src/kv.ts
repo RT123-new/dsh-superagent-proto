@@ -32,7 +32,10 @@ export const KV = {
   /** Runtime: the main Session's ID. */
   runtime: { masterId: record<string>('master-id') },
   /** Sessions: prompt revisions each Session has worked under, ordered oldest first; the last entry (`.at(-1)`) is its active revision. */
-  sessions: { prompts: family<number[], [session: string]>('session-prompts:') },
+  sessions: {
+    /** One immutable originating ticket per observed managed Session, retained after disposal/restart. No unrelated sessions or event history. */
+    worker: family<string, [session: string]>('session-worker:'),
+    prompts: family<number[], [session: string]>('session-prompts:') },
   /** Schema 11 migration: legacy main-Session queues imported into the effect table. */
   queues: { relays: record<{ id: string; text: string }[]>('relay-queue'), unsubscribed: record<string[]>('subscription-results'),
     prompts: record<number | null>('prompt-notification'), settings: record<number | null>('settings-notification') },
@@ -43,9 +46,11 @@ export const KV = {
    * per-stream cursor, start times by kind, and ETag; default-branch CI state; and per-PR CI fingerprint and revision (`revision`
    * counts reported CI changes so each produces a distinct Trigger ID).
    */
-  github: { since: record<string>('github-since'), retries: record<Record<string, Retry>>('github-retry'),
+  github: { since: record<string>('github-since'), notBefore: record<string>('github-not-before'), retries: record<Record<string, Retry>>('github-retry'),
+    notificationsLane: record<{ since: string; probeAt: string }>('github-notifications-lane'),
+    scan: record<{ lastCompletedScan: string; lastReconciliation?: string }>('github-notification-scan'),
     cursor: family<string, [number: number]>('github-cursor:'),
-    stream: family<{ since: string; started: Record<string, string>; etag?: string }, [stream: string]>('github-stream:'),
+    stream: family<{ since: string; started: Record<string, string>; etag?: string; lastReconciliation?: string }, [stream: string]>('github-stream:'),
     branchCi: record<{ branch?: string; failures?: string[]; revision: number }>('github-branch-ci'),
     ci: family<{ fingerprint: string; revision: number }, [number: number]>('github-ci:') },
   /**
@@ -54,5 +59,7 @@ export const KV = {
    */
   feishu: { chats: record<Record<string, boolean>>('feishu-chats'), history: family<string, [chat: string]>('feishu-history:'),
     topics: family<Record<string, string>, [chat: string]>('feishu-history-threads:'),
-    seen: family<string[], [thread: string]>('thread-seen:'), initialized: family<boolean, [thread: string]>('thread-initialized:') },
+    seen: family<string[], [thread: string]>('thread-seen:'), initialized: family<boolean, [thread: string]>('thread-initialized:'),
+    reconcile: family<string, [chat: string]>('feishu-reconcile:'),
+    started: family<string, [chat: string]>('feishu-started:') },
 }

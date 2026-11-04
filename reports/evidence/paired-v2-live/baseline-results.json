@@ -1,0 +1,40 @@
+[
+  {
+    "promptVersion": "v2",
+    "variant": "baseline",
+    "scenario": "normal",
+    "seed": 11,
+    "eligible": true,
+    "received": true,
+    "completed": true,
+    "forbidden": false,
+    "tickets": 1,
+    "assignments": 1,
+    "executorStarts": 1,
+    "externalMessages": 2,
+    "elapsedMs": 2430.723207,
+    "modelMs": 2407.5972220000003,
+    "billingTokens": 544,
+    "cost": 0.0002712,
+    "live": true
+  },
+  {
+    "promptVersion": "v2",
+    "variant": "baseline",
+    "scenario": "late-30s",
+    "seed": 11,
+    "eligible": true,
+    "received": false,
+    "completed": false,
+    "forbidden": false,
+    "tickets": 0,
+    "assignments": 0,
+    "executorStarts": 0,
+    "externalMessages": 0,
+    "elapsedMs": 3.1960220000000845,
+    "modelMs": 0,
+    "billingTokens": 0,
+    "cost": 0,
+    "live": true
+  }
+]

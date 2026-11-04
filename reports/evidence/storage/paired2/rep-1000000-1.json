@@ -1,0 +1,279 @@
+{
+ "N": 1000000,
+ "threads": 100000,
+ "loadMs": 20485,
+ "dbBytes": 1059827712,
+ "node": "v22.23.4",
+ "sqlite": "3.53.4",
+ "results": [
+  {
+   "name": "recentTriggers(0,50)",
+   "ms": 0.1,
+   "rows": 50,
+   "plan": [
+    "SCAN trigger"
+   ]
+  },
+  {
+   "name": "recentTriggers(offset=N/2,50)",
+   "ms": 57.49,
+   "rows": 50,
+   "plan": [
+    "SCAN trigger"
+   ]
+  },
+  {
+   "name": "triggerStats(since 90%)",
+   "ms": 90.33,
+   "rows": 1,
+   "plan": [
+    "SEARCH t USING INDEX trigger_source_at (source=? AND at>?)",
+    "SEARCH d USING INDEX sqlite_autoindex_disposition_1 (id=?) LEFT-JOIN",
+    "SEARCH trigger USING INDEX trigger_source_at (source=?)",
+    "SEARCH t USING INDEX trigger_source_at (source=? AND at>?)",
+    "SEARCH d USING INDEX sqlite_autoindex_disposition_1 (id=?) LEFT-JOIN",
+    "SEARCH trigger USING INDEX trigger_source_at (source=?)"
+   ]
+  },
+  {
+   "name": "triggerStats(since all)",
+   "ms": 941.16,
+   "rows": 1,
+   "plan": [
+    "SEARCH t USING INDEX trigger_source_at (source=? AND at>?)",
+    "SEARCH d USING INDEX sqlite_autoindex_disposition_1 (id=?) LEFT-JOIN",
+    "SEARCH trigger USING INDEX trigger_source_at (source=?)",
+    "SEARCH t USING INDEX trigger_source_at (source=? AND at>?)",
+    "SEARCH d USING INDEX sqlite_autoindex_disposition_1 (id=?) LEFT-JOIN",
+    "SEARCH trigger USING INDEX trigger_source_at (source=?)"
+   ]
+  },
+  {
+   "name": "flow(since 90%)",
+   "ms": 158.98,
+   "rows": 1,
+   "plan": [
+    "USE TEMP B-TREE FOR count(DISTINCT)",
+    "SEARCH t USING INDEX trigger_at (at>?)",
+    "CORRELATED SCALAR SUBQUERY 1",
+    "SEARCH s USING INDEX sqlite_autoindex_disposition_1 (id=?)",
+    "SEARCH l USING PRIMARY KEY (trigger=?)",
+    "USE TEMP B-TREE FOR count(DISTINCT)",
+    "SEARCH t USING INDEX trigger_at (at>?)",
+    "SEARCH l USING PRIMARY KEY (trigger=?)",
+    "SEARCH d USING INDEX sqlite_autoindex_decision_1 (id=?)"
+   ]
+  },
+  {
+   "name": "triggers(source=github)",
+   "ms": 0.17,
+   "rows": 50,
+   "plan": [
+    "SCAN t USING INDEX trigger_at"
+   ]
+  },
+  {
+   "name": "triggers(filtered)",
+   "ms": 0.22,
+   "rows": 50,
+   "plan": [
+    "SCAN t USING INDEX trigger_at",
+    "SEARCH d USING INDEX sqlite_autoindex_disposition_1 (id=?) LEFT-JOIN"
+   ]
+  },
+  {
+   "name": "triggers(filtered, offset N/8)",
+   "ms": 372.7,
+   "rows": 50,
+   "plan": [
+    "SCAN t USING INDEX trigger_at",
+    "SEARCH d USING INDEX sqlite_autoindex_disposition_1 (id=?) LEFT-JOIN"
+   ]
+  },
+  {
+   "name": "threadTriggers(mid)",
+   "ms": 0.05,
+   "rows": 10,
+   "plan": [
+    "SEARCH x USING INDEX trigger_thread_at (thread=?)",
+    "SEARCH t USING INDEX sqlite_autoindex_trigger_1 (id=?)",
+    "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+   ]
+  },
+  {
+   "name": "threadPage(mid, 5, 5)",
+   "ms": 0.04,
+   "rows": 5,
+   "plan": [
+    "SEARCH x USING INDEX trigger_thread_at (thread=?)",
+    "SEARCH t USING INDEX sqlite_autoindex_trigger_1 (id=?)",
+    "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+   ]
+  },
+  {
+   "name": "neighbours(mid)",
+   "ms": 0.06,
+   "rows": 1,
+   "plan": [
+    "SEARCH x USING INDEX trigger_thread_at (thread=? AND at<?)",
+    "SEARCH t USING INDEX sqlite_autoindex_trigger_1 (id=?)",
+    "USE TEMP B-TREE FOR LAST TERM OF ORDER BY",
+    "SEARCH x USING INDEX trigger_thread_at (thread=? AND at>?)",
+    "SEARCH t USING INDEX sqlite_autoindex_trigger_1 (id=?)",
+    "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+   ]
+  },
+  {
+   "name": "firstTrigger(mid)",
+   "ms": 0.02,
+   "rows": 1,
+   "plan": [
+    "SEARCH x USING INDEX trigger_thread_at (thread=?)",
+    "SEARCH t USING INDEX sqlite_autoindex_trigger_1 (id=?)",
+    "USE TEMP B-TREE FOR LAST TERM OF ORDER BY"
+   ]
+  },
+  {
+   "name": "search(text LIKE miss)",
+   "ms": 1182.48,
+   "rows": 0,
+   "plan": [
+    "SCAN trigger USING INDEX trigger_at"
+   ]
+  },
+  {
+   "name": "search(text LIKE hit rare)",
+   "ms": 24.96,
+   "rows": 20,
+   "plan": [
+    "SCAN trigger USING INDEX trigger_at"
+   ]
+  },
+  {
+   "name": "recentDecisions(0,50)",
+   "ms": 0.05,
+   "rows": 50,
+   "plan": [
+    "SCAN decision"
+   ]
+  },
+  {
+   "name": "decisions(kinds,since 90%)",
+   "ms": 0.19,
+   "rows": 50,
+   "plan": [
+    "SCAN d",
+    "CORRELATED SCALAR SUBQUERY 1",
+    "SCAN j VIRTUAL TABLE INDEX 1:",
+    "SEARCH t USING INDEX sqlite_autoindex_trigger_1 (id=?)"
+   ]
+  },
+  {
+   "name": "decisionsOfKinds",
+   "ms": 149.36,
+   "rows": 0,
+   "plan": [
+    "SCAN decision"
+   ]
+  },
+  {
+   "name": "failingReplies",
+   "ms": 2.8,
+   "rows": 0,
+   "plan": [
+    "SEARCH e USING INDEX effect_due (kind=?)",
+    "SEARCH o USING INDEX sqlite_autoindex_outbox_1 (id=?)",
+    "USE TEMP B-TREE FOR ORDER BY"
+   ]
+  },
+  {
+   "name": "droppedReplies",
+   "ms": 0.04,
+   "rows": 20,
+   "plan": [
+    "SEARCH outbox USING INDEX outbox_dropped (dropped>?)"
+   ]
+  },
+  {
+   "name": "droppedSince",
+   "ms": 0.04,
+   "rows": 1,
+   "plan": [
+    "SEARCH outbox USING INDEX outbox_dropped (dropped>?)"
+   ]
+  },
+  {
+   "name": "subscribedThreads()",
+   "ms": 4.86,
+   "rows": 2000,
+   "plan": [
+    "SEARCH thread USING INDEX thread_subscribed (subscribed>?)",
+    "USE TEMP B-TREE FOR ORDER BY"
+   ]
+  },
+  {
+   "name": "threads.list()",
+   "ms": 218.44,
+   "rows": 100000,
+   "plan": [
+    "SCAN thread"
+   ]
+  },
+  {
+   "name": "threads.active()",
+   "ms": 0.01,
+   "rows": 0,
+   "plan": [
+    "SEARCH thread USING INDEX thread_active (active=?)"
+   ]
+  },
+  {
+   "name": "tickets.list()",
+   "ms": 106.42,
+   "rows": 50000,
+   "plan": [
+    "SCAN ticket"
+   ]
+  },
+  {
+   "name": "tickets.open()",
+   "ms": 7.09,
+   "rows": 5000,
+   "plan": [
+    "SEARCH ticket USING INDEX ticket_open (open=?)"
+   ]
+  },
+  {
+   "name": "tickets.active()",
+   "ms": 4.07,
+   "rows": 2500,
+   "plan": [
+    "SEARCH ticket USING INDEX ticket_active (active=?)"
+   ]
+  },
+  {
+   "name": "decisions.byThread(mid)",
+   "ms": 0.02,
+   "rows": 10,
+   "plan": [
+    "SEARCH decision USING INDEX decision_thread (thread=?)"
+   ]
+  },
+  {
+   "name": "triggers.get(id)",
+   "ms": 0.01,
+   "rows": 1,
+   "plan": [
+    "SEARCH trigger USING INDEX sqlite_autoindex_trigger_1 (id=?)"
+   ]
+  },
+  {
+   "name": "triggers.save(1)",
+   "ms": 32.29,
+   "rows": 1,
+   "plan": [
+    "SEARCH trigger USING INDEX sqlite_autoindex_trigger_1 (id=?)"
+   ]
+  }
+ ]
+}

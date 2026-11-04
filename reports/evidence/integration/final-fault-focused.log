@@ -1,0 +1,30 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/home/sandbox/work/dsh-superagent-proto[39m
+
+(node:9866) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/issue-20-adversarial.spec.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 2399[2mms[22m[39m
+   [33m[2m✓[22m[39m SIGKILL after uncommitted save preserves decision/link atomicity [33m 768[2mms[22m[39m
+   [33m[2m✓[22m[39m SIGKILL after committed save preserves decision/link atomicity [33m 795[2mms[22m[39m
+   [33m[2m✓[22m[39m helper setup failure cannot satisfy the SIGKILL boundary evidence [33m 787[2mms[22m[39m
+(node:9969) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/issue-1-3-adversarial.spec.ts [2m([22m[2m9 tests[22m[2m)[22m[33m 627[2mms[22m[39m
+     [33m[2m✓[22m[39m does not use a first-page ETag to hide changed later pages [33m 395[2mms[22m[39m
+(node:9978) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/issue-19-20-storage.spec.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 445[2mms[22m[39m
+ [32m✓[39m tests/issue-4-5-adversarial.spec.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 267[2mms[22m[39m
+(node:9996) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/issue-9-hooks-adversarial.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 186[2mms[22m[39m
+(node:10007) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32m✓[39m tests/issue-15-adversarial.spec.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+ [32m✓[39m tests/issue-24-repository-scope.spec.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m      Tests [22m [1m[32m63 passed[39m[22m[90m (63)[39m
+[2m   Start at [22m 07:39:57
+[2m   Duration [22m 6.21s[2m (transform 630ms, setup 0ms, import 1.60s, tests 3.98s, environment 1ms)[22m
+

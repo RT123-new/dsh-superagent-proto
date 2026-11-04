@@ -84,7 +84,7 @@ export interface Outbox {
 
 /** What the Engine reports after a change, by event type. */
 export interface DomainEvents {
-  'trigger.received': { triggerId: string; threads: string[] }
+  'trigger.received': { triggerId: string; threads: string[]; /** Whether this intake actually queued the trigger for an Eval; false when a ticket owner decides it or it already waited. */ queued: boolean }
   'eval.started': { evalId: string; threadKey: string; triggerIds: string[]; strength: Strength }
   'decision.recorded': { decisionId: string; kind: DecisionKind; threadKey: string }
   'ticket.created': { ticketId: string; decisionId: string; strength: Strength }

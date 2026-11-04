@@ -207,6 +207,20 @@ it('shows a Source\'s health in the interface language, and a diagnostic as repo
   expect(feishu.querySelector('.dt-mono')?.textContent).toBe('socket closed')
 })
 
+it('keeps a ready Source\'s coded caveat visible, while an uncoded healthy detail stays hidden', async () => {
+  server.health = { ...server.health, github: { state: 'ready', code: 'notificationsUnsupported', values: { streams: 'comments' },
+      detail: 'GitHub notifications need a personal access token (classic), which this token is not; receiving repository activity only: comments' },
+    feishu: { state: 'ready', detail: '4 messages; next poll ≥ 60s' } }
+  await mount()
+  await click(zh['tab.source'])
+  const rows = all('.dt-form > .dt-list > .dt-row')
+  const github = rows.find(row => row.querySelector('.dt-row-name')?.textContent === 'GitHub')!
+  expect(github.textContent).toContain('仅接收仓库活动：comments')
+  expect(github.textContent).not.toContain('personal access token (classic), which this token is not')
+  const feishu = rows.find(row => row.querySelector('.dt-row-name')?.textContent === '飞书')!
+  expect(feishu.textContent).not.toContain('next poll')
+})
+
 it('shows a refused Source save with the output of the tool that failed on its own line', async () => {
   await mount()
   await click(zh['tab.source'])

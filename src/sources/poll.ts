@@ -12,8 +12,14 @@ export function polled(ctx: SourceContext, thread: Thread, now = Date.now()): bo
     .map(Date.parse).filter(Number.isFinite)
   return now - Math.max(...times) < POLL_HORIZON_MS
 }
-/** Steps a poll start timestamp back by 5 seconds so late-arriving remote events are not missed; deterministic trigger IDs deduplicate overlaps. */
-export const cursorAt = (started: string): string => new Date(Date.parse(started) - 5000).toISOString()
+/** Steps a poll start timestamp back by `replayMs` (default five seconds) so late-arriving remote events are not missed; deterministic trigger IDs deduplicate overlaps. */
+export const cursorAt = (started: string, replayMs = 5000): string => new Date(Date.parse(started) - replayMs).toISOString()
+/** True when a wide reconciliation scan is due: enabled (`intervalMinutes` above zero), and never run or last run at least that long ago. */
+export const reconcileDue = (last: string | undefined, started: string, intervalMinutes: number): boolean =>
+  intervalMinutes > 0 && (last === undefined || Date.parse(started) - Date.parse(last) >= intervalMinutes * 60_000)
+/** The window a recovery round scans: ordinarily from the cursor; when reconciliation is due, from the wider horizon. */
+export const recoverySince = (cursor: string, started: string, reconcile: boolean, horizonSeconds: number): string =>
+  reconcile ? new Date(Math.min(Date.parse(cursor), Date.parse(started) - horizonSeconds * 1000)).toISOString() : cursor
 /** Polls each subscribed Thread of `source` within the horizon independently; records failures on the Thread as `pollError` (unless `stopped()`) and clears `pollError` on success. */
 export async function pollThreads(ctx: SourceContext, source: string, stopped: () => boolean, poll: (thread: Thread) => Promise<void>,
   skip: (thread: Thread) => boolean = () => false): Promise<void> {
@@ -31,10 +37,19 @@ export async function pollThreads(ctx: SourceContext, source: string, stopped: (
 }
 /** Waits `ms` or until `signal` aborts using global `setTimeout` so test fake timers can drive polling loops. */
 export function pause(ms: number, signal: AbortSignal): Promise<void> {
+  // setTimeout fires immediately for delays above 2^31-1 ms, so a long trusted embargo is waited out in bounded slices (counted, not clock-read, so fake timers still drive it).
+  const SLICE = 2 ** 30
+  let left = Number.isFinite(ms) && ms > 0 ? ms : 0
   return new Promise(resolve => {
     if (signal.aborted) { resolve(); return }
+    let timer: ReturnType<typeof setTimeout>
     const stop = () => { clearTimeout(timer); resolve() }
-    const timer = setTimeout(() => { signal.removeEventListener('abort', stop); resolve() }, ms)
+    const wait = (): void => {
+      if (left <= SLICE) { timer = setTimeout(() => { signal.removeEventListener('abort', stop); resolve() }, left); return }
+      left -= SLICE
+      timer = setTimeout(wait, SLICE)
+    }
     signal.addEventListener('abort', stop, { once: true })
+    wait()
   })
 }

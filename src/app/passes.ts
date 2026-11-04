@@ -1,7 +1,9 @@
 /** Coordinates periodic and on-demand orchestration passes that drive due effects and Engine evaluations. */
 import type { Engine, ReceiveResult, Trigger } from '../core/index.ts'
+import { healthErrorDetail } from './retry-policy.ts'
 import type { HealthEntry } from '../infra/health.ts'
 import type { Effects } from './effects.ts'
+import type { Probe } from '../infra/metrics-probe.ts'
 
 export interface PassesHost {
   readonly engine: Pick<Engine, 'receive' | 'evaluateDue'>
@@ -10,6 +12,10 @@ export interface PassesHost {
   readonly lifetime: AbortSignal
   configured(): boolean
   closing(): boolean
+  /** Optional instrumentation; absent means none. */
+  readonly probe?: Probe
+  /** Optional receipt hooks for the lifecycle timeline: `note` at entry of `receive`, `drop` when no domain event follows. Must not throw. */
+  readonly arrival?: { note(triggerId: string): void; drop(triggerId: string): void }
 }
 
 const now = (): string => new Date().toISOString()
@@ -31,9 +37,19 @@ export class Passes {
     clearInterval(this.timer)
     return Promise.allSettled([this.pumping, this.pumpAgain])
   }
+  /** Receipt bookkeeping must not affect domain intake, including when a custom hook throws. */
+  private arrival(kind: 'note' | 'drop', triggerId: string): void {
+    try { this.host.arrival?.[kind](triggerId) } catch { this.host.probe?.count('metrics_error') }
+  }
   receive(trigger: Trigger): ReceiveResult {
     if (this.host.closing()) throw new Error('Orchestrator is stopping')
-    const result = this.host.engine.receive(trigger)
+    const stop = this.host.probe?.timer('trigger_intake', 'internal')
+    this.arrival('note', trigger.id)
+    let result: ReceiveResult
+    try { result = this.host.engine.receive(trigger) } catch (error) { stop?.('failed'); this.arrival('drop', trigger.id); throw error }
+    if (result !== 'stored') this.arrival('drop', trigger.id)
+    stop?.()
+    this.host.probe?.count(`trigger_${result}`)
     if (result === 'stored') this.request()
     return result
   }
@@ -42,7 +58,7 @@ export class Passes {
     this.pump().then(() => {
       if (health.get()?.state !== 'error' || this.host.lifetime.aborted) return
       health.set({ state: 'ready', detail: 'Orchestrator is ready', at: now() })
-    }, (error: unknown) => { health.set({ state: 'error', detail: `A pass failed: ${String(error)}`, at: now() }) })
+    }, (error: unknown) => { health.set({ state: 'error', detail: `A pass failed: ${healthErrorDetail(error)}`, at: now() }) })
   }
   /** Wait until no pass or effect that can start now is running. */
   async idle(): Promise<void> {

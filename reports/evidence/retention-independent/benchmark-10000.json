@@ -1,0 +1,1 @@
+{"N":10000,"batch":500,"before":10000,"after":3301,"pruned":6699,"tombstones":6699,"kept":{"newestOfSource":0,"firstOfThread":1666,"queuedOnThread":0,"referenced":353},"batches":18,"totalMs":1639,"msPerBatch":91.1,"msPer1kPruned":244.7,"liveMB":9,"archiveMB":5,"invariant":true}

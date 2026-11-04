@@ -1,0 +1,104 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/home/sandbox/rv/repo[39m
+
+RangeError: Invalid time value
+    at Date.toISOString (<anonymous>)
+    at MetricsPanel (/home/sandbox/rv/repo/src/client/metrics.tsx:23:68)
+    at renderWithHooks (/home/sandbox/rv/repo/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/home/sandbox/rv/repo/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/home/sandbox/rv/repo/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/home/sandbox/rv/repo/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/home/sandbox/rv/repo/node_modules/.pnpm/jsdom@29.1.1/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/home/sandbox/rv/repo/node_modules/.pnpm/jsdom@29.1.1/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/home/sandbox/rv/repo/node_modules/.pnpm/jsdom@29.1.1/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+    at HTMLUnknownElementImpl._dispatch (/home/sandbox/rv/repo/node_modules/.pnpm/jsdom@29.1.1/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:243:9)
+RangeError: Invalid time value
+    at Date.toISOString (<anonymous>)
+    at MetricsPanel (/home/sandbox/rv/repo/src/client/metrics.tsx:23:68)
+    at renderWithHooks (/home/sandbox/rv/repo/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/home/sandbox/rv/repo/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/home/sandbox/rv/repo/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/home/sandbox/rv/repo/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/home/sandbox/rv/repo/node_modules/.pnpm/jsdom@29.1.1/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/home/sandbox/rv/repo/node_modules/.pnpm/jsdom@29.1.1/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/home/sandbox/rv/repo/node_modules/.pnpm/jsdom@29.1.1/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+    at HTMLUnknownElementImpl._dispatch (/home/sandbox/rv/repo/node_modules/.pnpm/jsdom@29.1.1/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:243:9)
+[90mstderr[2m | tests/pr-final-metrics-review.spec.tsx[2m > [22m[2mM3: the dashboard panel renders (does not throw) when wall-clock bounds are missing or invalid
+[22m[39mThe above error occurred in the <MetricsPanel> component:
+
+    at MetricsPanel (/home/sandbox/rv/repo/src/client/metrics.tsx:22:34)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+ [31m❯[39m tests/pr-final-metrics-review.spec.tsx [2m([22m[2m4 tests[22m[2m | [22m[31m3 failed[39m[2m)[22m[33m 2650[2mms[22m[39m
+   [33m[2m✓[22m[39m M4: nearest-rank P50/P95 equal the exact integer ceil(p*n/100) for every window size [33m 2628[2mms[22m[39m
+[31m   [31m×[31m M1: counters saturate at MAX_SAFE_INTEGER instead of silently losing precision[39m[32m 3[2mms[22m[39m
+[31m   [31m×[31m M2: a backwards clock never becomes a zero-millisecond success sample in worker or domain timelines[39m[32m 3[2mms[22m[39m
+[31m   [31m×[31m M3: the dashboard panel renders (does not throw) when wall-clock bounds are missing or invalid[39m[32m 14[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 3 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/pr-final-metrics-review.spec.tsx[2m > [22mM1: counters saturate at MAX_SAFE_INTEGER instead of silently losing precision
+[31m[1mAssertionError[22m: expected 9007199254740996 to be less than or equal to 9007199254740991[39m
+[36m [2m❯[22m tests/pr-final-metrics-review.spec.tsx:[2m29:40[22m[39m
+    [90m 27|[39m   [35mconst[39m m [33m=[39m [35mnew[39m [33mMetrics[39m()
+    [90m 28|[39m   m.count('events', Number.MAX_SAFE_INTEGER); m.count('events', 5); m.…
+    [90m 29|[39m   expect(m.snapshot().counters.events).toBeLessThanOrEqual(Number.MAX_…
+    [90m   |[39m                                        [31m^[39m
+    [90m 30|[39m   [34mexpect[39m([33mNumber[39m[33m.[39m[34misSafeInteger[39m(m[33m.[39m[34msnapshot[39m()[33m.[39mcounters[33m.[39mevents))[33m.[39m[34mtoBe[39m([35mtrue[39m)
+    [90m 31|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/pr-final-metrics-review.spec.tsx[2m > [22mM2: a backwards clock never becomes a zero-millisecond success sample in worker or domain timelines
+[31m[1mAssertionError[22m: expected { Object (count, sumMs, ...) } to be undefined[39m
+
+[32m- Expected:[39m
+undefined
+
+[31m+ Received:[39m
+{
+  "count": 1,
+  "maxMs": 0,
+  "p50Ms": 0,
+  "p95Ms": 0,
+  "sumMs": 0,
+  "windowSize": 1,
+}
+
+[36m [2m❯[22m tests/pr-final-metrics-review.spec.tsx:[2m42:50[22m[39m
+    [90m 40|[39m   domain.observe({ type: 'decision.recorded', data: { decisionId: 'd',…
+    [90m 41|[39m   [35mconst[39m snap [33m=[39m metrics[33m.[39m[34msnapshot[39m()
+    [90m 42|[39m   [34mexpect[39m(snap[33m.[39mdurations[[32m'worker_turn|internal'[39m])[33m.[39m[34mtoBeUndefined[39m()
+    [90m   |[39m                                                  [31m^[39m
+    [90m 43|[39m   [34mexpect[39m(snap[33m.[39mcounters[33m.[39minvalid_duration)[33m.[39m[34mtoBeGreaterThanOrEqual[39m([34m1[39m)
+    [90m 44|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/pr-final-metrics-review.spec.tsx[2m > [22mM3: the dashboard panel renders (does not throw) when wall-clock bounds are missing or invalid
+[31m[1mAssertionError[22m: expected [Function] to not throw an error but 'RangeError: Invalid time value' was thrown[39m
+
+[32m- Expected:[39m
+undefined
+
+[31m+ Received:[39m
+"RangeError: Invalid time value"
+
+[36m [2m❯[22m tests/pr-final-metrics-review.spec.tsx:[2m49:99[22m[39m
+    [90m 47|[39m   const node = document.createElement('div'); document.body.append(nod…
+    [90m 48|[39m   [35mconst[39m root [33m=[39m [34mcreateRoot[39m(node)[33m;[39m roots[33m.[39m[34mpush[39m(root)
+    [90m 49|[39m   expect(() => act(() => { root.render(<MetricsPanel metrics={snap} t=…
+    [90m   |[39m                                                                                                   [31m^[39m
+    [90m 50|[39m   [34mexpect[39m(node[33m.[39mtextContent)[33m.[39m[34mtoContain[39m(en[33m.[39mmetricsTitle)
+    [90m 51|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 08:02:52
+[2m   Duration [22m 3.45s[2m (transform 165ms, setup 0ms, import 244ms, tests 2.65s, environment 438ms)[22m
+

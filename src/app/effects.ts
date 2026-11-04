@@ -7,6 +7,9 @@ export class Later extends Error {}
 export const FAILURES_BEFORE_ERROR = 3
 import type { HealthBoard, HealthEntry } from '../infra/health.ts'
 import type { Store } from './store.ts'
+import { Probe } from '../infra/metrics-probe.ts'
+import { errorRecord, retryDecision, classifyError, healthErrorDetail, healthStoredError } from './retry-policy.ts'
+import { AttemptUnknownError, SendNotAttempted } from '../sources/send.ts'
 
 export interface EffectPayloads {
   /** Build an Eval's candidate card and relay it to the main Session; the key is the Eval ID. */
@@ -33,15 +36,32 @@ interface Handler<K extends EffectKind> {
   ordered: boolean
   /** When true, repeated failures do not mark the effect kind's health entry as `error` (used when failures are already surfaced on a ticket). */
   quiet: boolean
+  /** Write a durable attempt-start marker on the row before `run`, for handlers whose remote effect may happen before local settlement. */
+  markAttempt: boolean
 }
-type Options<K extends EffectKind> = Partial<Pick<Handler<K>, 'limit' | 'retry' | 'ordered' | 'quiet'>>
+type Options<K extends EffectKind> = Partial<Pick<Handler<K>, 'limit' | 'retry' | 'ordered' | 'quiet' | 'markAttempt'>>
+/**
+ * Durable attempt markers, kept as a SUFFIX of the existing `error` column so they compose with failure text and never hide
+ * the `blocked:` prefix. `[attempt-started]`: an attempt is in flight (or the host died in it). `[attempt-unknown]`: an
+ * attempt began and the host stopped before its outcome was recorded, so the remote effect may have happened. Unknown is sticky:
+ * later failures keep it, and only a recorded success (row deleted) or an explicit re-enqueue (new payload) clears it.
+ */
+export const ATTEMPT_STARTED = '[attempt-started]'
+export const ATTEMPT_UNKNOWN = '[attempt-unknown]'
+// Markers are trusted only as the exact suffix we append. Remote failure text is neutralised first so it cannot spoof one.
+const neutralise = (text: string): string => text.replaceAll('[attempt-', '(attempt-')
+const hasMarker = (error: string, marker: string): boolean => error === marker || error.endsWith(` ${marker}`)
+const withMarker = (error: string, marker: string): string => hasMarker(error, marker) ? error : error ? `${error} ${marker}` : marker
 /** `seq` preserves the row's queue position; `generation` increments on payload updates so a running attempt does not delete a newer payload. */
-interface Row { key: string; value: string; seq: number; generation: number; attempts: number; due: number }
-type Task = { kind: EffectKind; key: string; done: Promise<void> }
+interface Row { error: string; key: string; value: string; seq: number; generation: number; attempts: number; due: number; since?: string }
+type Task = { kind: EffectKind; key: string; generation: number; done: Promise<void> }
+
+/** Legacy timestamp interval on parked rows; blocked rows never dispatch until explicitly re-enqueued. */
+export const BLOCKED_RECHECK_MS = 3600_000
 
 /**
- * Durable SQLite-backed queue that persists side effects inside command transactions and dispatches them after commit.
- * Coordinates per-kind handlers, concurrency limits, exponential backoff, and health reporting for MasterAssessor, DshExecutor, Sessions, and Outbox.
+ * Durable SQLite-backed side-effect queue: ordered dispatch, coalescing, bounded retry jitter, visible blocked rows,
+ * health reporting and transaction-safe generation guards. Explicit re-enqueue is the only blocked-row rearm.
  */
 export class Effects {
   private readonly handlers = new Map<EffectKind, Handler<never>>()
@@ -54,11 +74,21 @@ export class Effects {
   /** Effects run only between `start` and `drain`; rows queued before `start` wait, such as while setup is incomplete. */
   private started = false
   private stopped = false
-  constructor(private readonly store: Store, private readonly board: Pick<HealthBoard, 'claim'>, private readonly now = () => Date.now()) {
+  constructor(private readonly store: Store, private readonly board: Pick<HealthBoard, 'claim'>, private readonly now = () => Date.now(), private readonly probe: Probe = new Probe(undefined),
+    /** Randomness source for retry jitter; tests inject a seeded PRNG for deterministic schedules. */
+    private readonly rng: () => number = Math.random,
+    /** Runtime closing signal (stopping or state lock lost): once true, no effect dispatches. */
+    private readonly closing: () => boolean = () => false) {
     this.seq = Number(store.db.prepare('SELECT IFNULL(MAX(seq), 0) AS seq FROM effect').get()?.seq ?? 0)
   }
   /** Upserts an effect in the caller's transaction, coalescing with any waiting row of the same kind and key while keeping its queue position. */
   enqueue<K extends EffectKind>(kind: K, key: string, payload: EffectPayloads[K]): void {
+    // A crash-uncertain reply recovers only through explicit operator rearm: an ordinary enqueue (such as a coalesced
+    // upsert) must never silently clear its block and make it automatically retryable. Other kinds keep coalescing.
+    if (kind === 'reply') {
+      const existing = this.store.db.prepare("SELECT error FROM effect WHERE kind = 'reply' AND key = ?").get(key) as { error: string } | undefined
+      if (typeof existing?.error === 'string' && existing.error.startsWith('blocked:unknown_outcome')) { this.kick(); return }
+    }
     this.store.db.prepare(`INSERT INTO effect (kind, key, value, seq, due, since) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(kind, key) DO UPDATE
       SET value = excluded.value, generation = generation + 1, attempts = 0, error = '', due = excluded.due`)
       .run(kind, key, JSON.stringify(payload), ++this.seq, this.now(), new Date(this.now()).toISOString())
@@ -67,20 +97,107 @@ export class Effects {
   handle<K extends EffectKind>(kind: K, run: Handler<K>['run'], options: Options<K> = {}): void {
     if (this.handlers.has(kind)) throw new Error(`The ${kind} effects already have a handler`)
     this.health.set(kind, this.board.claim(kind))
-    const { limit = () => 1, retry = [2000, 60_000], ordered = false, quiet = false } = options
-    this.handlers.set(kind, { run, limit: ordered ? () => Math.min(1, limit()) : limit, retry, ordered, quiet } as unknown as Handler<never>)
+    const { limit = () => 1, retry = [2000, 60_000], ordered = false, quiet = false, markAttempt = false } = options
+    this.handlers.set(kind, { run, limit: ordered ? () => Math.min(1, limit()) : limit, retry, ordered, quiet, markAttempt } as unknown as Handler<never>)
     this.report(kind)
     this.kick()
   }
+  /** Reports the authoritative number of waiting effect rows (all kinds) to the metrics collector; call immediately before reading a snapshot. */
+  measure(): void {
+    if (!this.probe.enabled) return
+    try {
+      const total = Number(this.store.db.prepare('SELECT COUNT(*) AS total FROM effect').get()?.total ?? 0)
+      const exists = this.store.db.prepare('SELECT 1 FROM effect WHERE kind = ? AND key = ? AND generation = ?')
+      const running = [...this.tasks].filter(task => exists.get(task.kind, task.key, task.generation)).length
+      this.probe.queueLength('effect', Math.max(0, total - running))
+    } catch { this.probe.count('metrics_error') }
+  }
   pending(kind: EffectKind, key?: string): boolean {
     return key === undefined ? !!this.store.db.prepare('SELECT 1 FROM effect WHERE kind = ? LIMIT 1').get(kind) : !!this.store.db.prepare('SELECT 1 FROM effect WHERE kind = ? AND key = ?').get(kind, key)
+  }
+  /** Rows parked as `blocked:` for a kind, oldest first. Remote text is already neutralised; callers may show it. */
+  blocked(kind: EffectKind): { key: string; error: string; attempts: number; since: string; generation: number }[] {
+    return this.store.db.prepare("SELECT key, error, attempts, since, generation FROM effect WHERE kind = ? AND error LIKE 'blocked:%' ORDER BY seq").all(kind) as never
+  }
+  /**
+   * One bounded page of blocked rows across all kinds in deterministic global `seq` order; `after` is the last seen
+   * seq (keyset: rows inserted or removed between pages never shift the continuation). `limit` is required.
+   */
+  blockedPage(opts: { limit: number; after?: number }): { kind: EffectKind; key: string; error: string; attempts: number; since: string; generation: number; seq: number }[] {
+    return this.store.db.prepare("SELECT kind, key, error, attempts, since, generation, seq FROM effect WHERE error LIKE 'blocked:%' AND seq > ? ORDER BY seq LIMIT ?")
+      .all(opts.after ?? 0, opts.limit) as never
+  }
+  /** The authoritative blocked-row total, independent of pagination. */
+  blockedCount(): number {
+    return Number((this.store.db.prepare("SELECT count(*) AS n FROM effect WHERE error LIKE 'blocked:%'").get() as { n: number }).n)
+  }
+  /**
+   * Explicit operator recovery of a parked row: it becomes due now and is dispatched again (an ordered kind then resumes behind it).
+   * Never called automatically. A sticky `[attempt-unknown]` marker is kept, since the earlier attempt's outcome is still not known.
+   * Returns false when the row does not exist or is not blocked. The alternative, dropping the row, is `cancel`.
+   */
+  rearm(kind: EffectKind, key: string, acknowledgement?: { acknowledgeUnknownOutcome?: boolean; expectedGeneration?: number }): { rearmed: boolean; requiresAcknowledgement?: boolean } {
+    const row = this.store.db.prepare("SELECT error, generation FROM effect WHERE kind = ? AND key = ? AND error LIKE 'blocked:%'").get(kind, key) as { error: string; generation: number } | undefined
+    if (typeof row?.error !== 'string') return { rearmed: false }
+    // Refuse while an attempt is (or may be) in flight: rearming would drop its started marker and could run a concurrent duplicate.
+    if (hasMarker(row.error, ATTEMPT_STARTED) || [...this.tasks].some(task => task.kind === kind && task.key === key)) return { rearmed: false }
+    // A stale rearm request (issued against an older view of the row) must never modify a newer generation: when the
+    // caller supplies the generation it saw, the conditional update below matches it atomically.
+    if (acknowledgement?.expectedGeneration !== undefined && acknowledgement.expectedGeneration !== row.generation) return { rearmed: false }
+    const unknown = hasMarker(row.error, ATTEMPT_UNKNOWN)
+    // An unknown-outcome row may duplicate a remote send when retried: the operator must explicitly acknowledge that risk,
+    // and the server validates it here rather than trusting a client-side dialog.
+    if (unknown && acknowledgement?.acknowledgeUnknownOutcome !== true) return { rearmed: false, requiresAcknowledgement: true }
+    const error = unknown ? ATTEMPT_UNKNOWN : ''
+    // Conditional update on the exact blocked state (and generation when supplied) read above: a rearm cannot modify a
+    // row that changed since (a newer generation, a fresh block, or a row another path already rearmed).
+    const result = this.store.db.prepare('UPDATE effect SET error = ?, attempts = 0, due = ?, generation = generation + 1 WHERE kind = ? AND key = ? AND error = ? AND generation = ?')
+      .run(error, this.now(), kind, key, row.error, row.generation)
+    if (Number(result.changes) !== 1) return { rearmed: false }
+    this.kick()
+    return { rearmed: true }
   }
   /** Drops a queued row by kind and key; if it is already running, that attempt finishes normally. */
   cancel(kind: EffectKind, key: string): void {
     this.store.db.prepare('DELETE FROM effect WHERE kind = ? AND key = ?').run(kind, key)
     this.store.afterCommit(() => { this.report(kind) })
   }
-  start(): void { this.started = true; this.kick() }
+  start(): void {
+    // An interrupted remote send has an unknown outcome: retrying it automatically can post a duplicate.
+    // Keep the existing receipt and row, but require explicit operator rearm for reply effects.
+    // This also parks legacy unknown rows that an earlier version could retry automatically.
+    const rows = this.store.db.prepare(`SELECT kind, key, error FROM effect WHERE error LIKE ? OR (kind = 'reply' AND error LIKE ?)`)
+      .all(`%${ATTEMPT_STARTED}`, `%${ATTEMPT_UNKNOWN}`) as { kind: string; key: string; error: string }[]
+    let interrupted = 0, parked = 0
+    for (const row of rows) {
+      const wasStarted = hasMarker(row.error, ATTEMPT_STARTED)
+      const wasUnknown = hasMarker(row.error, ATTEMPT_UNKNOWN)
+      if (!wasStarted && !wasUnknown) continue
+      if (wasStarted) interrupted++
+      const settled = wasStarted ? withMarker(row.error.slice(0, -ATTEMPT_STARTED.length).trimEnd(), ATTEMPT_UNKNOWN) : row.error
+      const mustPark = row.kind === 'reply' && !settled.startsWith('blocked:')
+      const error = mustPark
+        ? `blocked:unknown_outcome: remote send may have succeeded; explicit operator review required ${settled}`
+        : settled
+      if (mustPark) parked++
+      if (error !== row.error) this.store.db.prepare('UPDATE effect SET error = ? WHERE kind = ? AND key = ? AND error = ?')
+        .run(error, row.kind, row.key, row.error)
+      // The attempt marker is the conservative upper bound of provider contact: a crash-parked reply must carry that
+      // uncertainty onto its receipt so the pre-dispatch idempotency-window gate can never redispatch it blindly.
+      if (mustPark) this.store.receipts.markProviderContact(row.key)
+    }
+    if (interrupted) this.probe.count('effect_attempt_unknown', interrupted)
+    if (parked) {
+      this.probe.count('effect_unknown_parked', parked)
+      if (this.handlers.has('reply')) this.report('reply')
+    }
+    this.started = true; this.kick()
+  }
+  /** Whether the row's last attempt was interrupted before its outcome was recorded (duplicate remote effect possible on retry). */
+  attemptUnknown(kind: EffectKind, key: string): boolean {
+    const row = this.store.db.prepare('SELECT error FROM effect WHERE kind = ? AND key = ?').get(kind, key)
+    return typeof row?.error === 'string' && hasMarker(row.error, ATTEMPT_UNKNOWN)
+  }
   kick(): void {
     if (this.scheduled) return
     this.scheduled = true
@@ -101,16 +218,16 @@ export class Effects {
     await Promise.allSettled([...this.tasks].map(task => task.done))
   }
   private dispatch(): void {
-    if (!this.started || this.stopped) return
+    if (!this.started || this.stopped || this.closing()) return
     for (const [kind, handler] of this.handlers) {
       try {
         const running = new Set([...this.tasks].filter(task => task.kind === kind).map(task => task.key))
         // Ordered kinds block behind their oldest row even when it is not yet due; limit() is queried only after ready rows exist.
         const rows = (handler.ordered
-          ? this.store.db.prepare('SELECT key, value, seq, generation, attempts, due FROM effect WHERE kind = ? ORDER BY seq LIMIT 1').all(kind)
-          : this.store.db.prepare('SELECT key, value, seq, generation, attempts, due FROM effect WHERE kind = ? AND due <= ? ORDER BY seq LIMIT ?')
+          ? this.store.db.prepare('SELECT key, value, seq, generation, attempts, due, since, error FROM effect WHERE kind = ? ORDER BY seq LIMIT 1').all(kind)
+          : this.store.db.prepare("SELECT key, value, seq, generation, attempts, due, since, error FROM effect WHERE kind = ? AND due <= ? AND error NOT LIKE 'blocked:%' ORDER BY seq LIMIT ?")
             .all(kind, this.now(), 16 + running.size)) as unknown as Row[]
-        const ready = handler.ordered && running.size ? [] : rows.filter(row => row.due <= this.now() && !running.has(row.key))
+        const ready = handler.ordered && running.size ? [] : rows.filter(row => !row.error.startsWith('blocked:') && row.due <= this.now() && !running.has(row.key))
         let room = ready.length ? handler.limit() - running.size : 0
         for (const row of ready) {
           if (room-- <= 0) break
@@ -121,7 +238,7 @@ export class Effects {
     }
   }
   private run(kind: EffectKind, handler: Handler<never>, row: Row): void {
-    const task: Task = { kind, key: row.key, done: Promise.resolve() }
+    const task: Task = { kind, key: row.key, generation: row.generation, done: Promise.resolve() }
     task.done = this.attempt(kind, handler, row)
       .catch((error: unknown) => { this.failed(kind, error) })
       .finally(() => { this.tasks.delete(task); this.kick() })
@@ -129,33 +246,86 @@ export class Effects {
   }
   private async attempt(kind: EffectKind, handler: Handler<never>, row: Row): Promise<void> {
     let failure: { error: unknown } | undefined
+    // Wall-clock, persisted: `due` to start is scheduling lateness; `since` (first enqueue, kept across coalescing and retries) to
+    // start is the total age including retry backoff. Neither is a monotonic measurement and both are clamped at 0.
+    const startedAt = this.now(), since = row.since ? Date.parse(row.since) : Number.NaN
+    this.probe.observe('effect_schedule_lateness', 'internal', Math.max(0, startedAt - row.due))
+    if (Number.isFinite(since)) this.probe.observe('effect_total_age', 'internal', Math.max(0, startedAt - since))
+    const stop = this.probe.timer('effect_run', 'internal')
+    if (handler.markAttempt && !hasMarker(row.error, ATTEMPT_UNKNOWN)) {
+      // Written before the remote effect so a crash after provider acceptance is not durably identical to "never attempted".
+      // Applies to every attempt, including retries after failures; an existing unknown marker is kept, not replaced.
+      this.store.db.prepare(`UPDATE effect SET error = ? WHERE kind = ? AND key = ? AND seq = ? AND generation = ?`)
+        .run(withMarker(row.error, ATTEMPT_STARTED), kind, row.key, row.seq, row.generation)
+    }
+    const unknownBefore = hasMarker(row.error, ATTEMPT_UNKNOWN)
     try { await handler.run(JSON.parse(row.value) as never, row.key) } catch (error) { failure = { error } }
+    stop(failure ? 'failed' : 'ok')
+    if (failure) this.probe.count(failure.error instanceof Later ? 'effect_later' : 'effect_retry')
     // Match seq and generation so a row replaced or re-queued while running is not overwritten.
+    const keep = (text: string): string => unknownBefore ? withMarker(text, ATTEMPT_UNKNOWN) : text
     const own = 'kind = ? AND key = ? AND seq = ? AND generation = ?', ownRow = [kind, row.key, row.seq, row.generation] as const
     if (!failure) this.store.db.prepare(`DELETE FROM effect WHERE ${own}`).run(...ownRow)
     // Leave running rows untouched on shutdown so they retry on the next start.
     else if (this.stopped) return
     else if (failure.error instanceof Later) {
-      this.store.db.prepare(`UPDATE effect SET due = ? WHERE ${own}`).run(this.now() + handler.retry[0], ...ownRow)
-    } else {
-      const delay = Math.min(handler.retry[1], handler.retry[0] * 2 ** Math.min(row.attempts, 16))
+      // `Later` means nothing was sent: drop only the in-flight marker, keep a sticky unknown one.
+      this.store.db.prepare(`UPDATE effect SET due = ?, error = ? WHERE ${own}`).run(this.now() + handler.retry[0], row.error, ...ownRow)
+    } else if (failure.error instanceof SendNotAttempted && !failure.error.permanent && failure.error.cause === undefined) {
+      // Proven not attempted for a LOCAL reason (liveness, validation): same treatment as Later.
+      this.store.db.prepare(`UPDATE effect SET due = ?, error = ? WHERE ${own}`).run(this.now() + handler.retry[0], row.error, ...ownRow)
+    } else if (failure.error instanceof SendNotAttempted && !failure.error.permanent) {
+      // Proven not attempted against the PROVIDER (a pre-send read failed): the original cause keeps its policy -
+      // unauthorised parks visibly, a typed rate-limit embargo floors the next attempt - while no remote attempt
+      // marker is written and no POST occurs. A retry DOES advance the retry counter and persist a bounded classified
+      // error record: the counter is a read-failure count (never a remote-attempt marker) and without it the row would
+      // retry forever at first-attempt jitter with health stuck at ready.
+      const decision = retryDecision(failure.error.cause, row.attempts, handler.retry[0], handler.retry[1], this.rng, this.now())
+      if (decision.retry) this.store.db.prepare(`UPDATE effect SET attempts = attempts + 1, error = ?, due = ? WHERE ${own}`)
+        .run(keep(neutralise(errorRecord(failure.error.cause, decision.class))), this.now() + decision.delay, ...ownRow)
+      else this.store.db.prepare(`UPDATE effect SET attempts = attempts + 1, error = ?, due = ? WHERE ${own}`)
+        .run(keep(neutralise(`blocked:${decision.class}: ${errorRecord(failure.error.cause, decision.class)}`)), this.now() + BLOCKED_RECHECK_MS, ...ownRow)
+    } else if (failure.error instanceof SendNotAttempted) {
+      // Proven not attempted and permanently invalid: park visibly without an attempt marker; no retry can succeed.
       this.store.db.prepare(`UPDATE effect SET attempts = attempts + 1, error = ?, due = ? WHERE ${own}`)
-        .run(String(failure.error).slice(0, 1000), this.now() + delay, ...ownRow)
+        .run(keep(neutralise(`blocked:permanent: ${errorRecord(failure.error, 'permanent')}`)), this.now() + BLOCKED_RECHECK_MS, ...ownRow)
+    } else if (failure.error instanceof AttemptUnknownError) {
+      // A provider may have accepted the send and the channel has no proven idempotency: park exactly like the crash
+      // path (blocked, unknown marker, explicit acknowledged rearm is the only recovery), never an automatic retry.
+      this.probe.count('effect_attempt_unknown')
+      this.store.db.prepare(`UPDATE effect SET attempts = attempts + 1, error = ?, due = ? WHERE ${own}`)
+        .run(withMarker(neutralise(`blocked:unknown_outcome: ${errorRecord(failure.error.cause, classifyError(failure.error.cause))}`), ATTEMPT_UNKNOWN), this.now() + BLOCKED_RECHECK_MS, ...ownRow)
+    } else {
+      const decision = retryDecision(failure.error, row.attempts, handler.retry[0], handler.retry[1], this.rng, this.now())
+      if (decision.retry) {
+        // Bounded-jitter exponential backoff (Issue 15): keeps the kind's configured base/max as d_base/d_max.
+        this.store.db.prepare(`UPDATE effect SET attempts = attempts + 1, error = ?, due = ? WHERE ${own}`)
+          .run(keep(neutralise(errorRecord(failure.error, decision.class))), this.now() + decision.delay, ...ownRow)
+      } else {
+        // Permanent/unauthorised/cancelled/programming failures are never silently dropped: park the row visibly
+        // (`blocked:<class>` surfaces in health at once), never dispatch them again until explicit re-enqueue,
+        // whose upsert resets attempts and due. Policy-transition effects reach here only via real handler failures.
+        this.store.db.prepare(`UPDATE effect SET attempts = attempts + 1, error = ?, due = ? WHERE ${own}`)
+          .run(keep(neutralise(`blocked:${decision.class}: ${errorRecord(failure.error, decision.class)}`)), this.now() + BLOCKED_RECHECK_MS, ...ownRow)
+      }
     }
     if (!this.stopped) this.report(kind)
   }
   private failed(kind: EffectKind, error: unknown): void {
     this.broken.add(kind)
-    this.health.get(kind)?.set({ state: 'error', detail: `The effect queue failed: ${String(error)}`, at: new Date(this.now()).toISOString() })
+    // §10: a typed class + whitelisted status only; arbitrary error prose (provider remote text) never reaches the operator panel.
+    this.health.get(kind)?.set({ state: 'error', detail: `The effect queue failed: ${healthErrorDetail(error)}`, at: new Date(this.now()).toISOString() })
   }
   private report(kind: EffectKind): void {
     const row = this.store.db.prepare(`SELECT COUNT(*) AS waiting, MIN(since) AS since, MAX(attempts) AS attempts,
-      (SELECT error FROM effect WHERE kind = ? AND attempts > 0 ORDER BY seq DESC LIMIT 1) AS error FROM effect WHERE kind = ?`).get(kind, kind)
+      (SELECT error FROM effect WHERE kind = ? AND attempts > 0 ORDER BY (error LIKE 'blocked:%') DESC, seq DESC LIMIT 1) AS error,
+      SUM(CASE WHEN error LIKE 'blocked:%' THEN 1 ELSE 0 END) AS blocked FROM effect WHERE kind = ?`).get(kind, kind)
     const waiting = Number(row?.waiting ?? 0)
-    const failing = Number(row?.attempts ?? 0) >= FAILURES_BEFORE_ERROR && !this.handlers.get(kind)?.quiet
+    const blocked = Number(row?.blocked ?? 0) > 0
+    const failing = (Number(row?.attempts ?? 0) >= FAILURES_BEFORE_ERROR || blocked) && (!this.handlers.get(kind)?.quiet || blocked)
     const detail = waiting ? `${waiting} waiting since ${String(row?.since)}` : 'Nothing waiting'
     this.health.get(kind)?.set(failing
-      ? { state: 'error', detail: `${detail}; the last failure: ${String(row?.error)}`, at: new Date(this.now()).toISOString() }
+      ? { state: 'error', detail: `${detail}; the last failure: ${healthStoredError(row?.error)}`, at: new Date(this.now()).toISOString() }
       : { state: 'ready', detail, at: new Date(this.now()).toISOString() })
   }
 }

@@ -1,0 +1,86 @@
+{
+ "N": 100000,
+ "cut": "2025-07-12T16:00:00.000Z",
+ "vacuumIntoMs": 96,
+ "backupApiMs": 66,
+ "vacuumInto": {
+  "integrity": "ok",
+  "triggers": 100000,
+  "thread": 100000,
+  "disp": 100000,
+  "bytes": 57430016
+ },
+ "backupApi": {
+  "integrity": "ok",
+  "triggers": 100000,
+  "thread": 100000,
+  "disp": 100000,
+  "bytes": 58867712
+ },
+ "crashTrials": [
+  {
+   "k": 0,
+   "deletedAtKill": 500,
+   "batchAtomic": true,
+   "integrity": "ok",
+   "resumedFinalTriggers": 40000,
+   "expectedFinal": 40000
+  },
+  {
+   "k": 1,
+   "deletedAtKill": 2500,
+   "batchAtomic": true,
+   "integrity": "ok",
+   "resumedFinalTriggers": 40000,
+   "expectedFinal": 40000
+  },
+  {
+   "k": 2,
+   "deletedAtKill": 0,
+   "batchAtomic": true,
+   "integrity": "ok",
+   "resumedFinalTriggers": 40000,
+   "expectedFinal": 40000
+  },
+  {
+   "k": 3,
+   "deletedAtKill": 2500,
+   "batchAtomic": true,
+   "integrity": "ok",
+   "resumedFinalTriggers": 40000,
+   "expectedFinal": 40000
+  },
+  {
+   "k": 4,
+   "deletedAtKill": 0,
+   "batchAtomic": true,
+   "integrity": "ok",
+   "resumedFinalTriggers": 40000,
+   "expectedFinal": 40000
+  },
+  {
+   "k": 5,
+   "deletedAtKill": 0,
+   "batchAtomic": true,
+   "integrity": "ok",
+   "resumedFinalTriggers": 40000,
+   "expectedFinal": 40000
+  },
+  {
+   "k": 6,
+   "deletedAtKill": 2500,
+   "batchAtomic": true,
+   "integrity": "ok",
+   "resumedFinalTriggers": 40000,
+   "expectedFinal": 40000
+  },
+  {
+   "k": 7,
+   "deletedAtKill": 0,
+   "batchAtomic": true,
+   "integrity": "ok",
+   "resumedFinalTriggers": 40000,
+   "expectedFinal": 40000
+  }
+ ]
+}
