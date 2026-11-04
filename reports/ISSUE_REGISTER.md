@@ -171,7 +171,7 @@ Tag `reviewed/correctness-stage-b` includes all reviewed Issue1-8 repairs and PR
 
 ## Current programme disposition checkpoint (supersedes stale stage-only rows above)
 
-This is an integration checkpoint, not final acceptance. Six final reports will be reconciled after remaining independent reviews and cross-scope validation. Last fully green integration before retry/coordination composition: f675f71,1442tests/typecheck/build. Current candidate has five stale baseline retry-characterization failures being repaired, not hidden.
+Latest implementation90e6d47 passes1498/1498tests102files/typecheck/build, independently replicated with clean tracked evidence. All six stale retry/HOL characterizations are repaired without reverting reviewed production semantics. Every issue has the disposition below; final report refresh and unmerged PR publication are separate remaining delivery steps.
 
 | Issue | Current evidence / root cause | Action / tests | Current disposition and residual risk |
 | --- | --- | --- | --- |

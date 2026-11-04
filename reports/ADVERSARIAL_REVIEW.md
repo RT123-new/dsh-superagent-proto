@@ -1,6 +1,6 @@
-# Adversarial review (running record)
+# Adversarial review
 
-Independent author/reviewer work and integration reproductions are required before acceptance. This record is incomplete until later-stage and final cross-scope review close.
+Independent author/reviewer work and integration reproductions are required before acceptance. Later sections include adopted repairs and explicitly held experiment dispositions; final report refresh is separate from code-test acceptance.
 
 ## Correctness review outcomes
 
@@ -30,13 +30,13 @@ Issue-specific reports and raw evidence directories preserve failing-first and r
 
 Original Issue6–8 author failing-first evidence contains17tests10red/7green, not the earlier claimed12red/28.11resolver tests arrived with the fix and cannot be relabelled failing-first evidence.
 
-## Still pending
+## Acceptance gates
 
-Production metrics hooks/dashboard, performance experiments10–18, Store/index/retention19–20, and final cross-scope reviewer dispositions. No acceptance of a performance change follows merely from a passing functional suite. Required measured gains/uncertainty, migration/crash semantics and relevant resource costs must be reviewed before adoption. Main remains untouched and no auto-merge is permitted.
+Production hooks/dashboard and measured storage20 are adopted. Pool, retention and general slotwake remain held after independent review; final report refresh remains before delivery. No acceptance of a performance change follows merely from a passing functional suite. Required measured gains/uncertainty, migration/crash semantics and relevant resource costs must be reviewed before adoption. Main remains untouched and no auto-merge is permitted.
 
 ## Latest lifecycle independent integration
 
-Reproduced all3 causal/receipt failures from557adf6 before33a9d0e. Integrated repair9f401a2 and22focusedgreen. Reviewer seven-case suite includes synchronous worker history, committed identities, blocked/unmatched timing and injected clock boundaries. Slotwait own added clock regression4b42ac4 failed beforef675f71; fivefocusedgreen afterward. Additional slotwait rollback and complete-launch review remains open. Latest full checkpoint1442green/typecheck/build, no full end-to-end provider-deployment claim. Source queue boundary and atomic slot integration remain pending parallel author/reviewer work.
+Reproduced all3 causal/receipt failures from557adf6 before33a9d0e. Integrated repair9f401a2 and22focusedgreen. Reviewer seven-case suite includes synchronous worker history, committed identities, blocked/unmatched timing and injected clock boundaries. Slotwait own added clock regression4b42ac4 failed beforef675f71; fivefocusedgreen afterward. Slotwait rollback/full launch proof and sourcequeue/atomic transition reviews were subsequently integrated. Latest implementation90e6d47 passes1498/typecheck/build independently replicated, still no full deployed-provider end-to-end claim.
 
 ## Final cross-scope discoveries and current repair
 
