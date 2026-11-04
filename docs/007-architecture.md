@@ -406,6 +406,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | --- | --- |
 | `tests/core-engine.spec.ts` | Domain rules on in-memory repositories: receiving, Eval, fan-out, resume and stop, interrupted Assignments, the pause, Policy changes, reports and outcomes, attaching, replies, failed deliveries, snapshot persistence and dismissed problems |
 | `tests/resume-snapshot.spec.ts` | Snapshot payload validation, size limits, secret detection, bounded hint formatting, stale-input and assignment detection |
+| `tests/resume-benchmark.spec.ts` | Deterministic paired-resumption metric calculations, bootstrap confidence bounds, incomplete data and invalid trials |
 | `tests/stage.spec.ts` | The Ticket stages, row by row |
 | `tests/policy.spec.ts` | Source scope, the gate, the admission table, Mandate revalidation, the Policy version, settings migrations and assessment outcomes |
 | `tests/registry.spec.ts` | `SourceRegistry`: instances, validation, Policy parts, Channels and Thread context |
