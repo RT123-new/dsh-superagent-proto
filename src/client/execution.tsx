@@ -30,11 +30,35 @@ export function ExecutionStatus({ filter: current, state, reload }: {
     return !seenBlocked.has(id) && !!seenBlocked.add(id)
   })
   const blockedNext = olderBlocked.length ? olderCursor : blocked.data?.nextCursor
+  const [blockedPage, setBlockedPage] = useState<{ loading?: boolean; error?: Error }>({})
   const moreBlocked = async () => {
-    if (!blockedNext) return
-    const page = await call('GET effects/blocked', { query: { limit: 200, cursor: Number(blockedNext) } })
-    setOlderBlocked([...olderBlocked, ...page.items])
-    setOlderCursor(page.nextCursor)
+    if (!blockedNext || blockedPage.loading) return                                    // one page at a time
+    setBlockedPage({ loading: true })
+    try {
+      const page = await call('GET effects/blocked', { query: { limit: 200, cursor: Number(blockedNext) } })
+      setOlderBlocked([...olderBlocked, ...page.items])
+      setOlderCursor(page.nextCursor)
+      setBlockedPage({})
+    } catch (failure) {
+      // Keep the rows already shown and surface the page failure in place; Load More stays available as the retry.
+      setBlockedPage({ error: failure instanceof Error ? failure : new Error(String(failure)) })
+    }
+  }
+  // Refetch every loaded blocked page (first page plus appended ones) so a refused rearm keeps the row visible with
+  // the generation the server actually holds - a retried approval then carries a current expectedGeneration.
+  const reloadBlockedPages = async () => {
+    const wanted = Math.ceil(olderBlocked.length / 200)
+    const first = await call('GET effects/blocked', { query: { limit: 200 } })
+    const fresh: BlockedEffect[] = []
+    let cursor = first.nextCursor
+    for (let page = 0; page < wanted && cursor != null; page++) {
+      const next = await call('GET effects/blocked', { query: { limit: 200, cursor: Number(cursor) } })
+      fresh.push(...next.items)
+      cursor = next.nextCursor
+    }
+    setOlderBlocked(fresh)
+    setOlderCursor(cursor)
+    await blocked.reload()
   }
   const { paused, load: { maxWorkers } } = state
   // Pausing uses its own block revision so toggling pause does not invalidate an open Execution settings draft.
@@ -61,15 +85,21 @@ export function ExecutionStatus({ filter: current, state, reload }: {
           true) }}>{t(`ticketFilter.${value}`)}</Pill>)}
     </div>
     {current === 'idle' && <Hint>{t('idleHint')}</Hint>}
-    {blockedItems.length ? <section className="dt-blocked-effects"><h3>{t('blockedEffectsTitle')} <span className="dt-count">{blocked.data?.count ?? blockedItems.length}</span></h3><ul className="dt-list">
+    {blocked.error && !blockedItems.length
+      // The blocked list failed while the rest of the view is healthy: surface the targeted failure instead of silently hiding the section.
+      ? <p className="dt-error" role="alert">{blocked.error.message}</p>
+      : null}
+    {blockedItems.length ? <section className="dt-blocked-effects"><h3>{t('blockedEffectsTitle')} <span className="dt-count">{blocked.data?.count ?? blockedItems.length}</span></h3>
+      {blocked.error ? <Hint>{t('blockedEffectsStale', { error: blocked.error.message })}</Hint> : null}<ul className="dt-list">
       {blockedItems.map(item => <li key={`${item.kind}:${item.key}`} className="dt-row dt-att dt-att-error"><div className="dt-row-main">
         <div className="dt-att-what dt-mono">{t('blockedEffectLine', { kind: item.kind, key: item.key, class: item.class, attempts: item.attempts })}</div>
         {item.attemptUnknown && <Hint>{t('blockedEffectUnknown')}</Hint>}
         <div className="dt-row-meta dt-row-buttons"><ConfirmButton variant="outline" icon="refresh" label={t('rearmEffect')} title={t('rearmEffect')}
           message={item.attemptUnknown ? `${t('rearmEffectConfirm')} ${t('blockedEffectUnknown')}` : t('rearmEffectConfirm')}
-          onConfirm={async () => { const result = await call('POST effects/:kind/rearm', { kind: item.kind, body: { key: item.key, expectedGeneration: item.generation, ...(item.attemptUnknown ? { acknowledgeUnknownOutcome: true } : {}) } }); if (!result.rearmed) notify(t('rearmEffectRefused')); setOlderBlocked(olderBlocked.filter(row => !(row.kind === item.kind && row.key === item.key))); await blocked.reload() }} /></div>
+          onConfirm={async () => { const result = await call('POST effects/:kind/rearm', { kind: item.kind, body: { key: item.key, expectedGeneration: item.generation, ...(item.attemptUnknown ? { acknowledgeUnknownOutcome: true } : {}) } }); if (result.rearmed) { setOlderBlocked(olderBlocked.filter(row => !(row.kind === item.kind && row.key === item.key))); await blocked.reload() } else { notify(t('rearmEffectRefused')); await reloadBlockedPages() } }} /></div>
       </div></li>)}</ul>
-      {blockedNext && <LoadMore onMore={moreBlocked} />}</section> : null}
+      {blockedPage.error ? <p className="dt-error" role="alert">{blockedPage.error.message}</p> : null}
+      {blockedNext && <LoadMore onMore={moreBlocked} busy={blockedPage.loading} />}</section> : null}
     <LoadState error={error} loading={!data} />
     {data && (data.items.length ? <ul className="dt-list">{data.items.map(ticket => ticket.stage === 'person'
       ? <TicketLine key={ticket.id} ticket={ticket} question

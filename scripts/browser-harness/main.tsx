@@ -47,6 +47,8 @@ const scenario = new URLSearchParams(location.search)
 window.__slowBlocked = scenario.get('slow') === '1'
 window.__seedBlocked(Number(scenario.get('seed') ?? 450))
 if (scenario.get('down') === '1') server.down = true
+const downPaths = scenario.get('downpaths')
+if (downPaths) server.downPaths = downPaths.split(',')
 sessionStorage.setItem('dsh-superagent/route', JSON.stringify({ route: { page: 'execution' }, stack: [] }))
 const container = document.getElementById('root')!
 let root = createRoot(container)

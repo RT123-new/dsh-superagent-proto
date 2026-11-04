@@ -76,15 +76,18 @@ export function ConfirmButton({ label, title, message, onConfirm, variant = 'gho
   label: string; title: string; message: string; onConfirm: () => Promise<unknown>; variant?: 'ghost' | 'outline'; icon?: IconName
 }) {
   const { t } = usePanel()
-  const [open, setOpen] = useState(false)
-  const confirm = useAction(onConfirm)
+  // Freeze the approval target at the moment the operator opens the dialog: a background refresh must not retarget
+  // an open confirmation (e.g. a rearm's expectedGeneration) to state the operator never reviewed.
+  const [armed, setArmed] = useState<(() => Promise<unknown>) | null>(null)
+  const close = () => setArmed(null)
+  const confirm = useAction(armed ?? onConfirm)
   return <>
-    <Button variant={variant} size="sm" icon={icon && <Icon name={icon} size={14} />} onClick={() => setOpen(true)}>{label}</Button>
-    <Modal open={open} onClose={() => setOpen(false)} title={title} closeLabel={t('close')} description={message}
+    <Button variant={variant} size="sm" icon={icon && <Icon name={icon} size={14} />} onClick={() => setArmed(() => onConfirm)}>{label}</Button>
+    <Modal open={armed !== null} onClose={close} title={title} closeLabel={t('close')} description={message}
       footer={<>
-        <Button variant="ghost" onClick={() => setOpen(false)}>{t('cancel')}</Button>
+        <Button variant="ghost" onClick={close}>{t('cancel')}</Button>
         <Button variant="primary" disabled={confirm.busy}
-          onClick={() => { void confirm.run().then(done => { if (done) setOpen(false) }) }}>{t('confirm')}</Button>
+          onClick={() => { void confirm.run().then(done => { if (done) close() }) }}>{t('confirm')}</Button>
       </>} />
   </>
 }
@@ -110,9 +113,9 @@ export function LoadState({ error, loading }: { error?: Error | undefined; loadi
   if (error) return <p className="dt-error" role="alert">{error.message}</p>
   return loading ? <Hint>{t('loading')}</Hint> : null
 }
-export function LoadMore({ onMore }: { onMore: () => void }) {
+export function LoadMore({ onMore, busy }: { onMore: () => void; busy?: boolean }) {
   const { t } = usePanel()
-  return <Button variant="outline" size="sm" icon={<Icon name="chevron-down" size={14} />} onClick={onMore}>{t('loadMore')}</Button>
+  return <Button variant="outline" size="sm" icon={<Icon name="chevron-down" size={14} />} disabled={busy} onClick={onMore}>{busy ? t('loading') : t('loadMore')}</Button>
 }
 
 export function StatusHead({ hint, settings }: { hint: string; settings?: SettingsGroup }) {

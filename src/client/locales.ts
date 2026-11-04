@@ -364,6 +364,7 @@ const TEXT = {
   blockedEffectLine: ['{kind} · {key} · {class} · 尝试 {attempts} 次', '{kind} · {key} · {class} · {attempts} attempts'],
   blockedEffectUnknown: ['上次尝试的结果未知，重新启动可能重复发送。', 'The last attempt\'s outcome is unknown; rearming may send a duplicate.'],
   rearmEffect: ['重新启动', 'Rearm'],
+  blockedEffectsStale: ['刷新受阻任务列表失败，显示的是稍早的状态（{error}）。', 'Refreshing the blocked list failed; showing the earlier state ({error}).'],
   rearmEffectRefused: ['服务器拒绝了重新启动：状态已变化，列表已刷新。', 'The server refused the rearm: the state changed; the list was refreshed.'],
   rearmEffectConfirm: ['手动重新启动这个受阻的任务？不会自动重试。', 'Rearm this blocked task by hand? Nothing retries it automatically.'],
   retryTitle: ['重试工单', 'Retry Ticket'],

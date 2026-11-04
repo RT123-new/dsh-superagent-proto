@@ -103,6 +103,8 @@ export interface PanelServer {
   health: Record<string, Health>
   /** When true, all API requests return an empty 404 to simulate the host plugin being stopped. */
   down: boolean
+  /** Path substrings that fail with 503 while the rest of the API stays healthy (targeted endpoint failure). */
+  downPaths: string[]
   /** Count of responses not yet consumed by the client. */
   pending: number
   form?: ConfigForm<Record<string, unknown>> | undefined
@@ -248,7 +250,7 @@ function initial(): PanelServer {
     en: 'Feishu message' } }
   const defaults = { revision: 0, previousRevision: null, savedAt: '', source: 'defaults' }
   return {
-    health: {}, down: false, pending: 0, opened: [], requests: [], misuse: [], queued: new Set(), dropped: [], failing: [],
+    health: {}, down: false, downPaths: [], pending: 0, opened: [], requests: [], misuse: [], queued: new Set(), dropped: [], failing: [],
     setup: { machine: MACHINE, problem: null, feishuProblem: null,
       accounts: { repository: 'acme/widgets', agent: 'agent-bot', feishu: { appId: 'cli_bot', brand: 'feishu', botId: 'ou_bot',
         name: 'Widgets Bot' } } },
@@ -335,9 +337,15 @@ const ROUTES: { [K in keyof Api]: Route<K> } = {
     return { items: page, count: server.blockedEffects.length, nextCursor: after + page.length < server.blockedEffects.length ? String(after + page.length) : undefined }
   } },
   'POST effects/:kind/rearm': { body: true, answer: ({ params, body }) => {
-    const before = server.blockedEffects.length
-    server.blockedEffects = server.blockedEffects.filter(item => !(item.kind === params.kind && item.key === body.key))
-    return { rearmed: server.blockedEffects.length < before }
+    const item = server.blockedEffects.find(effect => effect.kind === params.kind && effect.key === body.key)
+    if (!item) return { rearmed: false }
+    if (item.attemptUnknown && !body.acknowledgeUnknownOutcome) return { rearmed: false }   // an unknown-outcome row needs the explicit acknowledgement
+    if (body.expectedGeneration != null && body.expectedGeneration !== item.generation) {
+      item.generation += 1                                                                  // the server moved on; the approval is stale
+      return { rearmed: false }
+    }
+    server.blockedEffects = server.blockedEffects.filter(effect => effect !== item)
+    return { rearmed: true }
   } },
   'GET tickets/:id': { answer: ({ params }) => server.ticketDetails[params.id] ?? refuse(404, 'Ticket not found') },
   'POST tickets/:id/retry': { answer: ({ params }) => {
@@ -449,6 +457,8 @@ export function usePanelServer(cleanup: () => void) {
     vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit): Promise<Response> => {
       if (server.down) return new Response(null, { status: 404 })
       const address = new URL(url, 'http://127.0.0.1:3082')
+      const downPath = server.downPaths.find(path => address.pathname.includes(path))
+      if (downPath) return new Response(JSON.stringify({ error: `Endpoint ${downPath} unavailable` }), { status: 503, headers: { 'content-type': 'application/json' } })
       const path = address.pathname.replace('/orchestrator/api/', '')
       const method = init?.method ?? 'GET'
       const body: unknown = init?.body ? JSON.parse(String(init.body)) : undefined

@@ -1,4 +1,10 @@
-import { build } from '/home/sandbox/superagent/head/node_modules/.pnpm/vite@8.2.2_@types+node@22.20.0_esbuild@0.28.2_tsx@4.23.15_yaml@2.9.1/node_modules/vite/dist/node/index.js'
+// vite arrives via vitest (not a direct dependency); resolve it portably through vitest's real path so no absolute machine path is baked in.
+import { createRequire } from 'node:module'
+import { realpathSync } from 'node:fs'
+import { pathToFileURL } from 'node:url'
+const repoRequire = createRequire(new URL('../../package.json', import.meta.url))
+const vitestRequire = createRequire(realpathSync(repoRequire.resolve('vitest')))
+const { build } = await import(pathToFileURL(vitestRequire.resolve('vite')))
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 const here = dirname(fileURLToPath(import.meta.url))

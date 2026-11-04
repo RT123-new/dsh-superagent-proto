@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 // The Execution status, a Ticket, and the Execution settings.
 import { act } from 'react'
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 import { en, zh } from '../src/client/locales.ts'
-import { usePanel, mount, remount, all, find, tab, click, type, text, field, at } from './fixtures/panel.tsx'
+import { usePanel, mount, remount, all, find, tab, click, type, text, field, at, settle } from './fixtures/panel.tsx'
 import { MEMBER, server, ticketSummary, threadSummary } from './fixtures/panel-server.ts'
 
 usePanel()
@@ -254,6 +254,90 @@ it('tells the operator when the server refuses a rearm instead of silently keepi
   server.blockedEffects = []                                                               // a concurrent rearm wins before the confirmation
   await click(zh.confirm)
   expect(text()).toContain(zh.rearmEffectRefused)
+})
+
+it('shows a blocked-endpoint failure instead of silently hiding blocked work', async () => {
+  const realFetch = globalThis.fetch
+  vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request, init?: RequestInit) => String(url).includes('effects/blocked')
+    ? new Response(JSON.stringify({ error: 'Blocked recovery endpoint unavailable' }), { status: 503 }) : realFetch(url, init)))
+  await mount()
+  await click(zh['tab.execution'])
+  expect(server.requests.some(request => request.path.startsWith('tickets?'))).toBe(true)   // the rest of the view is healthy
+  expect(text()).toContain('Blocked recovery endpoint unavailable')
+})
+
+it('keeps the earlier blocked rows with a stale notice when a refresh fails', async () => {
+  server.blockedEffects = [{ kind: 'relay', key: 'r1', class: 'permanent', attempts: 1, since: '2026-09-22T00:00:00Z', attemptUnknown: false, generation: 1 }]
+  await mount()
+  await click(zh['tab.execution'])
+  expect(text()).toContain('relay · r1')
+  const realFetch = globalThis.fetch
+  vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request, init?: RequestInit) => String(url).includes('effects/blocked?')
+    ? new Response(JSON.stringify({ error: 'Blocked recovery endpoint unavailable' }), { status: 503 }) : realFetch(url, init)))
+  await click(zh.rearmEffect)
+  await click(zh.confirm)                                                                  // the rearm succeeds; the reload behind it fails
+  expect(text()).toContain('relay · r1')                                                   // prior rows stay
+  expect(text()).toContain(zh.blockedEffectsStale.split('{error}')[0])
+  expect(text()).toContain('Blocked recovery endpoint unavailable')
+})
+
+it('reports a rejected blocked-history page without an unhandled rejection and Load More stays as the retry', async () => {
+  server.blockedEffects = Array.from({ length: 250 }, (_, index) => ({ kind: 'relay', key: `r${index}`, class: 'permanent', attempts: 1, since: '2026-09-22T00:00:00Z', attemptUnknown: false, generation: 1 }))
+  const realFetch = globalThis.fetch
+  let failPages = true
+  vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request, init?: RequestInit) => String(url).includes('effects/blocked') && String(url).includes('cursor=') && failPages
+    ? new Response(JSON.stringify({ error: 'Blocked history unavailable' }), { status: 503 }) : realFetch(url, init)))
+  const rejections: unknown[] = []
+  const onRejection = (event: PromiseRejectionEvent) => rejections.push(event.reason)
+  window.addEventListener('unhandledrejection', onRejection)
+  await mount()
+  await click(zh['tab.execution'])
+  await click(zh.loadMore)
+  expect(text()).toContain('Blocked history unavailable')
+  expect(text()).toContain('relay · r0')                                                   // the first page stays
+  expect(rejections).toEqual([])                                                          // no unhandled rejection
+  failPages = false
+  await click(zh.loadMore)                                                                // retry after the failure
+  expect(text()).toContain('relay · r249')
+  expect(text()).not.toContain('Blocked history unavailable')
+  window.removeEventListener('unhandledrejection', onRejection)
+})
+
+it('keeps the generation the operator chose when a background refresh changes the row while confirmation is open', async () => {
+  server.blockedEffects = [{ kind: 'relay', key: 'r1', class: 'permanent', attempts: 1, since: '2026-09-22T00:00:00Z', attemptUnknown: false, generation: 7 }]
+  await mount()
+  await click(zh['tab.execution'])
+  await click(zh.rearmEffect)
+  server.blockedEffects = [{ ...server.blockedEffects[0]!, generation: 8 }]
+  await act(async () => { document.dispatchEvent(new Event('visibilitychange')) })
+  await settle()
+  await click(zh.confirm)
+  expect(server.requests.find(request => request.path === 'effects/relay/rearm')?.body).toMatchObject({ expectedGeneration: 7 })
+})
+
+it('keeps a still-blocked older page row visible with a fresh generation after the server refuses the rearm', async () => {
+  server.blockedEffects = Array.from({ length: 250 }, (_, index) => ({ kind: 'relay', key: `r${index}`, class: 'permanent', attempts: 1, since: '2026-09-22T00:00:00Z', attemptUnknown: false, generation: 1 }))
+  const realFetch = globalThis.fetch
+  let refusals = 1
+  vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+    if (String(url).includes('effects/relay/rearm') && refusals-- > 0) {
+      server.blockedEffects.find(effect => effect.key === 'r249')!.generation = 2          // the server moved on while refusing
+      return new Response(JSON.stringify({ rearmed: false }), { status: 200 })
+    }
+    return realFetch(url, init)
+  }))
+  await mount()
+  await click(zh['tab.execution'])
+  await click(zh.loadMore)
+  await click(all('.dt-blocked-effects li')[249]!.querySelector('button')!)
+  await click(zh.confirm)
+  expect(text()).toContain(zh.rearmEffectRefused)
+  expect(server.blockedEffects.some(effect => effect.key === 'r249')).toBe(true)
+  expect(all('.dt-blocked-effects li').some(row => row.textContent!.includes('relay · r249 ·'))).toBe(true)
+  await click(all('.dt-blocked-effects li')[249]!.querySelector('button')!)
+  await click(zh.confirm)
+  const retry = server.requests.filter(request => request.path === 'effects/relay/rearm').at(-1)
+  expect(retry?.body).toMatchObject({ expectedGeneration: 2 })                            // retried with the refreshed generation
 })
 
 it('sends one stop for a double click on Confirm', async () => {
