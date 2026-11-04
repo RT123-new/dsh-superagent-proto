@@ -32,7 +32,10 @@ describe('issue 2 — GitHub stream pagination', () => {
       expect(h.store.triggers.get(key('github-issue', String(number)))).toBeDefined()
     }
     closeHost(h)
-  })
+    // Explicit budget: the 1000-event case polls plus runs 1000 per-event store assertions, which measured
+    // 5199ms against the 5000ms vitest default on a shared CI runner (runs 41851662624 attempts 1-2) while the
+    // byte-identical tree passed locally and on five other CI runs. 30s absorbs runner noise; a real hang still fails.
+  }, 30_000)
 
   it('reads more than a page of events sharing one timestamp, which a page-1-only read starves', async () => {
     const h = sourceHost(hostDir('issue2-'))
