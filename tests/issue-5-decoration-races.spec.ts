@@ -66,3 +66,20 @@ it('a concurrent ensure cannot set broad permissions before an existing decorati
   await Promise.all([decoration, ensure])
   expect(beforeReady).toBe(0)
 })
+
+
+it('a completed shared binding can rebind skills after the original ensure authorization expires', async () => {
+  const agent = await setup(), auth = gate()
+  let reactivate!: (scope: unknown) => void
+  const registration = vi.fn(() => () => {})
+  vi.spyOn(agent.ctx, 'inject').mockImplementationOnce(((_deps: unknown, callback: (scope: unknown) => void) => {
+    reactivate = callback
+    callback({ skills: { register: registration } })
+    return Object.assign(Promise.resolve(), { dispose: async () => {} })
+  }) as never)
+  await privates().decorate(agent, auth.check)
+  registration.mockClear()
+  auth.revoke()
+  reactivate({ skills: { register: registration } })
+  expect(registration).toHaveBeenCalled()
+})

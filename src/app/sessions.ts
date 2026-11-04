@@ -43,7 +43,7 @@ export interface SessionsHost {
  * What Sessions registered for an agent it decorated: the releases of its prompt section, tools and skill scope, the scope
  * its skills are registered in, and the skills of one prompt revision; for a worker's subagent, only its tool limits.
  */
-interface SessionBinding { disposers: (() => void)[]; scope?: Context; skills?: { revision: number; dispose: () => void }; subagent?: true }
+interface SessionBinding { ready?: Promise<void>; disposers: (() => void)[]; scope?: Context; skills?: { revision: number; dispose: () => void }; subagent?: true }
 
 /** The agent presets Executor Sessions and the main Session are created with, which the bundle's patch defines. */
 export const WORKER_PRESET = 'dsh-superagent-worker', ROUTER_PRESET = 'dsh-superagent-router'
@@ -242,13 +242,30 @@ export class Sessions {
   }
   private async decorate(agent: Agent, authorize: () => void = () => {}): Promise<void> {
     authorize()
-    if (this.bindings.has(agent)) return
+    const existing = this.bindings.get(agent)
+    if (existing) {
+      // Presence is not readiness: agent-created decoration may still be waiting on the skills service.
+      await existing.ready
+      authorize()
+      if (this.bindings.get(agent) !== existing) return this.decorate(agent, authorize)
+      return
+    }
+    const binding: SessionBinding = { disposers: [] }
+    this.bindings.set(agent, binding)
+    const ready = this.decorateBinding(agent, binding, authorize)
+    binding.ready = ready
+    try { await ready }
+    catch (error) { this.release(agent, binding); throw error }
+  }
+  private async decorateBinding(agent: Agent, binding: SessionBinding, authorize: () => void): Promise<void> {
     const host = this.host
     const master = agent.id === host.masterId
     const ticket = master ? undefined : this.ticketOf(agent)
-    if (!master && !ticket) { this.limitSubagent(agent); return }
-    const binding: SessionBinding = { disposers: [] }
-    this.bindings.set(agent, binding)
+    if (!master && !ticket) {
+      this.bindings.delete(agent)
+      this.limitSubagent(agent)
+      return
+    }
     this.retryHealth.restore(agent.id, agent.session.snapshotEvents())
     if (agent.status === 'idle') this.retryHealth.clear(agent.id)
     this.updateModelHealth()
@@ -260,14 +277,18 @@ export class Sessions {
       return `[dsh-superagent prompt revision ${version.revision}]\n${composed}\n${current ? mandateInstructions(current.mandate) : ''}`
     }, ...(master ? { complete: true } : {}) }))
     // A recreated skill scope (e.g. after the skills service restarts) starts empty, so reset `binding.skills` before rebinding.
+    let initialized = false
     const skillScope = agent.ctx.inject(['skills'], scope => {
+      // Injection may resume after cancellation or release. Never mutate a stale generation.
+      if (this.bindings.get(agent) !== binding) return
+      if (!initialized) { try { authorize() } catch { return } }
       binding.scope = scope
       binding.skills = undefined
       this.bindSkills(binding, host.prompts.current())
     })
     binding.disposers.push(() => { skillScope.dispose().catch((error: unknown) => { this.ctx.logger.warn('dsh-superagent could not release a skill scope: %s', String(error)) }) })
     await skillScope
-    try { authorize() } catch (error) { this.release(agent); throw error }
+    authorize()
     // Bail out if the agent was disposed while awaiting the skill scope.
     if (this.bindings.get(agent) !== binding) return
     const register = this.registerTool(agent, binding)
@@ -279,6 +300,7 @@ export class Sessions {
       // An Executor Session keeps the profile's work tools it has, which DSH requires to be known; its own tools are not masked.
       binding.disposers.push(...this.workOnly(agent, ticket!.id))
     }
+    initialized = true
   }
   /**
    * Whether a Session runs the router preset: as DSH's preset registry last selected it, read through the session projection
@@ -365,9 +387,9 @@ export class Sessions {
     return version
   }
   /** Releases registrations for `agent` in reverse order (LIFO); disposing its skill scope releases its skills as well. */
-  private release(agent: Agent): void {
+  private release(agent: Agent, expected?: SessionBinding): void {
     const binding = this.bindings.get(agent)
-    if (!binding) return
+    if (!binding || expected && binding !== expected) return
     this.bindings.delete(agent)
     binding.skills?.dispose()
     for (const dispose of binding.disposers.splice(0).reverse()) {
