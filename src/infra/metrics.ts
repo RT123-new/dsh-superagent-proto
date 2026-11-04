@@ -112,25 +112,43 @@ export class SlotIntegrator {
   }
 }
 
-/** Queue depth and oldest-age gauge keyed by opaque id; bounded by `cap` live entries (overflow counted, not stored). */
+/**
+ * Queue gauge keyed by opaque id with bounded memory (at most `cap` tracked ids).
+ * Depth is exact only while every enqueued id is tracked. Once an enqueue is dropped for lack of room, ids that are not
+ * tracked cannot be deduplicated or dequeued, so the gauge becomes `incomplete`: `trackedDepth` and `oldestAgeMs` (over tracked
+ * ids) are lower bounds / partial. A hook can restore exactness by passing the authoritative queue length to
+ * `reconcile(n)`: if n equals the tracked count no untracked ids exist and the gauge is complete again; otherwise `depth` reports n
+ * and stays incomplete. `dropped` counts dropped enqueue attempts (informational only, never added to depth).
+ */
 export class QueueGauge {
   private readonly live = new Map<string, number>()
-  overflow = 0
+  private dropped_ = 0
+  private incomplete_ = false
+  private authoritative: number | undefined
   constructor(private readonly mono: MonoClock, private readonly cap = 10_000) {}
   enqueue(id: string): void {
     if (this.live.has(id)) return
-    if (this.live.size >= this.cap) { this.overflow++; return }
+    if (this.live.size >= this.cap) { this.dropped_++; this.incomplete_ = true; return }
     this.live.set(id, this.mono())
   }
-  /** Returns the wait in ms, or undefined if id was never tracked (overflowed or unknown). */
+  /** Returns the wait in ms, or undefined if id is not tracked (never seen, dropped, or already dequeued). */
   dequeue(id: string): number | undefined {
     const at = this.live.get(id)
     if (at === undefined) return undefined
     this.live.delete(id)
     return Math.max(0, this.mono() - at)
   }
-  get depth(): number { return this.live.size + this.overflow }
-  /** Oldest tracked age; null when nothing tracked. Insertion order == age order. */
+  /** Supply the authoritative current queue length from the owning queue (read time). */
+  reconcile(authoritativeLength: number): void {
+    if (!Number.isInteger(authoritativeLength) || authoritativeLength < 0) throw new RangeError('authoritative length must be a non-negative integer')
+    if (authoritativeLength === this.live.size) { this.incomplete_ = false; this.authoritative = undefined } else if (this.incomplete_ || authoritativeLength > this.live.size) { this.incomplete_ = true; this.authoritative = authoritativeLength } else { this.authoritative = authoritativeLength }
+  }
+  get trackedDepth(): number { return this.live.size }
+  /** Exact only when `complete` or after reconcile(n); otherwise a lower bound equal to the tracked count. */
+  get depth(): number { return this.authoritative !== undefined ? Math.max(this.authoritative, this.live.size) : this.live.size }
+  get complete(): boolean { return !this.incomplete_ && this.authoritative === undefined }
+  get dropped(): number { return this.dropped_ }
+  /** Oldest tracked age; null when nothing tracked. When not complete this is only the oldest TRACKED item. */
   oldestAgeMs(): number | null {
     for (const at of this.live.values()) return Math.max(0, this.mono() - at)
     return null
@@ -234,7 +252,7 @@ export class Metrics {
     const durations: Record<string, DurationSummary> = {}
     for (const [k, s] of [...this.series].sort(([a], [b]) => (a < b ? -1 : 1))) durations[k] = s.summary()
     const queues: MetricsSnapshot['queues'] = {}
-    for (const [k, q] of this.queues) queues[k] = { depth: q.depth, oldestAgeMs: q.oldestAgeMs(), untrackedOverflow: q.overflow }
+    for (const [k, q] of this.queues) queues[k] = { depth: q.depth, trackedDepth: q.trackedDepth, depthComplete: q.complete, oldestAgeMs: q.oldestAgeMs(), oldestAgeIsLowerBound: !q.complete, dropped: q.dropped }
     const slots: MetricsSnapshot['slots'] = {}
     for (const [k, p] of this.slots) slots[k] = { capacity: p.capacity, integrals: p.integrals(), utilization: p.utilization() }
     const t = this.tokens, anyKnown = CATS.map((c) => t.known[c])
@@ -259,7 +277,7 @@ export class Metrics {
 export interface MetricsSnapshot {
   version: 1; sinceWallMs: number; atWallMs: number; window: number
   durations: Record<string, DurationSummary>
-  queues: Record<string, { depth: number; oldestAgeMs: number | null; untrackedOverflow: number }>
+  queues: Record<string, { depth: number; trackedDepth: number; depthComplete: boolean; oldestAgeMs: number | null; oldestAgeIsLowerBound: boolean; dropped: number }>
   slots: Record<string, { capacity: number; integrals: ReturnType<SlotIntegrator['integrals']>; utilization: number | null }>
   counters: Record<string, number>
   tokens: { reports: number; inputCacheHit: number | null; inputCacheMiss: number | null; output: number | null; cacheWrite: number | null; reasoning: number | null; unknownReports: Record<string, number>; costUsd: number | null; costKnownReports: number; costUnknownReports: number }
