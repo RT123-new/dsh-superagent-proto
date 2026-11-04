@@ -25,6 +25,10 @@ const label = (text: string): string => /^[a-z][a-z0-9_]{0,31}$/.test(text) ? te
 /** Durations between Engine domain events: trigger to evaluation, evaluation to decision, decision to ticket, launch, ticket lifetime. */
 export class DomainTimeline {
   private readonly received: Pending<string, number>
+  /** Mandate T_i chain: earliest received stamp carried eval -> decision -> ticket so t_terminal - t_received is one correlated measurement. */
+  private readonly evalReceived: Pending<string, number>
+  private readonly taskReceived: Pending<string, number>
+  private readonly taskTerminal: Pending<string, number>
   private readonly arrivals: Pending<string, number>
   private readonly evaluating: Pending<string, number>
   private readonly decided: Pending<string, number>
@@ -33,6 +37,7 @@ export class DomainTimeline {
   constructor(private readonly probe: Probe, private readonly mono: () => number, cap = 5000, private readonly evalOfDecision?: (id: string) => string | undefined) {
     const drop = () => { probe.count('lifecycle_dropped') }
     this.received = new Pending(cap, drop); this.arrivals = new Pending(cap, drop); this.evaluating = new Pending(cap, drop); this.decided = new Pending(cap, drop)
+    this.evalReceived = new Pending(cap, drop); this.taskReceived = new Pending(cap, drop); this.taskTerminal = new Pending(cap, drop)
     this.launching = new Pending(cap, drop); this.alive = new Pending(cap, drop)
   }
   private since(map: Pending<string, number>, key: string, stage: string): void {
@@ -59,19 +64,34 @@ export class DomainTimeline {
           else this.probe.observe('source_to_eval_queue', 'internal', now - arrival)
           break
         }
-        case 'eval.started':
-          for (const id of event.data.triggerIds) { const at = this.received.take(id); if (at !== undefined) this.probe.observe('trigger_to_eval_start', 'internal', now - at) }
+        case 'eval.started': {
+          let earliest: number | undefined
+          for (const id of event.data.triggerIds) { const at = this.received.take(id); if (at !== undefined) { this.probe.observe('trigger_to_eval_start', 'internal', now - at); earliest = earliest === undefined ? at : Math.min(earliest, at) } }
+          if (earliest !== undefined) this.evalReceived.set(event.data.evalId, earliest)
           this.evaluating.set(event.data.evalId, now); break
+        }
         case 'decision.recorded':
           const evalId = this.evalOfDecision?.(event.data.decisionId)
-          if (evalId) this.since(this.evaluating, evalId, 'eval_run'); else this.probe.count('lifecycle_unmatched')
+          if (evalId) {
+            this.since(this.evaluating, evalId, 'eval_run')
+            const start = this.evalReceived.take(evalId)
+            if (start !== undefined) this.taskReceived.set(event.data.decisionId, start)
+          } else this.probe.count('lifecycle_unmatched')
           this.decided.set(event.data.decisionId, now); this.probe.count(`decision_${label(String(event.data.kind))}`); break
         case 'ticket.created':
           this.since(this.decided, event.data.decisionId, 'decision_to_ticket')
+          const taskStart = this.taskReceived.take(event.data.decisionId)
+          if (taskStart !== undefined) this.taskTerminal.set(event.data.ticketId, taskStart)
           this.launching.set(event.data.ticketId, now); this.alive.set(event.data.ticketId, now); this.probe.count('ticket_created'); break
         case 'ticket.resumed': this.launching.set(event.data.ticketId, now); this.alive.set(event.data.ticketId, now); this.probe.count('ticket_resumed'); break
         case 'assignment.started': this.since(this.launching, event.data.ticketId, 'assignment_launch'); break
-        case 'ticket.ended': this.since(this.alive, event.data.ticketId, 'ticket_lifetime'); this.probe.count(`ticket_outcome_${label(String(event.data.outcome))}`); break
+        case 'ticket.ended': {
+          this.since(this.alive, event.data.ticketId, 'ticket_lifetime')
+          // T_i: the unmatched case is already counted by the lifetime lookup above; a missing chain stamps nothing, never zero.
+          const taskStart = this.taskTerminal.take(event.data.ticketId)
+          if (taskStart !== undefined) this.probe.observe('task_total', 'internal', now - taskStart)
+          this.probe.count(`ticket_outcome_${label(String(event.data.outcome))}`); break
+        }
         default: break
       }
     } catch { this.probe.count('metrics_error') }

@@ -808,6 +808,7 @@ const TEXT = {
   "metricsStage.assessment_card_delivery": ["评估卡构建到收件箱确认", "Assessment card build to inbox acknowledgement"],
   "metricsStage.command_run": ["完整命令耗时", "Whole command duration"],
   "metricsStage.trigger_to_eval_start": ["提交接收到评估开始", "Committed intake to eval start"],
+  "metricsStage.task_total": ["任务全程（收到到终结）", "Task total (received to terminal)"],
   "metricsStage.decision_to_ticket": ["决策到工单创建", "Decision to ticket creation"],
   "metricsStage.assignment_launch": ["工单创建到派工开始（含准备）", "Ticket creation to assignment start (includes preparation)"],
   "metricsStage.ticket_lifetime": ["观测到的工单生命周期", "Observed ticket lifetime"],
