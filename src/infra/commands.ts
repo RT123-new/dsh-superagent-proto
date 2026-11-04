@@ -36,6 +36,25 @@ function splitResponseHeaders(output: string): { status?: number; retryAfter?: s
   const retryAfter = /^Retry-After:[ \t]*(.*?)[ \t]*$/im.exec(head)?.[1]
   return { status, retryAfter, body: normalized.slice(end + 2) }
 }
+/**
+ * Reads the wire-stable retry metadata of a lark-cli typed stderr envelope (lark-cli 1.0.84+, errs/ERROR_CONTRACT.md:
+ * `error.retry_after_seconds` from `x-ogw-ratelimit-reset`, then `Retry-After`, for retryable `api/rate_limit` and
+ * HTTP-backed `network` errors). Branches only on `type`/`subtype`/`retryable`/`retry_after_seconds`; `message` is prose.
+ */
+function larkRetryMetadata(stderr: string): { status?: number; retryAfter?: number } | undefined {
+  const start = stderr.indexOf('{')
+  if (start < 0) return undefined
+  let envelope: { error?: { type?: unknown; subtype?: unknown; retryable?: unknown; retry_after_seconds?: unknown } } | undefined
+  try { envelope = JSON.parse(stderr.slice(start)) as typeof envelope }
+  catch { return undefined }
+  const typed = envelope?.error
+  if (!typed || typed.retryable !== true) return undefined
+  const rateLimited = typed.type === 'api' && typed.subtype === 'rate_limit'
+  if (!rateLimited && typed.type !== 'network') return undefined
+  const seconds = typed.retry_after_seconds
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds < 0) return undefined
+  return { status: rateLimited ? 429 : undefined, retryAfter: seconds }
+}
 /** Extracts a sanitized error from a failed subprocess without echoing argv, which may contain message text. */
 export function commandError(error: unknown, program = 'command'): Error {
   if (error instanceof Error && error.name === 'AbortError') return error
@@ -97,7 +116,9 @@ export function validItems<T>(item: z.ZodType<T>, list: readonly unknown[], tall
 function membership(error: unknown): unknown {
   if (!(error instanceof CliError) || error.code !== 232011) return error
   const hint = 'The Feishu bot is not a member of the chat. Add the bot in the chat settings, then retry.'
-  return new CliError(hint, error.code, error.exitCode)
+  const rewritten = new CliError(hint, error.code, error.exitCode)
+  rewritten.transportFailure = error.transportFailure
+  return rewritten
 }
 /**
  * Executes gh, lark-cli, and git subprocesses with deployment account credentials, timeouts, and abort signals.
@@ -112,7 +133,7 @@ export class Commands {
   get deployment(): Deployment { return this.resolved() }
   get repository(): string { return this.deployment.repository }
   withSignal(signal?: AbortSignal): Commands { return signal ? new Commands(this.resolved, this.environment, AbortSignal.any([this.signal, signal]), this.probe) : this }
-  async run(program: string, args: string[], cwd?: string, transport?: { responseHeaders?: boolean }): Promise<string> {
+  async run(program: string, args: string[], cwd?: string, transport?: { responseHeaders?: boolean; errorEnvelope?: boolean }): Promise<string> {
     // Whole subprocess latency: process start, network and the CLI's own work. Not pure API latency; the label never names the program or arguments.
     const stop = this.probe.timer('command_run', 'internal')
     try {
@@ -129,6 +150,12 @@ export class Commands {
         const stdout = error && typeof error === 'object' && 'stdout' in error && typeof error.stdout === 'string' ? error.stdout : ''
         const { status, retryAfter } = splitResponseHeaders(stdout)
         if (status !== undefined || retryAfter !== undefined) failure.transportFailure = new TransportFailure(failure.message, { status: status ?? failure.code, retryAfter })
+      }
+      // lark-cli >= 1.0.84 renders a typed error envelope on stderr; only this boundary turns its retry fields into scheduling metadata.
+      if (transport?.errorEnvelope && failure instanceof CliError) {
+        const stderr = error && typeof error === 'object' && 'stderr' in error && typeof error.stderr === 'string' ? error.stderr : ''
+        const metadata = larkRetryMetadata(stderr)
+        if (metadata) failure.transportFailure = new TransportFailure(failure.message, metadata)
       }
       throw failure
     }
@@ -200,7 +227,7 @@ export class Commands {
   async lark<T>(args: string[], cwd?: string): Promise<T> {
     const bot = this.deployment.feishu
     if (!bot) throw new Error('The Feishu Source has no working bot CLI')
-    const output = await this.run(bot.cli, [...args, '--as', 'bot', '--format', 'json'], cwd)
+    const output = await this.run(bot.cli, [...args, '--as', 'bot', '--format', 'json'], cwd, { errorEnvelope: true })
       .catch((error: unknown) => { throw membership(error) })
     const result = JSON.parse(output) as { ok: boolean; data: T; error?: { code?: number; message?: string } }
     const code = result.error?.code

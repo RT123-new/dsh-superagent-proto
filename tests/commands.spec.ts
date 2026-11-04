@@ -263,6 +263,37 @@ describe('trusted transport metadata: real provider Retry-After at the gh bounda
     const failure2 = await commandsFor(bad).gh(['api', 'repos/acme/widgets/issues']).catch((error: unknown) => error)
     expect(serverNotBeforeOf(failure2)).toBeUndefined()
   })
+  /** A stand-in lark-cli that prints a typed error envelope on stderr (lark-cli >= 1.0.84 contract) and fails. */
+  const failingLark = (envelope: string): string => {
+    const dir = mkdtempSync(join(tmpdir(), 'fake-lark-')); dirs.push(dir)
+    const path = join(dir, 'lark-cli')
+    writeFileSync(path, `#!/bin/sh\nprintf '%s' '${envelope}' >&2\nexit 1\n`)
+    chmodSync(path, 0o755)
+    return path
+  }
+  const larkFor = (cli: string) => new Commands(() => testDeployment({ feishu: { ...testDeployment().feishu!, cli } }), {}, new AbortController().signal)
+
+  it('parses retry_after_seconds from a failed lark-cli stderr envelope into typed metadata, never from prose', async () => {
+    const cli = failingLark('{"ok":false,"error":{"type":"api","subtype":"rate_limit","code":99991400,"message":"rate limited","retryable":true,"retry_after_seconds":45}}')
+    const before = Date.now()
+    const failure = await larkFor(cli).lark(['im', '+messages-reply']).catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(CliError)
+    expect(classifyError(failure)).toBe('rate_limited')
+    const notBefore = serverNotBeforeOf(failure)
+    expect(notBefore).toBeGreaterThanOrEqual(before + 45_000)
+    expect(notBefore).toBeLessThanOrEqual(Date.now() + 45_000)
+  })
+  it('honors the envelope only when retryable for api/rate_limit or network errors; an older CLI yields no instruction', async () => {
+    const notRetryable = failingLark('{"ok":false,"error":{"type":"api","subtype":"rate_limit","code":99991400,"message":"rate limited","retry_after_seconds":45}}')
+    expect(serverNotBeforeOf(await larkFor(notRetryable).lark(['im', '+messages-reply']).catch((error: unknown) => error))).toBeUndefined()
+    const older = failingLark('{"ok":false,"error":{"type":"api","subtype":"rate_limit","code":99991400,"message":"rate limited","retryable":true}}')
+    expect(serverNotBeforeOf(await larkFor(older).lark(['im', '+messages-reply']).catch((error: unknown) => error))).toBeUndefined()
+    const otherApi = failingLark('{"ok":false,"error":{"type":"api","subtype":"permission_denied","code":99991672,"message":"no scope","retryable":true,"retry_after_seconds":45}}')
+    expect(serverNotBeforeOf(await larkFor(otherApi).lark(['im', '+messages-reply']).catch((error: unknown) => error))).toBeUndefined()
+    const network = failingLark('{"ok":false,"error":{"type":"network","subtype":"http_error","message":"bad gateway","retryable":true,"retry_after_seconds":12}}')
+    const notBefore = serverNotBeforeOf(await larkFor(network).lark(['im', '+messages-reply']).catch((error: unknown) => error))
+    expect(notBefore).toBeGreaterThanOrEqual(Date.now() + 11_000)
+  })
   it('requests response headers for single gh api calls (never with --paginate) and strips them from successful JSON', async () => {
     const commands = new Commands(() => deployment, {}, new AbortController().signal)
     const run = vi.spyOn(commands, 'run').mockResolvedValue('HTTP/2.0 200 OK\r\nContent-Type: application/json\r\n\r\n{"ok":true}')
