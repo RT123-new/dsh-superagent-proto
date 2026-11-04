@@ -340,10 +340,7 @@ const ROUTES: { [K in keyof Api]: Route<K> } = {
     const item = server.blockedEffects.find(effect => effect.kind === params.kind && effect.key === body.key)
     if (!item) return { rearmed: false }
     if (item.attemptUnknown && !body.acknowledgeUnknownOutcome) return { rearmed: false }   // an unknown-outcome row needs the explicit acknowledgement
-    if (body.expectedGeneration != null && body.expectedGeneration !== item.generation) {
-      item.generation += 1                                                                  // the server moved on; the approval is stale
-      return { rearmed: false }
-    }
+    if (body.expectedGeneration != null && body.expectedGeneration !== item.generation) return { rearmed: false }   // production CAS: refuse without mutating
     server.blockedEffects = server.blockedEffects.filter(effect => effect !== item)
     return { rearmed: true }
   } },

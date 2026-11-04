@@ -21,6 +21,10 @@ export function ExecutionStatus({ filter: current, state, reload }: {
   // blocked history never arrives or renders in one unbounded response.
   const blocked = usePoll(() => call('GET effects/blocked', { query: { limit: 200 } }), [])
   const [olderBlocked, setOlderBlocked] = useState<BlockedEffect[]>([])
+  // Handlers frozen into an armed confirmation must maintain the collection functionally: pages that settle while
+  // the dialog is open belong to the current state, never to the render the dialog was opened from.
+  const olderCount = useRef(0)
+  olderCount.current = olderBlocked.length
   const [olderCursor, setOlderCursor] = useState<string | undefined>()
   // The polled first page is fresher than appended pages: when a rearm shifts the boundary, the same row can sit in
   // both - keep the first-page copy and drop the stale duplicate.
@@ -31,23 +35,27 @@ export function ExecutionStatus({ filter: current, state, reload }: {
   })
   const blockedNext = olderBlocked.length ? olderCursor : blocked.data?.nextCursor
   const [blockedPage, setBlockedPage] = useState<{ loading?: boolean; error?: Error }>({})
+  const blockedPageBusy = useRef(false)                                                 // synchronous guard: same-tick clicks see one load
   const moreBlocked = async () => {
-    if (!blockedNext || blockedPage.loading) return                                    // one page at a time
+    if (!blockedNext || blockedPageBusy.current) return                                 // one page at a time
+    blockedPageBusy.current = true
     setBlockedPage({ loading: true })
     try {
       const page = await call('GET effects/blocked', { query: { limit: 200, cursor: Number(blockedNext) } })
-      setOlderBlocked([...olderBlocked, ...page.items])
+      setOlderBlocked(rows => [...rows, ...page.items])
       setOlderCursor(page.nextCursor)
       setBlockedPage({})
     } catch (failure) {
       // Keep the rows already shown and surface the page failure in place; Load More stays available as the retry.
       setBlockedPage({ error: failure instanceof Error ? failure : new Error(String(failure)) })
+    } finally {
+      blockedPageBusy.current = false
     }
   }
   // Refetch every loaded blocked page (first page plus appended ones) so a refused rearm keeps the row visible with
   // the generation the server actually holds - a retried approval then carries a current expectedGeneration.
   const reloadBlockedPages = async () => {
-    const wanted = Math.ceil(olderBlocked.length / 200)
+    const wanted = Math.ceil(olderCount.current / 200)
     const first = await call('GET effects/blocked', { query: { limit: 200 } })
     const fresh: BlockedEffect[] = []
     let cursor = first.nextCursor
@@ -96,7 +104,7 @@ export function ExecutionStatus({ filter: current, state, reload }: {
         {item.attemptUnknown && <Hint>{t('blockedEffectUnknown')}</Hint>}
         <div className="dt-row-meta dt-row-buttons"><ConfirmButton variant="outline" icon="refresh" label={t('rearmEffect')} title={t('rearmEffect')}
           message={item.attemptUnknown ? `${t('rearmEffectConfirm')} ${t('blockedEffectUnknown')}` : t('rearmEffectConfirm')}
-          onConfirm={async () => { const result = await call('POST effects/:kind/rearm', { kind: item.kind, body: { key: item.key, expectedGeneration: item.generation, ...(item.attemptUnknown ? { acknowledgeUnknownOutcome: true } : {}) } }); if (result.rearmed) { setOlderBlocked(olderBlocked.filter(row => !(row.kind === item.kind && row.key === item.key))); await blocked.reload() } else { notify(t('rearmEffectRefused')); await reloadBlockedPages() } }} /></div>
+          onConfirm={async () => { const result = await call('POST effects/:kind/rearm', { kind: item.kind, body: { key: item.key, expectedGeneration: item.generation, ...(item.attemptUnknown ? { acknowledgeUnknownOutcome: true } : {}) } }); if (result.rearmed) { setOlderBlocked(rows => rows.filter(row => !(row.kind === item.kind && row.key === item.key))); await blocked.reload() } else { notify(t('rearmEffectRefused')); await reloadBlockedPages() } }} /></div>
       </div></li>)}</ul>
       {blockedPage.error ? <p className="dt-error" role="alert">{blockedPage.error.message}</p> : null}
       {blockedNext && <LoadMore onMore={moreBlocked} busy={blockedPage.loading} />}</section> : null}

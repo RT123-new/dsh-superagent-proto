@@ -340,6 +340,41 @@ it('keeps a still-blocked older page row visible with a fresh generation after t
   expect(retry?.body).toMatchObject({ expectedGeneration: 2 })                            // retried with the refreshed generation
 })
 
+it('keeps newly loaded pages when a previously opened confirmation succeeds', async () => {
+  server.blockedEffects = Array.from({ length: 250 }, (_, index) => ({ kind: 'relay', key: `r${index}`, class: 'permanent', attempts: 1, since: '2026-09-22T00:00:00Z', attemptUnknown: false, generation: 1 }))
+  let release!: () => void
+  const hold = new Promise<void>(resolve => { release = resolve })
+  const realFetch = globalThis.fetch
+  vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request, init?: RequestInit) => { if (String(url).includes('cursor=')) await hold; return realFetch(url, init) }))
+  await mount()
+  await click(zh['tab.execution'])
+  await act(async () => { find(zh.loadMore).click() })
+  await click(all('.dt-blocked-effects li')[0]!.querySelector('button')!)
+  await act(async () => { release() })
+  await settle()
+  expect(all('.dt-blocked-effects li')).toHaveLength(250)
+  await click(zh.confirm)
+  expect(all('.dt-blocked-effects li')).toHaveLength(249)
+  expect(all('.dt-blocked-effects li').some(row => row.textContent!.includes('relay · r249 ·'))).toBe(true)
+})
+
+it('same-tick Load More double clicks dispatch one request', async () => {
+  server.blockedEffects = Array.from({ length: 250 }, (_, index) => ({ kind: 'relay', key: `r${index}`, class: 'permanent', attempts: 1, since: '2026-09-22T00:00:00Z', attemptUnknown: false, generation: 7 }))
+  let pages = 0
+  let release!: () => void
+  const hold = new Promise<void>(resolve => { release = resolve })
+  const realFetch = globalThis.fetch
+  vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request, init?: RequestInit) => { if (String(url).includes('cursor=')) { pages++; await hold } return realFetch(url, init) }))
+  await mount()
+  await click(zh['tab.execution'])
+  const more = find(zh.loadMore)
+  await act(async () => { more.click(); more.click() })
+  const count = pages
+  await act(async () => { release() })
+  await settle()
+  expect(count).toBe(1)
+})
+
 it('sends one stop for a double click on Confirm', async () => {
   at({ page: 'execution', id: 't1' })
   await mount()
