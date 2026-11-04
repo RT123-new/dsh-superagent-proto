@@ -77,3 +77,18 @@ it('counts a dropped stamp when the bounded map is full', () => {
   expect(h.metrics.snapshot().counters['launch_stamp_dropped']).toBe(1)
 })
 void Later
+
+it('uses the injected monotonic clock and clears stamps at disposal', async () => {
+  const h = setup()
+  let now = 50
+  const metrics = new Metrics({ mono: () => now })
+  ;(h.executor as unknown as { probe: Probe }).probe = new Probe(metrics)
+  h.executor.start(h.ticket as never, h.ticket.assignments[0] as never)
+  now = 350
+  await h.launch()
+  expect(metrics.snapshot().durations['slot_wait|internal']).toMatchObject({ maxMs: 300 })
+  const disposed = setup()
+  disposed.executor.start(disposed.ticket as never, disposed.ticket.assignments[0] as never)
+  disposed.executor.dispose()
+  expect((disposed.executor as unknown as { launchStamps: Map<string, number> }).launchStamps.size).toBe(0)
+})
