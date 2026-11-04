@@ -19,7 +19,7 @@ type Delivery = 'injected' | 'pending'
 
 export interface Api {
   'GET state': { response: StateView }
-  'GET overview': { response: OverviewView }
+  'GET overview': { response: OverviewView & { metrics?: import('../infra/metrics.ts').MetricsSnapshot } }
   'GET search': { query: { q: string }; response: SearchView }
   'GET sources': { response: SourceStatusView[] }
   'GET settings': { response: SettingsView }

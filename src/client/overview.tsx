@@ -1,3 +1,4 @@
+import { MetricsPanel } from './metrics.tsx'
 /** Overview page: pending Tickets requiring human action, active system problems, 24-hour flow counts, and Executor load. */
 import type { ReactNode } from 'react'
 import { usePoll, type Problem } from './api.ts'
@@ -99,5 +100,6 @@ export function OverviewPage() {
         {stat(t('idleLabel'), data.executor.idle)}
       </div>}
     </Section>
+    {data.metrics && <MetricsPanel metrics={data.metrics} t={t} />}
   </>
 }
