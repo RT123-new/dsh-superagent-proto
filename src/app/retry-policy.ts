@@ -6,6 +6,8 @@ function transportOf(error: unknown): TransportFailure | undefined {
   const metadata = error instanceof CliError ? (error as CliError & { transportFailure?: TransportFailure }).transportFailure : undefined
   return metadata instanceof TransportFailure ? metadata : undefined
 }
+/** The trusted not-before (epoch ms) carried by a typed transport failure, if any. */
+export const serverNotBeforeOf = (error: unknown): number | undefined => transportOf(error)?.serverNotBeforeMs
 export { TransportFailure, serverNotBefore } from '../infra/transport-failure.ts'
 /**
  * Classified retry decisions for durable effect retries (Issue 15).

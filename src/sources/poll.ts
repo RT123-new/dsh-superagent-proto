@@ -37,10 +37,19 @@ export async function pollThreads(ctx: SourceContext, source: string, stopped: (
 }
 /** Waits `ms` or until `signal` aborts using global `setTimeout` so test fake timers can drive polling loops. */
 export function pause(ms: number, signal: AbortSignal): Promise<void> {
+  // setTimeout fires immediately for delays above 2^31-1 ms, so a long trusted embargo is waited out in bounded slices (counted, not clock-read, so fake timers still drive it).
+  const SLICE = 2 ** 30
+  let left = Number.isFinite(ms) && ms > 0 ? ms : 0
   return new Promise(resolve => {
     if (signal.aborted) { resolve(); return }
+    let timer: ReturnType<typeof setTimeout>
     const stop = () => { clearTimeout(timer); resolve() }
-    const timer = setTimeout(() => { signal.removeEventListener('abort', stop); resolve() }, ms)
+    const wait = (): void => {
+      if (left <= SLICE) { timer = setTimeout(() => { signal.removeEventListener('abort', stop); resolve() }, left); return }
+      left -= SLICE
+      timer = setTimeout(wait, SLICE)
+    }
     signal.addEventListener('abort', stop, { once: true })
+    wait()
   })
 }

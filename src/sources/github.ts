@@ -3,7 +3,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { key, type Thread } from '../core/index.ts'
 import { sameName } from '../infra/text.ts'
 import { GithubAccountsSchema } from '../deployment.ts'
-import { classifyError, retryDecision } from '../app/retry-policy.ts'
+import { classifyError, retryDecision, serverNotBeforeOf } from '../app/retry-policy.ts'
 import { CliError, validItems, type Commands, type Tally } from '../infra/commands.ts'
 import { ciCounts, ciFact, ciFailures, ciSummary, githubThreadContext, pullChecks } from './github-read.ts'
 import { branchCiTrigger, ciTrigger, commentTrigger, CommentSchema, githubAddress, issueTrigger, IssueSchema, pullTrigger, SOURCE }
@@ -135,11 +135,15 @@ export function pollFailure(failures: number, threshold: number, error: unknown)
  * Seconds to wait before the next poll. A rate-limited failure backs off exponentially with jitter (via the shared retry policy, capped at one hour)
  * instead of re-polling every interval into the same limit; no delay is ever read from error text, and other outcomes keep the configured interval.
  */
-export function pollPauseSeconds(configured: number, failures: number, error: unknown, rng: () => number = Math.random): number {
+export function pollPauseSeconds(configured: number, failures: number, error: unknown, rng: () => number = Math.random, now = Date.now()): number {
   const base = Number.isFinite(configured) && configured > 0 ? configured : 60
-  if (!error || classifyError(error) !== 'rate_limited') return base
-  const decision = retryDecision(error, Number.isFinite(failures) ? Math.max(0, failures - 1) : 0, base * 1000, 3600_000, rng, Date.now())
-  return decision.retry ? Math.max(base, Math.ceil(decision.delay / 1000)) : base
+  // A trusted server not-before is never shortened or capped: polling earlier would dispatch inside a known embargo.
+  const notBefore = error ? serverNotBeforeOf(error) : undefined
+  const server = notBefore !== undefined && Number.isFinite(now) && notBefore > now ? Math.ceil((notBefore - now) / 1000) : 0
+  if (!error || classifyError(error) !== 'rate_limited') return Math.max(base, server)
+  const decision = retryDecision(error, Number.isFinite(failures) ? Math.max(0, failures - 1) : 0, base * 1000, 3600_000, rng, now)
+  const backoff = decision.retry ? Math.ceil(decision.delay / 1000) : 0
+  return Math.max(base, backoff, server)
 }
 async function watch(ctx: SourceContext, signal: AbortSignal): Promise<void> {
   let interval = 60

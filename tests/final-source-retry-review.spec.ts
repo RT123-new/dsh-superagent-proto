@@ -182,3 +182,30 @@ describe('4.3 poll pause numeric validation', () => {
     }
   })
 })
+
+describe('4.3 trusted embargo in the poll loop', () => {
+  it('waits out a typed 30-day not-before in full and never polls inside it', async () => {
+    const { pollPauseSeconds } = await import('../src/sources/github.ts')
+    const { TransportFailure } = await import('../src/infra/transport-failure.ts')
+    const e = new TransportFailure('x', { status: 429, retryAfter: String(30 * 86400) }, NOW)
+    expect(pollPauseSeconds(60, 1, e, () => 0.5, NOW)).toBeGreaterThanOrEqual(30 * 86400)
+    const e503 = new TransportFailure('x', { status: 503, retryAfter: '7200' }, NOW)
+    expect(pollPauseSeconds(60, 1, e503, () => 0.5, NOW)).toBeGreaterThanOrEqual(7200)
+  })
+  it('pause() does not fire early for delays beyond the timer limit, and aborts promptly', async () => {
+    const { vi } = await import('vitest'); const { pause } = await import('../src/sources/poll.ts')
+    vi.useFakeTimers()
+    try {
+      let done = false; const c = new AbortController()
+      void pause(40 * 86400_000, c.signal).then(() => { done = true })
+      await vi.advanceTimersByTimeAsync(30 * 86400_000)
+      expect(done).toBe(false)
+      await vi.advanceTimersByTimeAsync(10 * 86400_000 + 1000)
+      expect(done).toBe(true)
+      let aborted = false; const d = new AbortController()
+      void pause(40 * 86400_000, d.signal).then(() => { aborted = true })
+      d.abort(); await vi.advanceTimersByTimeAsync(0)
+      expect(aborted).toBe(true)
+    } finally { vi.useRealTimers() }
+  })
+})
