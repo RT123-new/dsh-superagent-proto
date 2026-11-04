@@ -43,8 +43,12 @@ it.each([true, false])('markAttempt=%s: kill during an in-flight send', async ma
       effects.start()                                                       // restart reconciliation
       expect(effects.attemptUnknown('reply', 'm1')).toBe(true)
       const after = store.db.prepare("SELECT error, due FROM effect WHERE key = 'm1'").get() as { error: string; due: number }
-      expect(after.error).toBe(ATTEMPT_UNKNOWN)
-      expect(after.due).toBeLessThanOrEqual(Date.now())                      // still due: it will be re-sent (duplicate possible), never silently dropped
+      expect(after.error).toContain(ATTEMPT_UNKNOWN)
+      expect(after.error).toMatch(/^blocked:unknown_outcome:/)
+      expect(effects.blocked('reply').map(row => row.key)).toEqual(['m1'])
+      // The pending receipt is preserved but no duplicate is sent until a person explicitly rearms it.
+      // Its due timestamp is not permission to retry while blocked.
+      expect(after.due).toBeLessThanOrEqual(Date.now())
     } finally { store.close() }
   } finally { rmSync(dir, { recursive: true, force: true }) }
 }, 40000)
