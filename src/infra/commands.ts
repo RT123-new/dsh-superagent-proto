@@ -13,6 +13,10 @@ const TIMEOUT_MS = 90_000
  * Source channels and pollers inspect its code to distinguish deleted conversations from retryable failures.
  */
 export class CliError extends Error {
+  /** True when the subprocess exceeded the output cap: the same request would exceed it again, so a retry cannot succeed. */
+  oversized = false
+  /** True when the subprocess succeeded but printed output that is not the expected JSON (truncated, proxy page): retryable. */
+  unreadable = false
   constructor(message: string, readonly code?: number, readonly exitCode?: number) { super(message) }
 }
 /** Extracts a sanitized error from a failed subprocess without echoing argv, which may contain message text. */
@@ -29,7 +33,9 @@ export function commandError(error: unknown, program = 'command'): Error {
     // `gh` exits non-zero on HTTP errors (such as `gh: Not Found (HTTP 404)`) and on `gh: HTTP 304`, which ETag polling relies on.
     if (stderr) return new CliError(stderr.slice(0, 2000), Number(/\bHTTP (\d{3})\b/.exec(stderr)?.[1]) || undefined, exitCode)
   }
-  return new CliError(`${basename(program)} ${ended(error)}`, undefined, exitCode)
+  const failure = new CliError(`${basename(program)} ${ended(error)}`, undefined, exitCode)
+  if (error && typeof error === 'object' && 'code' in error && error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') failure.oversized = true
+  return failure
 }
 function ended(error: unknown): string {
   const { killed, signal, code } = (error ?? {}) as { killed?: boolean; signal?: string | null; code?: unknown }
@@ -77,7 +83,16 @@ export class Commands {
     } catch (error) { stop('failed'); throw commandError(error, program) }
   }
   /** Runs the agent's GitHub CLI and parses its JSON output; callers should prefer `api`, which is restricted to the configured repository and validates output. */
-  async gh<T>(args: string[]): Promise<T> { return JSON.parse(await this.run(this.deployment.github.cli, args)) as T }
+  async gh<T>(args: string[]): Promise<T> {
+    const output = await this.run(this.deployment.github.cli, args)
+    try { return JSON.parse(output) as T }
+    catch {
+      // Never echo the output, which may hold remote content; a SyntaxError would otherwise be parked as a permanent programming error.
+      const failure = new CliError('gh returned output that is not valid JSON')
+      failure.unreadable = true
+      throw failure
+    }
+  }
   /**
    * Calls the GitHub API on a path within the configured repository, validating JSON output when a schema is provided
    * or returning raw CLI output (such as raw files or `--include` headers) when omitted.

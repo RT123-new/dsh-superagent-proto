@@ -21,6 +21,8 @@ export { TransportFailure, serverNotBefore } from '../infra/transport-failure.ts
 /** Error classes for retry decisions, in the order a classifier should consider them. */
 export type ErrorClass = 'cancelled' | 'unauthorized' | 'permanent' | 'programming_error' | 'rate_limited' | 'provider_temporary' | 'transient'
 /** Retryable classes; everything else parks instead of consuming attempts. */
+/** Upper bound on how far a trusted server instruction may defer a retry. */
+export const MAX_SERVER_WAIT_MS = 24 * 3600_000
 const RETRYABLE: ReadonlySet<ErrorClass> = new Set(['rate_limited', 'provider_temporary', 'transient'])
 
 const record = (value: unknown): Record<string, unknown> | undefined =>
@@ -31,6 +33,12 @@ export function classifyError(error: unknown): ErrorClass {
   if (record(error)?.name === 'AbortError' || record(error)?.code === 'ABORT_ERR' || record(error)?.cancelled === true) return 'cancelled'
   const status = transportOf(error)?.status ?? (error instanceof CliError ? error.code : Number(record(error)?.status ?? record(error)?.statusCode))
   const code = String(record(error)?.code ?? record(error)?.type ?? '')
+  // The same request would exceed the output cap again: park visibly instead of re-downloading it forever.
+  if (error instanceof CliError && error.oversized) return 'permanent'
+  if (error instanceof CliError && error.unreadable) return 'transient'
+  // GitHub reports primary and secondary rate limits as HTTP 403 (or 429); only the CLI's own diagnostic distinguishes them from a permission failure.
+  // This chooses the class only; no delay is ever read from the text.
+  if (status === 403 && error instanceof CliError && /rate limit|abuse detection/i.test(error.message)) return 'rate_limited'
   if (status === 401 || status === 403 || /AUTH|UNAUTHORIZED|FORBIDDEN|PERMISSION/i.test(code)) return 'unauthorized'
   if (status === 429 || /RATE_LIMIT|THROTTLE|QUOTA/i.test(code)) return 'rate_limited'
   if (status === 400 || status === 404 || status === 410 || status === 422 || /INVALID|NOT_FOUND|BAD_REQUEST/i.test(code)) return 'permanent'
@@ -46,10 +54,13 @@ export type RetryDecision = { retry: true; class: ErrorClass; delay: number } | 
 export function retryDecision(error: unknown, attempt: number, base: number, max: number, rng: () => number, now: number): RetryDecision {
   const kind = classifyError(error)
   if (!RETRYABLE.has(kind)) return { retry: false, class: kind }
-  const a = Math.min(max, base * 2 ** Math.min(Math.max(0, attempt), 30))
-  const jittered = 0.5 * a + rng() * 0.5 * a
+  const n = Number.isFinite(attempt) ? Math.min(Math.max(0, attempt), 30) : 0
+  const ceiling = Number.isFinite(max) && max > 0 ? max : 0
+  const a = Math.min(ceiling, Number.isFinite(base) && base > 0 ? base * 2 ** n : 0)
+  const u = rng()
+  const jittered = 0.5 * a + (Number.isFinite(u) ? Math.min(1, Math.max(0, u)) : 1) * 0.5 * a
   const notBefore = transportOf(error)?.serverNotBeforeMs
-  const serverWait = notBefore !== undefined ? notBefore - now : 0
+  const serverWait = notBefore !== undefined && Number.isFinite(now) ? Math.min(notBefore - now, MAX_SERVER_WAIT_MS) : 0
   return { retry: true, class: kind, delay: Math.max(jittered, serverWait, 0) }
 }
 
