@@ -133,13 +133,31 @@ export class Effects {
     this.store.afterCommit(() => { this.report(kind) })
   }
   start(): void {
-    // An attempt-start marker that survived to a start was interrupted before its outcome was recorded: say so durably, once.
-    const rows = this.store.db.prepare(`SELECT kind, key, error FROM effect WHERE error LIKE ?`).all(`%${ATTEMPT_STARTED}`) as { kind: string; key: string; error: string }[]
+    // An interrupted remote send has an unknown outcome: retrying it automatically can post a duplicate.
+    // Keep the existing receipt and row, but require explicit operator rearm for reply effects.
+    // This also parks legacy unknown rows that an earlier version could retry automatically.
+    const rows = this.store.db.prepare(`SELECT kind, key, error FROM effect WHERE error LIKE ? OR (kind = 'reply' AND error LIKE ?)`)
+      .all(`%${ATTEMPT_STARTED}`, `%${ATTEMPT_UNKNOWN}`) as { kind: string; key: string; error: string }[]
+    let interrupted = 0, parked = 0
     for (const row of rows) {
-      const settled = row.error.slice(0, -ATTEMPT_STARTED.length).trimEnd()
-      this.store.db.prepare('UPDATE effect SET error = ? WHERE kind = ? AND key = ? AND error = ?').run(withMarker(settled, ATTEMPT_UNKNOWN), row.kind, row.key, row.error)
+      const wasStarted = hasMarker(row.error, ATTEMPT_STARTED)
+      const wasUnknown = hasMarker(row.error, ATTEMPT_UNKNOWN)
+      if (!wasStarted && !wasUnknown) continue
+      if (wasStarted) interrupted++
+      const settled = wasStarted ? withMarker(row.error.slice(0, -ATTEMPT_STARTED.length).trimEnd(), ATTEMPT_UNKNOWN) : row.error
+      const mustPark = row.kind === 'reply' && !settled.startsWith('blocked:')
+      const error = mustPark
+        ? `blocked:unknown_outcome: remote send may have succeeded; explicit operator review required ${settled}`
+        : settled
+      if (mustPark) parked++
+      if (error !== row.error) this.store.db.prepare('UPDATE effect SET error = ? WHERE kind = ? AND key = ? AND error = ?')
+        .run(error, row.kind, row.key, row.error)
     }
-    if (rows.length) this.probe.count('effect_attempt_unknown', rows.length)
+    if (interrupted) this.probe.count('effect_attempt_unknown', interrupted)
+    if (parked) {
+      this.probe.count('effect_unknown_parked', parked)
+      if (this.handlers.has('reply')) this.report('reply')
+    }
     this.started = true; this.kick()
   }
   /** Whether the row's last attempt was interrupted before its outcome was recorded (duplicate remote effect possible on retry). */
