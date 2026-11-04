@@ -1,0 +1,55 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/slotwake-red[39m
+
+(node:5079) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [31m❯[39m tests/stage-d/issue-17-slot-refill-kick.spec.ts [2m([22m[2m4 tests[22m[2m | [22m[31m3 failed[39m[2m)[22m[33m 6624[2mms[22m[39m
+[31m   [31m×[31m quiet turn end: a queued launch refills the freed slot at once, not at the next pass[39m[33m 2062[2mms[22m[39m
+[31m   [31m×[31m handoff: freeing the slot by handing off wakes a queued launch at once[39m[33m 2052[2mms[22m[39m
+   [33m[2m✓[22m[39m paused: the wake neither dispatches nor spins; the queued launch waits for resume [33m 473[2mms[22m[39m
+[31m   [31m×[31m a cancelled queued launch is not resurrected by the wake[39m[33m 2036[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 3 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/stage-d/issue-17-slot-refill-kick.spec.ts[2m > [22mquiet turn end: a queued launch refills the freed slot at once, not at the next pass
+[31m[1mAssertionError[22m: expected 1955 to be less than 500[39m
+[36m [2m❯[22m tests/stage-d/issue-17-slot-refill-kick.spec.ts:[2m59:20[22m[39m
+    [90m 57|[39m   [34mexpect[39m(h[33m.[39m[34mrelays[39m(h[33m.[39mruntime[33m.[39mmasterId)[33m.[39mlength)[33m.[39m[34mtoBe[39m(relaysBefore)
+    [90m 58|[39m   [34mexpect[39m(probe[33m.[39mpeakUsed)[33m.[39m[34mtoBeLessThanOrEqual[39m([34m1[39m)
+    [90m 59|[39m   [34mexpect[39m(refillMs)[33m.[39m[34mtoBeLessThan[39m([34m500[39m)
+    [90m   |[39m                    [31m^[39m
+    [90m 60|[39m }[33m,[39m [34m60_000[39m)
+    [90m 61|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/stage-d/issue-17-slot-refill-kick.spec.ts[2m > [22mhandoff: freeing the slot by handing off wakes a queued launch at once
+[31m[1mAssertionError[22m: expected 1994 to be less than 500[39m
+[36m [2m❯[22m tests/stage-d/issue-17-slot-refill-kick.spec.ts:[2m81:20[22m[39m
+    [90m 79|[39m   [34mexpect[39m(probe[33m.[39m[34mstateOf[39m(t1[33m.[39mticket[33m.[39mid))[33m.[39m[34mtoBe[39m([32m'handed-off'[39m)
+    [90m 80|[39m   [34mexpect[39m(probe[33m.[39mpeakUsed)[33m.[39m[34mtoBeLessThanOrEqual[39m([34m1[39m)
+    [90m 81|[39m   [34mexpect[39m(refillMs)[33m.[39m[34mtoBeLessThan[39m([34m500[39m)
+    [90m   |[39m                    [31m^[39m
+    [90m 82|[39m }[33m,[39m [34m60_000[39m)
+    [90m 83|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/stage-d/issue-17-slot-refill-kick.spec.ts[2m > [22ma cancelled queued launch is not resurrected by the wake
+[31m[1mAssertionError[22m: expected 1965 to be less than 500[39m
+[36m [2m❯[22m tests/stage-d/issue-17-slot-refill-kick.spec.ts:[2m138:20[22m[39m
+    [90m136|[39m   [34mexpect[39m(h[33m.[39magents[33m.[39m[35mget[39m(t2[33m.[39msessionId))[33m.[39m[34mtoBeUndefined[39m()
+    [90m137|[39m   [34mexpect[39m(h[33m.[39mruntime[33m.[39meffects[33m.[39m[34mpending[39m([32m'launch'[39m))[33m.[39m[34mtoBe[39m([35mfalse[39m)
+    [90m138|[39m   [34mexpect[39m(refillMs)[33m.[39m[34mtoBeLessThan[39m([34m500[39m)
+    [90m   |[39m                    [31m^[39m
+    [90m139|[39m   [34mexpect[39m(probe[33m.[39mpeakUsed)[33m.[39m[34mtoBeLessThanOrEqual[39m([34m1[39m)
+    [90m140|[39m }[33m,[39m [34m60_000[39m)
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 07:24:31
+[2m   Duration [22m 7.38s[2m (transform 494ms, setup 0ms, import 667ms, tests 6.62s, environment 0ms)[22m
+

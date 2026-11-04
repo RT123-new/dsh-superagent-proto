@@ -1,0 +1,49 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/superagent-context[39m
+
+(node:5188) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [31m❯[39m tests/issue-17-slot-wake-adversarial.spec.ts [2m([22m[2m6 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[33m 412[2mms[22m[39m
+   [32m✓[39m a committed quiet completion kicks only after the report transaction closes[32m 114[2mms[22m[39m
+   [32m✓[39m a rollback in the completion report never runs the new kick[32m 56[2mms[22m[39m
+   [32m✓[39m a stale idle for an ended assignment cannot launch or report[32m 63[2mms[22m[39m
+   [32m✓[39m a stale idle for an replaced assignment cannot launch or report[32m 58[2mms[22m[39m
+[31m   [31m×[31m an in-flight idle handler cannot kick or mutate after executor disposal[39m[32m 59[2mms[22m[39m
+   [32m✓[39m a ready report that arrives during quiet settlement still refills promptly without overwriting it[32m 63[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/issue-17-slot-wake-adversarial.spec.ts[2m > [22man in-flight idle handler cannot kick or mutate after executor disposal
+[31m[1mAssertionError[22m: expected "report" to not be called at all, but actually been called 1 times[90m
+
+Received:
+
+[1m  1st report call:
+
+[22m    Array [
+      "622a9a0f139114283364e6ba05999a7b",
+      Object {
+        "state": "waiting",
+        "summary": "Prior evidence preserved",
+      },
+    ]
+[31m[90m
+
+Number of calls: [1m1[22m
+[31m[39m
+[36m [2m❯[22m tests/issue-17-slot-wake-adversarial.spec.ts:[2m68:22[22m[39m
+    [90m 66|[39m   h[33m![39m[33m.[39mruntime[33m.[39mexecutor[33m.[39m[34mdispose[39m()
+    [90m 67|[39m   gate[33m.[39m[34mresolve[39m()[33m;[39m [35mawait[39m work
+    [90m 68|[39m   [34mexpect[39m(report)[33m.[39mnot[33m.[39m[34mtoHaveBeenCalled[39m()
+    [90m   |[39m                      [31m^[39m
+    [90m 69|[39m   [34mexpect[39m(kick)[33m.[39mnot[33m.[39m[34mtoHaveBeenCalled[39m()
+    [90m 70|[39m })
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m5 passed[39m[22m[90m (6)[39m
+[2m   Start at [22m 07:25:20
+[2m   Duration [22m 1.16s[2m (transform 489ms, setup 0ms, import 655ms, tests 412ms, environment 0ms)[22m
+
