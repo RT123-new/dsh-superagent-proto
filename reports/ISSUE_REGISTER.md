@@ -28,7 +28,9 @@ Legend for workstream ownership: W13 = ingestion (1-3), W45 = workspace/cancella
 
 ## ISSUE 2 — GitHub pagination can lose events
 
-- Source: readStream() in src/sources/github.ts. Owner: W13. Classification: NOT TESTED.
+- Source: readStream() in src/sources/github.ts:203-249. Owner: W13.
+- Source evidence (INT, 2026-11-04): readStream issues ONE `api(listed, '--include')` call with per_page=100 and NO pagination following (commands.pages() with --paginate exists at src/infra/commands.ts:89-93 but is unused here). Cursor advances to cursorAt(newest item on the FIRST page) = newest-5s (poll.ts cursorAt). With sort=updated asc, >100 items inside the same ~5s timestamp window re-fetch the same first page every round: items beyond page 1 are never reached (timestamp-only cursor, no stable identity ordering). Notifications and per-thread comment reads DO paginate via commands.pages.
+- Classification: SOURCE-SUPPORTED (mechanism verified in code; executable loss/stall tests owed by W13).
 - Plan: full Link-header pagination; checkpoint never past unread pages; page-limit continuation; identical-timestamp ordering by stable identity; synthetic streams 0/1/99/100/101/201/1000 + identical timestamps + mid-pagination failures.
 - Status: OPEN.
 
@@ -40,19 +42,25 @@ Legend for workstream ownership: W13 = ingestion (1-3), W45 = workspace/cancella
 
 ## ISSUE 4 — Workspace preparation falsely considered successful
 
-- Source: src/executor/dsh.ts (prepareDirectory, launch). Owner: W45. Classification: NOT TESTED.
+- Source: src/executor/dsh.ts (prepareDirectory:247-262, launch:434-437). Owner: W45.
+- Source evidence (INT, 2026-11-04): launch() treats `stat(workspace)` success as "already prepared" (comment at :434 admits it, including legacy worktrees). prepareDirectory on failure removes only an EMPTY leftover dir; a non-empty partial directory is kept and is then accepted as prepared on retry (comment at :278-281 admits this). No durable prep state, no config-identity validation.
+- Classification: SOURCE-SUPPORTED (behaviour explicit in code and comments; executable tests owed by W45).
 - Plan: durable prep state machine (unprepared/preparing/prepared/failed/cancelled); atomic marker; config-identity hash (no secrets); legacy workspace migration; partial-creation/failure/timeout/interrupt/restart/config-change tests.
 - Status: OPEN.
 
 ## ISSUE 5 — Cancellation does not reliably stop preparation
 
-- Owner: W45. Classification: NOT TESTED.
+- Owner: W45.
+- Source evidence (INT, 2026-11-04): prepareDirectory's signal is AbortSignal.any([host.lifetime, timeout]) only (dsh.ts:253-254) — no assignment-cancellation input. launch() polls `current()` at discrete points but cannot interrupt an in-flight runAsWorker prepare. Cancellation does not reach the prepare child process.
+- Classification: SOURCE-SUPPORTED.
 - Plan: assignment-scoped cancellation controller; propagate to command, child processes, session creation, launch; settle before reuse; cancel at every async boundary tests.
 - Status: OPEN.
 
 ## ISSUE 6 — Delayed retries can outlive authorisation
 
-- Source: resumeAfter(), Sessions.prompt(). Owner: W68. Classification: NOT TESTED.
+- Source: resumeAfter() src/executor/dsh.ts:555-579; Sessions.prompt() src/app/sessions.ts. Owner: W68.
+- Source evidence (INT, 2026-11-04): resumeAfter's deferred `go()` rechecks liveness/assignment/pause, but its sessions.prompt call passes NO authorization callback — unlike launch() which passes `() => { if (!current()) throw ... }` (dsh.ts:~460-463). Any wait inside prompt after the go()-time checks is an unchecked window. Retry id `retry:${assignmentId}:${tries}` is stable per attempt.
+- Classification: SOURCE-SUPPORTED (deterministic race tests owed by W68).
 - Plan: revalidate (ticket live, assignment current/not cancelled, processing permitted, permissions valid) immediately before commit; stable idempotency ids; race suite vs stop/policy/replacement/pause/restart/deletion; zero stale deliveries.
 - Status: OPEN.
 
@@ -64,7 +72,9 @@ Legend for workstream ownership: W13 = ingestion (1-3), W45 = workspace/cancella
 
 ## ISSUE 8 — Nested subagent permission depth limitation
 
-- Source: limitSubagent() in src/app/sessions.ts. Owner: W68. Classification: NOT TESTED.
+- Source: limitSubagent() in src/app/sessions.ts:303-311. Owner: W68.
+- Source evidence (INT, 2026-11-04): parent traversal bound `depth < 8` confirmed verbatim. On unresolved ancestry (parent undefined after the loop, ticket unknown) the function RETURNS WITHOUT APPLYING RESTRICTIONS — fails open for descendants of managed workers, exactly the escape the mandate names.
+- Classification: SOURCE-SUPPORTED (executable depth 1/8/9/20 tests owed by W68).
 - Plan: validated ancestry resolution (visited set, terminal conditions, defensible bound); fail closed for managed work; depth 1/8/9/20+, missing parents, cycles, ended tickets, policy changes.
 - Status: OPEN.
 
