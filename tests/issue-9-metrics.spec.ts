@@ -101,6 +101,14 @@ describe('queue gauge', () => {
     q.enqueue('a'); q.enqueue('b'); c.adv(7)
     expect(m.snapshot().queues.eval).toEqual({ depth: 1, trackedDepth: 1, depthComplete: false, oldestAgeMs: 7, oldestAgeIsLowerBound: true, dropped: 1 })
   })
+  it('authoritative length always wins: stale tracked ids never override it', () => {
+    const c = clock(), q = new QueueGauge(c.now, 10)
+    q.enqueue('a'); q.enqueue('b'); q.enqueue('c'); c.adv(5)
+    q.reconcile(0); expect([q.depth, q.trackedDepth, q.complete, q.oldestAgeMs()]).toEqual([0, 0, true, null])
+    q.enqueue('x'); q.enqueue('y'); q.enqueue('z')
+    q.reconcile(1); expect([q.depth, q.complete, q.oldestAgeMs()]).toEqual([1, false, null])
+    q.reconcile(3); expect([q.depth, q.complete]).toEqual([3, true])
+  })
   it('reconcile with authoritative length restores exactness or reports it, never adds to it', () => {
     const c = clock(), q = new QueueGauge(c.now, 1)
     q.enqueue('a'); q.enqueue('b'); q.enqueue('c')
