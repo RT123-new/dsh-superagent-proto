@@ -35,3 +35,13 @@ Optional isolated published DSH provider adapter +actual Source/Store/Engine/set
 - Independent optional local provider/SSE seam pass; optional v2 suite16/16.
 
 Final performance/storage/hook/dashboard integrations, final broad adversarial review, final full check and unmerged PR are still pending. This is not the final status report.
+
+## Integration checkpoint: lifecycle and measured storage
+
+At `f675f71`, full suite **1442/1442 across92files**, typecheck passed; the combined command's build was interrupted by runner timeout and separately rerun successfully. Raw full run and standalone build are in evidence/integration/integration-full-lifecycle.log and lifecycle-build.log. These are local synthetic/fixture checks, not external deployment or full live service validation.
+
+Lifecycle original e56e546, independent3red5dc223e, causal repair9f401a2, retained22focusedgreen062dcc7. Committed eval identities, afterCommit timeline starts and assignment-bound delivery/history correlation prevent cross-work attribution. Boundary names distinguish decision-to-ticket, step-to-first-settlement and queued-receipt-to-source acknowledgement from the stronger metrics not yet measured. Process snapshot excludes child processes. UI translates all added stage names and displays optional process resources(d70850d); wide/narrow server-rendered fixture pixels inspected. The supplementary fixture uses minimal CSS, not the deployed host shell, and narrow table requires sideways scroll. Original dashboard integration screenshots retain the real stylesheet/keyboard checks.
+
+Slotwait ec99708 is launch enqueue to successful slot reservation, including effect scheduling. Independent injected-clock failure4b42ac4 repairedf675f71; fivefocused tests pass, disposal stamps now clear. Further independent rollback/afterCommit and complete-success proof remains pending, so this is not final acceptance.
+
+Storage20 reviewed adoptiona69705d is separate from retention19. Independent paired100k query run has40paired windows/zero oracle differences; warm synthetic P95stats151.21→13.93ms,flow118.69→28.17ms. Migration/reconciliation is atomic; crashkillmarkers verify pre/postcommit. Disk/save/migration tradeoffs and dataset limits remain explicit in BENCHMARK_REPORT and storage evidence. No universal performance claim.

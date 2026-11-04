@@ -17,9 +17,9 @@ export function MetricsPanel({ metrics: m, t }: { metrics: MetricsSnapshot; t: T
       return samples.length ? samples : placeholders ? [[`${stage}|-`, undefined]] : []
     })
   }
-  const label = (stage: string) => t(`metricsStage.${stage}` as DshSuperagentKey)
+  const label = (stage: string) => { const key = `metricsStage.${stage}` as DshSuperagentKey; const value = t(key); return value === key ? stage : value }
   return <Section title={t('metricsTitle')}>
-    <Hint>{t('metricsScope', { window: m.window })}</Hint>
+    <Hint>{t('metricsScope', { window: m.window })}</Hint><Hint>{t('metricsPartialProgram')}</Hint>
     <p className="dt-hint"><time dateTime={new Date(m.sinceWallMs).toISOString()}>{new Date(m.sinceWallMs).toISOString()}</time>
       {' → '}<time dateTime={new Date(m.atWallMs).toISOString()}>{new Date(m.atWallMs).toISOString()}</time></p>
     {([[t('metricsSuccess'), rowsFor(m.durations, true)], [t('metricsFailure'), rowsFor(m.failedDurations ?? {}, false)]] as const).map(([title, rows]) => <div key={title}>
@@ -46,7 +46,10 @@ export function MetricsPanel({ metrics: m, t }: { metrics: MetricsSnapshot; t: T
       ['metricsCostUnknown', m.tokens.costUnknownReports],
     ] as const).map(([key, v]) => <div key={key}><dt>{t(key)}</dt><dd>{key === 'metricsCost' && v !== null ? v.toFixed(6) : number(v, unknown)}</dd></div>)}</dl>
     <p className="dt-hint">{t('metricsUsageUnknown')}: {m.tokens.unknownReports.inputCacheHit ?? 0} / {m.tokens.unknownReports.inputCacheMiss ?? 0} / {m.tokens.unknownReports.output ?? 0}</p>
-    <p className="dt-hint">{t('metricsExtraCoverage')}</p><h3>{t('metricsCounters')}</h3>{Object.entries(m.counters).length ? <ul className="dt-metrics-list">{Object.entries(m.counters).map(([key, v]) =>
+    <p className="dt-hint">{t('metricsExtraCoverage')}</p>{m.process && <><h3>{t('metricsProcess')}</h3><dl className="dt-metrics-usage">{([
+      ['metricsCpuUser', m.process.cpuUserMicros], ['metricsCpuSystem', m.process.cpuSystemMicros], ['metricsRss', m.process.rssBytes],
+      ['metricsHeap', m.process.heapUsedBytes], ['metricsElu', m.process.eventLoopUtilization],
+    ] as const).map(([key, v]) => <div key={key}><dt>{t(key)}</dt><dd>{number(v, unknown)}</dd></div>)}</dl></>}<h3>{t('metricsCounters')}</h3>{Object.entries(m.counters).length ? <ul className="dt-metrics-list">{Object.entries(m.counters).map(([key, v]) =>
       <li key={key}>{key}: {v}</li>)}</ul> : <Hint>{t('metricsNoSamples')}</Hint>}
   </Section>
 }

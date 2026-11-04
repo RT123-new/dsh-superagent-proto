@@ -1,0 +1,33 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/home/sandbox/work/dsh-superagent-proto[39m
+
+ [31m❯[39m tests/issue-9-slot-atomic.spec.ts [2m([22m[2m1 test[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 6[2mms[22m[39m
+[31m   [31m×[31m a disjoint slot transition integrates at one clock boundary without phantom idle or excess[39m[32m 5[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/issue-9-slot-atomic.spec.ts[2m > [22ma disjoint slot transition integrates at one clock boundary without phantom idle or excess
+[31m[1mAssertionError[22m: expected 3 to be 1 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 1[39m
+[31m+ 3[39m
+
+[36m [2m❯[22m tests/issue-9-slot-atomic.spec.ts:[2m10:23[22m[39m
+    [90m  8|[39m  [35mconst[39m before[33m=[39mreads
+    [90m  9|[39m  probe[33m.[39m[34mslots[39m([32m'worker'[39m[33m,[39m[34m1[39m[33m,[39m{preparing[33m:[39m[34m0[39m[33m,[39mbusy[33m:[39m[34m1[39m})
+    [90m 10|[39m  [34mexpect[39m(reads[33m-[39mbefore)[33m.[39m[34mtoBe[39m([34m1[39m)
+    [90m   |[39m                       [31m^[39m
+    [90m 11|[39m  [35mconst[39m i[33m=[39mm[33m.[39m[34msnapshot[39m()[33m.[39mslots[33m.[39mworker[33m![39m[33m.[39mintegrals
+    [90m 12|[39m  [34mexpect[39m(i[33m.[39moverLimitSlotMs)[33m.[39m[34mtoBe[39m([34m0[39m)
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m   Start at [22m 07:22:54
+[2m   Duration [22m 167ms[2m (transform 59ms, setup 0ms, import 69ms, tests 6ms, environment 0ms)[22m
+

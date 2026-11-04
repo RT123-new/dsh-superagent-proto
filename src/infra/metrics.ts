@@ -100,6 +100,17 @@ export class SlotIntegrator {
     if (!Number.isInteger(count) || count < 0) throw new RangeError(`count ${count} must be a non-negative integer`)
     this.advance(); this.counts.set(state, count)
   }
+  /** Atomically replace capacity and ALL disjoint state counts at one monotonic boundary. Invalid input changes nothing. */
+  transition(capacity: number, counts: Readonly<Record<string, number>>): void {
+    if (!Number.isSafeInteger(capacity) || capacity < 0) throw new RangeError('capacity must be a non-negative safe integer')
+    const keys = Object.keys(counts)
+    if (keys.length !== this.states.length || keys.some(state => !this.counts.has(state))) throw new RangeError('transition requires every configured slot state exactly once')
+    for (const count of Object.values(counts)) if (!Number.isSafeInteger(count) || count < 0) throw new RangeError('counts must be non-negative safe integers')
+    this.advance()
+    if (capacity !== this.cap) this.capacityChanges++
+    this.cap = capacity
+    for (const state of this.states) this.counts.set(state, counts[state]!)
+  }
   /** Per-state and capacity integrals in slot-milliseconds, including the open interval up to now. */
   integrals(): { observedMs: number; capacitySlotMs: number; idleSlotMs: number; overLimitSlotMs: number; activeSlotMs: Record<string, number>; capacityChanges: number } {
     this.advance()
@@ -310,6 +321,7 @@ export class Metrics {
 }
 
 export interface MetricsSnapshot {
+  process?: import('./metrics-process.ts').ProcessUsage
   version: 1; sinceWallMs: number; atWallMs: number; window: number
   durations: Record<string, DurationSummary>
   failedDurations: Record<string, DurationSummary>
