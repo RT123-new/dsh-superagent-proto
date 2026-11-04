@@ -1906,6 +1906,11 @@ it('ADV NF5-a: a throwing preset revoke must not skip killing the stopped worker
   await runtime.idle()
   await new Promise(resolve => setTimeout(resolve, 200))
   expect(jobs.service.kill.mock.calls.map(call => call[0])).toContain(job)
+  // The failed revoke is visible, not swallowed as done: the attempt is on record and the probe counter fires.
+  expect(presets.mock.calls.filter(call => call[1] === 'workspace-write')).toHaveLength(1)
+  expect(runtime.metricsSnapshot()!.counters['session_revoke_failed']).toBe(1)
+  // The stop itself completed; the unknown grant state is what remains, not a stuck ticket.
+  expect(runtime.store.tickets.get(ticket.id)!.ended).toMatchObject({ outcome: 'stopped' })
 }, 20000)
 
 it('ADV NF5-b: a retry on a live ticket must not revoke the worker preset', async () => {
