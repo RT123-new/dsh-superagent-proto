@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
-import { Effects } from '../src/app/effects.ts'
+import { ATTEMPT_STARTED, Effects } from '../src/app/effects.ts'
 import { registerHttp } from '../src/app/http.ts'
 import type { HttpHost } from '../src/app/http.ts'
 import { Store } from '../src/app/store.ts'
@@ -44,6 +44,24 @@ it('GET effects/blocked returns the safe class and counters only: no stored erro
   expect(res.status).toBe(200)
   expect(res.body).toEqual({ items: [{ kind: 'relay', key: 'head', class: 'permanent', attempts: expect.any(Number), since: expect.any(String), attemptUnknown: false }] })
   expect(res.text).not.toContain('SECRET'); expect(res.text).not.toContain('payload'); expect(res.text).not.toContain('bad request')
+})
+
+it('a crashed reply is reported as unknown without exposing remote text and requires explicit rearm', async () => {
+  const { store, effects, call, tick } = setup()
+  store.db.prepare("INSERT INTO effect (kind, key, value, seq, due, since, attempts, error) VALUES ('reply', ?, '{}', 1, 0, ?, 0, ?)")
+    .run('remote-1', '2026-11-04T11:00:00.000Z', ATTEMPT_STARTED)
+  effects.start()
+  await tick()
+  const blocked = await call('GET', 'effects/blocked')
+  expect(blocked.status).toBe(200)
+  expect(blocked.body).toEqual({ items: [{
+    kind: 'reply', key: 'remote-1', class: 'unknown', attempts: 0,
+    since: '2026-11-04T11:00:00.000Z', attemptUnknown: true,
+  }] })
+  expect(blocked.text).not.toContain('remote send may have succeeded')
+  expect(await call('POST', 'effects/reply/rearm', { key: 'remote-1' }))
+    .toMatchObject({ status: 200, body: { rearmed: true } })
+  expect((await call('GET', 'effects/blocked')).body).toEqual({ items: [] })
 })
 
 it('both routes keep the same-origin and loopback controls', async () => {
