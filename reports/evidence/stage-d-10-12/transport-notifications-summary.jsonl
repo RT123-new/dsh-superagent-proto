@@ -1,0 +1,1 @@
+{"part":"pair","workload":"notifications-include","latencyMs":60,"iterations":200,"cliP50":80.71486899999945,"httpP50":60.89414399999987,"cliP95":83.50440100000014,"httpP95":61.638044000000036,"statistic":"p95","relativeImprovement":0.26185873724188585,"ci":[0.2538969372432164,0.280117837963512],"bootstrap":10000}

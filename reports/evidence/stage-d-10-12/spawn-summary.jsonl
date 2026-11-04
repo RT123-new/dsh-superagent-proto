@@ -1,0 +1,3 @@
+{"part":"spawn","workload":"bin-true","iterations":200,"p50":1.5601060000000189,"p95":1.859574000000066,"mean":1.6543676249999926}
+{"part":"spawn","workload":"node-version","iterations":200,"p50":3.318213000000469,"p95":3.626150999999993,"mean":3.3696002950000135}
+{"part":"spawn","workload":"gh-version","iterations":200,"p50":23.60671400000001,"p95":26.242239000000012,"mean":23.941038894999988}

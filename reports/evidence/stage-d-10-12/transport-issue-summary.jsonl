@@ -1,0 +1,1 @@
+{"part":"pair","workload":"issue-schema","latencyMs":60,"iterations":200,"cliP50":81.08331499999986,"httpP50":61.03939899999932,"cliP95":83.86225699999977,"httpP95":61.73434499999712,"statistic":"p95","relativeImprovement":0.2638602011391455,"ci":[0.25840007534084697,0.27198959094350206],"bootstrap":10000}
