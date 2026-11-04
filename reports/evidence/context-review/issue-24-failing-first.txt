@@ -1,0 +1,38 @@
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.8 [39m[90m/tmp/superagent-context[39m
+
+ [31m❯[39m tests/issue-24-repository-scope.spec.ts [2m([22m[2m4 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 12[2mms[22m[39m
+[31m   [31m×[31m does not map a foreign fully qualified PR URL onto a local ticket with the same number[39m[32m 7[2mms[22m[39m
+   [32m✓[39m the existing address parser already rejects foreign repository identity[32m 1[2mms[22m[39m
+   [32m✓[39m relative API reads stay bound to their deployment and escaping URLs never execute[32m 2[2mms[22m[39m
+   [32m✓[39m documents why one shared Store cannot host two repositories without namespacing[32m 1[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/issue-24-repository-scope.spec.ts[2m > [22mdoes not map a foreign fully qualified PR URL onto a local ticket with the same number
+[31m[1mAssertionError[22m: expected [ 'github:12' ] to deeply equal [][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [][39m
+[31m+ [[39m
+[31m+   "github:12",[39m
+[31m+ ][39m
+
+[36m [2m❯[22m tests/issue-24-repository-scope.spec.ts:[2m19:76[22m[39m
+    [90m 17|[39m it('does not map a foreign fully qualified PR URL onto a local ticket …
+    [90m 18|[39m   [35mconst[39m sources [33m=[39m [34mregistry[39m()
+    [90m 19|[39m   expect(sources.find('https://github.com/other/project/pull/12').thre…
+    [90m   |[39m                                                                            [31m^[39m
+    [90m 20|[39m   expect(sources.find('https://github.com/acme/widgets/pull/12').threa…
+    [90m 21|[39m   [34mexpect[39m(sources[33m.[39m[34mfind[39m([32m'#12'[39m)[33m.[39mthreads)[33m.[39m[34mtoEqual[39m([[32m'github:12'[39m])
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m3 passed[39m[22m[90m (4)[39m
+[2m   Start at [22m 06:49:52
+[2m   Duration [22m 426ms[2m (transform 234ms, setup 0ms, import 317ms, tests 12ms, environment 0ms)[22m
+
