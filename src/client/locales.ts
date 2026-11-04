@@ -753,6 +753,8 @@ const TEXT = {
   'healthCode.feishuCliUnset': ['来源已打开，还没有设置机器人的 lark-cli', HEALTH_TEXT.feishuCliUnset],
   'healthCode.feishuBotMissing': ['等待飞书机器人', HEALTH_TEXT.feishuBotMissing],
   'healthCode.pollFailures': ['连续 {count} 次轮询失败，最近一次：{error}', HEALTH_TEXT.pollFailures],
+  'healthCode.notificationsUnsupported': ['GitHub 通知需要 personal access token（classic），此令牌不是；仅接收仓库活动：{streams}', HEALTH_TEXT.notificationsUnsupported],
+  'healthCode.notificationsUnsupportedIdle': ['GitHub 通知需要 personal access token（classic），此令牌不是，而且仓库活动开关都关着，所以收不到任何内容', HEALTH_TEXT.notificationsUnsupportedIdle],
   "metricsTitle": ["运行观测", "Runtime observations"],
   "metricsScope": ["仅本进程；重启后重置。分位数来自每阶段最近 {window} 个样本，不是生命周期分位数。", "This process only; resets on restart. Quantiles use the latest {window} samples per stage, not lifetime samples."],
   "metricsUnknown": ["未观测", "Not observed"],

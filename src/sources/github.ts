@@ -152,12 +152,13 @@ export function pollPauseSeconds(configured: number, failures: number, error: un
 function clearEmbargo(ctx: SourceContext): void {
   try { if (ctx.state.get(KV.github.notBefore) !== undefined) ctx.state.set(KV.github.notBefore, undefined) } catch { /* retained until the next success */ }
 }
-/** Rearm: switching the Source back on makes every parked read eligible again, keeping its original `since`. A restart does not. */
+/** Rearm: switching the Source back on makes every parked read eligible again, keeping its original `since`, and gives the notifications lane a fresh probe, since the credential may have changed. A restart rearms neither. */
 export function rearmParked(ctx: SourceContext): number {
   const retries = { ...ctx.state.get(KV.github.retries) }
   let count = 0
   for (const [number, retry] of Object.entries(retries)) if (retry.parked) { const { parked: _parked, ...rest } = retry; retries[number] = { ...rest, failedAt: new Date().toISOString() }; count += 1 }
   if (count) ctx.state.set(KV.github.retries, retries)
+  if (ctx.state.get(KV.github.notificationsLane) !== undefined) ctx.state.set(KV.github.notificationsLane, undefined)
   return count
 }
 async function watch(ctx: SourceContext, signal: AbortSignal): Promise<void> {
@@ -217,15 +218,25 @@ interface Round {
   started: string; signal?: AbortSignal | undefined
   pulls: Map<number, Promise<Pull>>; read: Set<number>; failures: string[]; dropped: number[]; abandoned: number[]; parked: number[]
   tally: Tally
+  /** Set when the notifications lane failed this round with the fine-grained-token marker and was parked. */
+  notificationsParked: boolean
 }
 const newRound = (signal?: AbortSignal): Round => ({ started: new Date().toISOString(), signal, pulls: new Map(), read: new Set(),
-  failures: [], dropped: [], abandoned: [], parked: [], tally: { skipped: 0 } })
+  failures: [], dropped: [], abandoned: [], parked: [], tally: { skipped: 0 }, notificationsParked: false })
 const stopped = (ctx: SourceContext, round: Round): boolean => !!round.signal?.aborted || !ctx.config(SOURCE)
 /** `parked` marks a read that kept failing past the retry window: it is kept with its original `since`, not retried, and reported as an error until the Source is rearmed. */
 export interface Retry { since: string; pr: boolean; failedAt?: string; attempts?: number; parked?: boolean }
 const RETRY_WINDOW_MS = 24 * 3600_000
 /** True when GitHub returns HTTP 410 (Gone); HTTP 404 is retried because it can indicate revoked access to a private repository. */
 const deleted = (error: unknown): boolean => error instanceof CliError && error.code === 410
+/**
+ * Marker of GitHub's HTTP 403 when a fine-grained personal access token calls an endpoint it cannot use at all; the notifications
+ * endpoints are documented as accepting only personal access tokens (classic). Kept distinct from rate limiting (a different
+ * message with typed retry headers) and from bad or revoked credentials (HTTP 401): only this exact 403 parks the lane.
+ */
+const FINE_GRAINED_UNSUPPORTED = 'Resource not accessible by personal access token'
+export const notificationsUnsupported = (error: unknown): boolean =>
+  error instanceof CliError && error.code === 403 && error.message.includes(FINE_GRAINED_UNSUPPORTED)
 /** Records a failed read on the Thread and in the round; deleted (410) or abandoned (24h+) threads do not fail the round. */
 function failed(ctx: SourceContext, round: Round, number: number, error: unknown, parked = false): void {
   if (deleted(error)) round.dropped.push(number)
@@ -357,16 +368,42 @@ async function pollBranchCi(ctx: SourceContext, round: Round): Promise<void> {
  * subscribed Threads. Each step and each Issue, PR, or Thread fails independently so all steps run before the round fails.
  * Other read failures (including 404) fail the round toward the error threshold, whereas deleted (410) or abandoned
  * (24h+) threads are recorded only on the thread and in health detail.
+ * A notifications lane parked on the documented fine-grained-token limitation is skipped between reconciliation-cadence
+ * probes instead of failing every round; the repository streams, ticket PRs and subscribed Threads still run, and their
+ * failures still fail the round.
  * @returns the polling interval requested by GitHub, in seconds.
  */
 export async function pollRound(ctx: SourceContext, signal?: AbortSignal): Promise<number> {
   const round = newRound(signal)
-  const notified = await pollNotifications(ctx, round).then(value => ({ value }), (error: unknown) => ({ error }))
+  const config = ctx.config<GithubConfig>(SOURCE)
+  // A parked notifications lane is skipped between probes; the reconciliation cadence probes it again so a credential or
+  // endpoint change resumes the full intake without a restart. A probe failure that is not the unsupported-marker fails the round.
+  const lane = ctx.state.get(KV.github.notificationsLane)
+  const probe = lane !== undefined && reconcileDue(lane.probeAt, round.started, config?.reconcileMinutes ?? 30)
+  const skipped = lane !== undefined && !probe
+  const notified = skipped
+    ? { value: { count: 0, interval: Math.max(60, config?.pollSeconds ?? 60), reconciled: 0 } }
+    : await pollNotifications(ctx, round).then(value => ({ value }), (error: unknown) => ({ error }))
   await pollRepository(ctx, round)
   await pollTicketPulls(ctx, signal, round)
   await pollThreads(ctx, signal, round)
-  if ('error' in notified) throw notified.error
-  const { count, interval, reconciled } = notified.value
+  let laneParked = skipped
+  let result: { count: number; interval: number; reconciled: number }
+  if ('error' in notified) {
+    if (!notificationsUnsupported(notified.error)) throw notified.error
+    ctx.state.set(KV.github.notificationsLane, { since: lane?.since ?? round.started, probeAt: round.started })
+    round.notificationsParked = true
+    laneParked = true
+    result = { count: 0, interval: Math.max(60, config?.pollSeconds ?? 60), reconciled: 0 }
+  } else {
+    // Only a real probe that ran and succeeded clears the lane; the skipped-round value must not.
+    if (!skipped && lane !== undefined) {
+      ctx.state.set(KV.github.notificationsLane, undefined)
+      laneParked = false
+    }
+    result = notified.value
+  }
+  const { count, interval, reconciled } = result
   if (signal?.aborted) return interval
   if (round.failures.length) throw new Error(`${round.failures.length} GitHub reads failed: ${round.failures.slice(0, 3).join('; ')}`)
   const named = (numbers: number[]) => [...new Set(numbers)].sort((a, b) => a - b).map(number => `#${number}`).join(', ')
@@ -375,7 +412,19 @@ export async function pollRound(ctx: SourceContext, signal?: AbortSignal): Promi
     + (round.abandoned.length ? `; dropped after their reads kept failing: ${named(round.abandoned)}` : '')
     + (round.tally.skipped ? `; ${round.tally.skipped} unreadable items skipped${round.tally.rejected?.length ? ` (${round.tally.rejected.slice(0, 5).map(item => `${item.id ?? '?'}: ${item.fields.join('/')}`).join(', ')})` : ''}` : '')
     + (reconciled ? `; reconciliation recovered ${reconciled} earlier` : '')
-  ctx.report('github', { state: round.parked.length ? 'error' : 'ready', detail: `${count} notifications; next poll ≥ ${interval}s${dropped}`, at: round.started })
+  if (round.parked.length) {
+    ctx.report('github', { state: 'error', detail: `${count} notifications; next poll ≥ ${interval}s${dropped}`, at: round.started })
+  } else if (laneParked) {
+    // Honest capability labels: ready only names the repository streams that actually carry intake; with every observe switch
+    // off the Source receives nothing, so it reports paused with the reason instead of a silent healthy idle.
+    const streams = ([['new Issues', config?.observeIssues], ['new pull requests', config?.observePulls], ['comments', config?.observeComments],
+      ['default-branch CI', config?.observeCi]] as const).filter(([, on]) => on).map(([name]) => name).join(', ')
+    ctx.report('github', streams
+      ? { ...health('ready', 'notificationsUnsupported', { streams }), detail: `${health('ready', 'notificationsUnsupported', { streams }).detail}; next poll ≥ ${interval}s${dropped}`, at: round.started }
+      : { ...health('paused', 'notificationsUnsupportedIdle'), at: round.started })
+  } else {
+    ctx.report('github', { state: 'ready', detail: `${count} notifications; next poll ≥ ${interval}s${dropped}`, at: round.started })
+  }
   return interval
 }
 /** Fetches the first notifications page with `--include`, then follows Link rel="next" pages from page 2 so the first page is never re-requested. */

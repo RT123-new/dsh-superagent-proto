@@ -47,6 +47,7 @@ export const KV = {
    * counts reported CI changes so each produces a distinct Trigger ID).
    */
   github: { since: record<string>('github-since'), notBefore: record<string>('github-not-before'), retries: record<Record<string, Retry>>('github-retry'),
+    notificationsLane: record<{ since: string; probeAt: string }>('github-notifications-lane'),
     scan: record<{ lastCompletedScan: string; lastReconciliation?: string }>('github-notification-scan'),
     cursor: family<string, [number: number]>('github-cursor:'),
     stream: family<{ since: string; started: Record<string, string>; etag?: string; lastReconciliation?: string }, [stream: string]>('github-stream:'),

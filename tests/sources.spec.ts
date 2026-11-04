@@ -8,7 +8,7 @@ import { runFeishu } from '../src/sources/feishu-loops.ts'
 import { commentTrigger, githubAddress, githubChannel, issueTrigger, type GithubComment, type GithubIssue } from '../src/sources/github-trigger.ts'
 import { claimPull, observePull, pullEndNotices, pullOf, ticketBranch, type Pull } from '../src/sources/github-pull.ts'
 import { ciCounts, ciFact, ciSummary } from '../src/sources/github-read.ts'
-import { apply as applyGithub, githubKind, pollFailure, pollRound } from '../src/sources/github.ts'
+import { apply as applyGithub, githubKind, pollFailure, pollRound, rearmParked } from '../src/sources/github.ts'
 import { pollThreads as pollGithubThreads } from '../src/sources/github.ts'
 import { SourceRegistry } from '../src/sources/registry.ts'
 import { cursorAt, POLL_HORIZON_MS } from '../src/sources/poll.ts'
@@ -1642,6 +1642,108 @@ describe('observing the GitHub repository', () => {
     expect(h.receive.mock.calls[0]![0]).toMatchObject({ human: false, actor: { id: '' }, threads: [{ source: 'github', id: 'ci:main' }],
       meta: { ci: true, branch: 'main', sha: 'bbb2222' }, url: 'https://github.com/acme/widgets/commit/bbb2222' })
     expect(h.receive.mock.calls[0]![0].text).toContain('Read github/commits/bbb2222/checks for every check.')
+    h.store.close()
+  })
+})
+
+describe('github notifications lane parking (fine-grained token)', () => {
+  /** GitHub documents the notifications endpoints as accepting only personal access tokens (classic); a fine-grained token gets this exact 403. */
+  const MARKER = 'Resource not accessible by personal access token'
+  const at = (hour: number) => new Date(Math.floor(Date.now() / 86_400_000 - 2) * 86_400_000 + hour * 3_600_000).toISOString()
+  const observe = (h: ReturnType<typeof host>, config: Record<string, unknown>) =>
+    h.store.saveSettings({ ...h.store.settings(), sources: { ...h.store.settings().sources, github: { enabled: true, config } } })
+  const laneOf = (h: ReturnType<typeof host>) => h.store.get<{ since: string; probeAt: string }>('github-notifications-lane')
+  /** GitHub with a controllable notifications answer and repository stream lists. */
+  function repo(h: ReturnType<typeof host>, notifications: unknown, answers: { comments?: unknown[]; issue?: unknown; issueComments?: unknown[] } = {}) {
+    const calls: string[] = []
+    vi.spyOn(h.commands, 'run').mockImplementation(async (_program, args) => {
+      const bare = args[1]!.replace(/^repos\/acme\/widgets\/?/, '').split('?')[0]!
+      calls.push(bare)
+      const listed = (list: unknown[] | undefined) => `HTTP/2.0 200 OK\r\nX-Poll-Interval: 60\r\n\r\n${JSON.stringify(args.includes('--slurp') ? [list ?? []] : list ?? [])}`
+      if (bare === 'notifications') {
+        if (notifications instanceof Error) throw notifications
+        return listed(notifications as unknown[])
+      }
+      if (bare === 'issues/comments') return listed(answers.comments)
+      if (bare === 'issues/13') return `HTTP/2.0 200 OK\r\n\r\n${JSON.stringify(args.includes('--slurp') ? [answers.issue] : answers.issue)}`
+      if (bare === 'issues/13/comments') return listed(answers.issueComments)
+      return listed([])
+    })
+    return calls
+  }
+  const mention = (id: number, number: number) => ({ id, body: '@agent-bot please look', user: { login: 'carol', type: 'User' },
+    created_at: at(1), updated_at: at(1), issue_url: `https://api.github.com/repos/acme/widgets/issues/${number}`,
+    html_url: `https://github.com/acme/widgets/issues/${number}#issuecomment-${id}` })
+
+  it('parks the lane on the documented marker, keeps repository streams, and reports ready naming what carries intake', async () => {
+    const h = host()
+    observe(h, { observeComments: true })
+    h.store.set('github-since', at(-24))
+    for (const stream of ['comments', 'review-comments']) h.store.set(`github-stream:${stream}`, { since: at(0), started: { comments: at(0) } })
+    repo(h, refused(403, MARKER), { comments: [mention(1, 7)] })
+    await pollRound(h)
+    // The comment stream delivered its Trigger although notifications cannot be read with this token.
+    expect(h.receive).toHaveBeenCalledWith(expect.objectContaining({ text: '@agent-bot please look', meta: expect.objectContaining({ number: 7 }) }))
+    expect(laneOf(h)).toBeDefined()
+    expect(h.health.github).toMatchObject({ state: 'ready', code: 'notificationsUnsupported' })
+    expect(h.health.github!.detail).toContain('comments')
+    h.store.close()
+  })
+  it('reports paused with the reason when the lane is parked and every repository activity switch is off', async () => {
+    const h = host()
+    observe(h, {})
+    h.store.set('github-since', at(-24))
+    repo(h, refused(403, MARKER))
+    await pollRound(h)
+    expect(h.receive).not.toHaveBeenCalled()
+    expect(h.health.github).toMatchObject({ state: 'paused', code: 'notificationsUnsupportedIdle' })
+    h.store.close()
+  })
+  it('does not park on a rate-limit 403, a 401, or a 404: those rounds still fail', async () => {
+    for (const error of [refused(403, 'API rate limit exceeded'), refused(401, 'Bad credentials'), refused(404, 'Not Found')]) {
+      const h = host()
+      observe(h, { observeComments: true })
+      h.store.set('github-since', at(-24))
+      repo(h, error)
+      await expect(pollRound(h)).rejects.toThrow()
+      expect(laneOf(h)).toBeUndefined()
+      h.store.close()
+    }
+  })
+  it('between probes the lane is not called, and a probe failing for another reason fails the round and keeps the lane parked', async () => {
+    const h = host()
+    observe(h, {})
+    h.store.set('github-since', at(-24))
+    h.store.set('github-notifications-lane', { since: at(0), probeAt: new Date().toISOString() })
+    const calls = repo(h, refused(502, 'Bad Gateway'))
+    await pollRound(h)
+    expect(calls).not.toContain('notifications')
+    expect(h.health.github).toMatchObject({ state: 'paused', code: 'notificationsUnsupportedIdle' })
+    // A probe that fails for an ordinary reason surfaces as a round failure and does not clear the lane.
+    h.store.set('github-notifications-lane', { since: at(0), probeAt: at(0) })
+    await expect(pollRound(h)).rejects.toThrow(/502/)
+    expect(laneOf(h)).toBeDefined()
+    h.store.close()
+  })
+  it('a due probe resumes the full intake when the credential starts reading notifications', async () => {
+    const h = host()
+    observe(h, {})
+    h.store.set('github-since', at(-24))
+    h.store.set('github-notifications-lane', { since: at(0), probeAt: at(0) })
+    repo(h, [notification(13)], { issue: { id: 1013, number: 13, title: 'Login fails', state: 'open', created_at: at(-20), updated_at: at(1),
+      html_url: 'https://github.com/acme/widgets/issues/13', user: { login: 'carol', type: 'User' } }, issueComments: [mention(2, 13)] })
+    await pollRound(h)
+    expect(h.receive).toHaveBeenCalledWith(expect.objectContaining({ meta: expect.objectContaining({ number: 13 }) }))
+    expect(laneOf(h)).toBeUndefined()
+    expect(h.health.github).toMatchObject({ state: 'ready' })
+    expect(h.health.github!.detail).toContain('notifications')
+    h.store.close()
+  })
+  it('switching the Source off and on rearms the lane for a fresh probe', () => {
+    const h = host()
+    h.store.set('github-notifications-lane', { since: at(0), probeAt: at(0) })
+    rearmParked(h)
+    expect(laneOf(h)).toBeUndefined()
     h.store.close()
   })
 })
