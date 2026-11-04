@@ -184,6 +184,17 @@ Messages of other Tickets, and messages of no Ticket, do not wait for it.
 
 A message with failed attempts is a system problem until it goes out or is withdrawn.
 
+If the host stops during an outbound send, the remote provider may already have accepted the message. On restart,
+the reply receipt remains pending but the effect is parked as `blocked:unknown_outcome` rather than resent automatically.
+The Execution panel's blocked-effects list displays this as an unknown result. A person must inspect the conversation
+and explicitly choose **Rearm** to permit another attempt, accepting that the provider may deliver a duplicate.
+Previously persisted `[attempt-unknown]` replies are also parked at startup. A blocked reply stays in the database;
+its original message and stable receipt ID are never discarded by this safeguard.
+
+A successful recorded send clears its effect row. A normal transient error during a running process may still retry
+with backoff, because a timeout alone does not establish whether the provider delivered the message. Consequently this
+policy prevents automatic crash-recovery duplicates, not every possible duplicate delivery.
+
 A message is dropped only when its Source no longer listens to the conversation, or when the Source answers that the conversation can never receive it; while its Source is off, it waits.
 
 The Sources answer that for a deleted Issue or a locked conversation on GitHub, and for a recalled message or one Feishu no longer finds on Feishu.
