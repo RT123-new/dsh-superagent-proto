@@ -1,0 +1,32 @@
+{
+  "scenario": "capacity 6, 12 tickets, hard failures injected at turns 5 and 10",
+  "result": {
+    "capacity": 6,
+    "seed": 29,
+    "n": 12,
+    "failed": 2,
+    "makespanMs": 320,
+    "idealMs": 71.66666666666667,
+    "overheadRatio": 4.465116279069767,
+    "queueWait": {
+      "n": 12,
+      "mean": 0,
+      "median": 0,
+      "p95": 0,
+      "ci95": 0,
+      "min": 0,
+      "max": 0
+    },
+    "completion": {
+      "n": 12,
+      "mean": 31.5,
+      "median": 29,
+      "p95": 98,
+      "ci95": 13.835123067867169,
+      "min": 0,
+      "max": 98
+    },
+    "peakUsed": 4,
+    "memRssDeltaMB": 10.264576
+  }
+}

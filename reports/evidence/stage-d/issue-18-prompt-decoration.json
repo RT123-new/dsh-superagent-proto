@@ -1,0 +1,47 @@
+{
+  "scenario": "pure decoration functions, in-process, no I/O",
+  "results": [
+    {
+      "name": "triggerMessage",
+      "iterations": 20000,
+      "totalMs": 6.65,
+      "nsPerOp": 332
+    },
+    {
+      "name": "triggerMessage-long-capped",
+      "iterations": 20000,
+      "totalMs": 3.25,
+      "nsPerOp": 163
+    },
+    {
+      "name": "triggerMessage-with-reply",
+      "iterations": 20000,
+      "totalMs": 3521.05,
+      "nsPerOp": 176053
+    },
+    {
+      "name": "batchLine-x50",
+      "iterations": 10000,
+      "totalMs": 524.83,
+      "nsPerOp": 52483
+    },
+    {
+      "name": "inputMessage-note",
+      "iterations": 20000,
+      "totalMs": 2.21,
+      "nsPerOp": 110
+    },
+    {
+      "name": "inputMessage-trigger",
+      "iterations": 20000,
+      "totalMs": 44.29,
+      "nsPerOp": 2214
+    },
+    {
+      "name": "ticketExecution",
+      "iterations": 20000,
+      "totalMs": 66.15,
+      "nsPerOp": 3308
+    }
+  ]
+}

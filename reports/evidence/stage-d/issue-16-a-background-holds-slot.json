@@ -1,0 +1,30 @@
+{
+  "scenario": "capacity 3, 6 tickets; t1 ~250ms and t3 ~600ms of background work after their turns; explicit pumps",
+  "queueWaitMs": {
+    "cea42b3668f884c2bbb17c6ebd850e83": 0,
+    "739ce78a284d6894b117b021206abbc4": 0,
+    "13b2fa37b1a4b912ba4f042d95f3aed8": 0,
+    "049254ca200bb0cf194e75ab71515a6a": 39,
+    "f10d644739b56027c53a8c6ce19d6f29": 301,
+    "6a4bf047c63f79911ff07a88ad887b3b": 660
+  },
+  "windowMs": 756,
+  "capacitySlotMs": 2268,
+  "stateSlotMs": {
+    "starting": 80,
+    "turn": 1194,
+    "background-wait": 794,
+    "handed-off": 0,
+    "idle": 2138
+  },
+  "occupancyFraction": {
+    "starting": 0.03527336860670194,
+    "turn": 0.5264550264550265,
+    "background-wait": 0.35008818342151676,
+    "handed-off": 0,
+    "idle": 0.9426807760141094
+  },
+  "peakUsed": 3,
+  "peakPerson": 0,
+  "sampleCount": 53
+}
