@@ -10,7 +10,9 @@ import { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import { Runtime } from '../src/app/runtime.ts'
 import { jobRegistry } from './fixtures/host.ts'
 import { evalsHealth } from '../src/app/views/overview.ts'
-import { mandateInstructions } from '../src/executor/dsh.ts'
+import { DshExecutor, mandateInstructions } from '../src/executor/dsh.ts'
+import { Effects } from '../src/app/effects.ts'
+import { Passes } from '../src/app/passes.ts'
 import { masterPrompt } from '../src/app/context.ts'
 import { reference, testMachine } from './fixtures/deployment.ts'
 import type { Machine } from '../src/deployment.ts'
@@ -204,7 +206,7 @@ beforeEach(async () => {
     inspect: vi.fn(async () => ({ events: [] })),
   }
   jobs = jobRegistry()
-  services = { agents, llm: { resolveCallConfig: vi.fn(async value => value) }, sessionController: controller, sessionPersistence: { flush: vi.fn(async () => {}), open: vi.fn(async () => ({ read: async () => ({ events: [] }), [Symbol.asyncDispose]: async () => {} })) }, workspaceRegistry: { create: async (cwd: string) => ({ id: cwd }) }, permissionPresets: { set: vi.fn() }, subprocess, webServer: { host: '127.0.0.1', port: 3082, register: (route: { handler: HttpHandler }) => { http = route.handler; return () => {} } }, jobs: jobs.service }
+  services = { agents, llm: { resolveCallConfig: vi.fn(async value => value) }, sessionController: controller, sessionPersistence: { flush: vi.fn(async () => {}), open: vi.fn(async () => ({ read: async () => ({ events: [] }), [Symbol.asyncDispose]: async () => {} })) }, workspaceRegistry: { create: async (cwd: string) => ({ id: cwd }) }, permissionPresets: { set: vi.fn(), defaultPreset: 'workspace-write' }, subprocess, webServer: { host: '127.0.0.1', port: 3082, register: (route: { handler: HttpHandler }) => { http = route.handler; return () => {} } }, jobs: jobs.service }
   for (const [name, service] of Object.entries(services)) ctx.reflect.provide(name, service)
   for (const cli of [AGENT(), OTHER(), BOT()]) writeFileSync(cli, '#!/bin/sh\n', { mode: 0o755 })
   const store = new Store(join(directory, 'orchestrator.sqlite')); seed(store); store.close()
@@ -1880,6 +1882,18 @@ it('final review 2.2: stopping a ticket cancels its active worker turn (real sto
   runtime.engine.stopTicket(ticket.id)
   await vi.waitFor(() => expect(agent.cancel).toHaveBeenCalled())
   expect(agent.cancel.mock.calls[0]![1]).toMatchObject({ keepInbox: false })
+}, 20000)
+
+it('final review 2.2: stopping a ticket drops the worker Session privilege, which must not outlive its ticket (real stop path)', async () => {
+  const presets = (services.permissionPresets as { set: ReturnType<typeof vi.fn> }).set
+  const { ticket, sessionId } = await acceptedTicket()
+  await runtime.idle()
+  const agent = agents.get(sessionId)! as unknown as { session: unknown }
+  expect(presets.mock.calls.filter(call => call[0] === agent.session && call[1] === 'danger-full-access')).toHaveLength(1)
+  presets.mockClear()
+  runtime.engine.stopTicket(ticket.id)
+  await runtime.idle()
+  expect(presets.mock.calls).toContainEqual([agent.session, 'workspace-write'])
 }, 20000)
 
 it('final review 2.2: a requester removed from the allowed list cannot get a recreated worker Session granted danger-full-access', async () => {
