@@ -2,7 +2,7 @@
 
 > Round scope `6027b6e..70b8bf0` on `programme/reliability`, PR #1 (open, unmerged): https://github.com/RT123-new/dsh-superagent-proto/pull/1. Pushed to the existing PR branch 2026-11-04 14:44 GMT under the day's push authorization. Main is untouched (`8c32a9d`, fully contained in the PR branch); no merge, no deploy, no upstream changes. The earlier `fd3b7a6` freeze candidate was superseded after three confirmed findings (T_i stamp retention, sources mock wire emulation, pre-send classification); its canonical run went RED (9 github poll failures), which the repair commits address.
 
-## Current verdict: GATES LANDED for the current head `b334588`; merge itself remains the user's explicit decision; this is not a production certification
+## Current verdict: BLOCKED BY A REPRODUCED REAL-WIRE DEFECT - real-call validation (2026-11-04, user-requested) proved production paginated GitHub reads fail against the real gh CLI (ledger R2-9 real-wire row). Repair pending the user's approval. Merge itself remains the user's explicit decision; this is not a production certification
 
 All three independent gates are LANDED for `70b8bf0` (each update appended below its original text); the open `0b1993a` finding is recorded under gate 3:
 
@@ -31,3 +31,10 @@ All three independent gates are LANDED for `70b8bf0` (each update appended below
 2. Adversary-run canonical `pnpm test` green at the frozen final head. LANDED at `70b8bf0` (145 files / 1760 pass / 2 skip / 0 fail / EXIT=0).
 3. Authorized push of the accepted freeze; fixed CI workflow executes green on GitHub. LANDED for `70b8bf0` 14:44-14:48 GMT and for the current head `b334588` 15:12 GMT (push + pull_request runs, artifact-verified tested SHAs, truthful exit); the intermittent timing-budget failures on `0b1993a` were user-approved-repaired and verified green (see gate 3 above).
 4. Merge readiness is asserted on the landed evidence. Merge itself remains the user's explicit decision; this is not a production certification - the UNPROVEN/DEFERRED items above stand as named limits.
+
+## Real-call validation round (2026-11-04 15:25-15:29 GMT, user-requested)
+
+- PASS: single-page `api()` with schema against the live repo (2/2 valid items, headers at position 0 parsed correctly).
+- PASS: typed error path - live bad-SHA call, real 422, typed transportFailure.status from the real `--include` header block, no remote prose in the message.
+- REPRODUCED FAILURE: paginated `pages()` against real gh 2.103.2 - see ledger R2-9. The fixture shapes in commands.spec/sources.spec do NOT match the real slurp-wrapped interleave; suite green never covered the real shape.
+- CI timing repairs: the issue-17 change (1.15 -> 1.5) is a RELAXATION of a performance criterion as CI headroom, not a product-correctness proof; the original 1.15 criterion's controlled evidence is the dedicated stage-d job (green on the same bytes). The issue-2 and review-phase2 repairs are budget/condition-wait repairs of test infrastructure. None of the three proves product behavior; the review-phase2 dedup guard was never contradicted in any run.
