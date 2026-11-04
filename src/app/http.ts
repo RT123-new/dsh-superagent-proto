@@ -211,8 +211,8 @@ function routes(runtime: HttpHost): Routes {
       const kind = z.enum(EFFECT_KINDS).safeParse(params.kind)
       if (!kind.success) throw new RouteError(404, 'Unknown effect kind')
       // The server independently validates an explicit acknowledgement before rearming an unknown-outcome row.
-      const { key, acknowledgeUnknownOutcome } = z.object({ key: z.string().min(1).max(512), acknowledgeUnknownOutcome: z.boolean().optional() }).strict().parse(await body())
-      return runtime.effects.rearm(kind.data, key, { acknowledgeUnknownOutcome })
+      const { key, acknowledgeUnknownOutcome, expectedGeneration } = z.object({ key: z.string().min(1).max(512), acknowledgeUnknownOutcome: z.boolean().optional(), expectedGeneration: z.number().int().nonnegative().optional() }).strict().parse(await body())
+      return runtime.effects.rearm(kind.data, key, { acknowledgeUnknownOutcome, expectedGeneration })
     },
     'POST tickets/:id/stop': ({ params }) => { const id = ticket(params.id); runtime.engine.stopTicket(id); return { stopped: true } },
     'POST executor/pause': async ({ body }) => runtime.settings.pause(z.object({ paused: z.boolean() }).parse(await body()).paused, 'panel'),
@@ -253,9 +253,9 @@ function match(table: Routes, method: string, segments: string[]) {
 const EFFECT_KINDS = ['assessment', 'launch', 'delivery', 'relay', 'notice', 'reply'] as const satisfies readonly EffectKind[]
 const ERROR_CLASSES: ReadonlySet<string> = new Set(['cancelled', 'unauthorized', 'permanent', 'programming_error', 'rate_limited', 'provider_temporary', 'transient'])
 /** Only the static class and counters leave the host: the stored error text can carry remote content and is never returned. */
-function blockedItem(kind: EffectKind, row: { key: string; error: string; attempts: number; since: string }): BlockedEffect {
+function blockedItem(kind: EffectKind, row: { key: string; error: string; attempts: number; since: string; generation: number }): BlockedEffect {
   const found = /^blocked:([a-z_]+):/.exec(row.error)?.[1] ?? ''
-  return { kind, key: row.key, class: ERROR_CLASSES.has(found) ? found : 'unknown', attempts: row.attempts, since: row.since, attemptUnknown: row.error.endsWith(` ${ATTEMPT_UNKNOWN}`) || row.error === ATTEMPT_UNKNOWN }
+  return { kind, key: row.key, class: ERROR_CLASSES.has(found) ? found : 'unknown', attempts: row.attempts, since: row.since, attemptUnknown: row.error.endsWith(` ${ATTEMPT_UNKNOWN}`) || row.error === ATTEMPT_UNKNOWN, generation: row.generation }
 }
 export function registerHttp(ctx: Context, runtime: HttpHost): () => void {
   if (ctx.webServer.host !== '127.0.0.1') throw new Error('Orchestrator management requires a loopback Web server')

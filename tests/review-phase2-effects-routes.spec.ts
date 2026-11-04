@@ -42,7 +42,7 @@ it('GET effects/blocked returns the safe class and counters only: no stored erro
   expect(effects.blocked('relay')[0]!.error).toContain(SECRET.slice(0, 4))      // the stored row is not the surface
   const res = await call('GET', 'effects/blocked')
   expect(res.status).toBe(200)
-  expect(res.body).toEqual({ items: [{ kind: 'relay', key: 'head', class: 'permanent', attempts: expect.any(Number), since: expect.any(String), attemptUnknown: false }] })
+  expect(res.body).toEqual({ items: [{ kind: 'relay', key: 'head', class: 'permanent', attempts: expect.any(Number), since: expect.any(String), attemptUnknown: false, generation: expect.any(Number) }] })
   expect(res.text).not.toContain('SECRET'); expect(res.text).not.toContain('payload'); expect(res.text).not.toContain('bad request')
 })
 
@@ -56,7 +56,7 @@ it('a crashed reply is reported as unknown without exposing remote text and requ
   expect(blocked.status).toBe(200)
   expect(blocked.body).toEqual({ items: [{
     kind: 'reply', key: 'remote-1', class: 'unknown', attempts: 0,
-    since: '2026-11-04T11:00:00.000Z', attemptUnknown: true,
+    since: '2026-11-04T11:00:00.000Z', attemptUnknown: true, generation: expect.any(Number),
   }] })
   expect(blocked.text).not.toContain('remote send may have succeeded')
   expect(await call('POST', 'effects/reply/rearm', { key: 'remote-1' }))

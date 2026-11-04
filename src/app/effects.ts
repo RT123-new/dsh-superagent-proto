@@ -116,28 +116,31 @@ export class Effects {
     return key === undefined ? !!this.store.db.prepare('SELECT 1 FROM effect WHERE kind = ? LIMIT 1').get(kind) : !!this.store.db.prepare('SELECT 1 FROM effect WHERE kind = ? AND key = ?').get(kind, key)
   }
   /** Rows parked as `blocked:` for a kind, oldest first. Remote text is already neutralised; callers may show it. */
-  blocked(kind: EffectKind): { key: string; error: string; attempts: number; since: string }[] {
-    return this.store.db.prepare("SELECT key, error, attempts, since FROM effect WHERE kind = ? AND error LIKE 'blocked:%' ORDER BY seq").all(kind) as never
+  blocked(kind: EffectKind): { key: string; error: string; attempts: number; since: string; generation: number }[] {
+    return this.store.db.prepare("SELECT key, error, attempts, since, generation FROM effect WHERE kind = ? AND error LIKE 'blocked:%' ORDER BY seq").all(kind) as never
   }
   /**
    * Explicit operator recovery of a parked row: it becomes due now and is dispatched again (an ordered kind then resumes behind it).
    * Never called automatically. A sticky `[attempt-unknown]` marker is kept, since the earlier attempt's outcome is still not known.
    * Returns false when the row does not exist or is not blocked. The alternative, dropping the row, is `cancel`.
    */
-  rearm(kind: EffectKind, key: string, acknowledgement?: { acknowledgeUnknownOutcome?: boolean }): { rearmed: boolean; requiresAcknowledgement?: boolean } {
-    const row = this.store.db.prepare("SELECT error FROM effect WHERE kind = ? AND key = ? AND error LIKE 'blocked:%'").get(kind, key)
+  rearm(kind: EffectKind, key: string, acknowledgement?: { acknowledgeUnknownOutcome?: boolean; expectedGeneration?: number }): { rearmed: boolean; requiresAcknowledgement?: boolean } {
+    const row = this.store.db.prepare("SELECT error, generation FROM effect WHERE kind = ? AND key = ? AND error LIKE 'blocked:%'").get(kind, key) as { error: string; generation: number } | undefined
     if (typeof row?.error !== 'string') return { rearmed: false }
     // Refuse while an attempt is (or may be) in flight: rearming would drop its started marker and could run a concurrent duplicate.
     if (hasMarker(row.error, ATTEMPT_STARTED) || [...this.tasks].some(task => task.kind === kind && task.key === key)) return { rearmed: false }
+    // A stale rearm request (issued against an older view of the row) must never modify a newer generation: when the
+    // caller supplies the generation it saw, the conditional update below matches it atomically.
+    if (acknowledgement?.expectedGeneration !== undefined && acknowledgement.expectedGeneration !== row.generation) return { rearmed: false }
     const unknown = hasMarker(row.error, ATTEMPT_UNKNOWN)
     // An unknown-outcome row may duplicate a remote send when retried: the operator must explicitly acknowledge that risk,
     // and the server validates it here rather than trusting a client-side dialog.
     if (unknown && acknowledgement?.acknowledgeUnknownOutcome !== true) return { rearmed: false, requiresAcknowledgement: true }
     const error = unknown ? ATTEMPT_UNKNOWN : ''
-    // Conditional update on the exact blocked state read above: a stale rearm cannot modify a row that changed since
-    // (a newer generation, a fresh block, or a row another path already rearmed).
-    const result = this.store.db.prepare('UPDATE effect SET error = ?, attempts = 0, due = ?, generation = generation + 1 WHERE kind = ? AND key = ? AND error = ?')
-      .run(error, this.now(), kind, key, row.error)
+    // Conditional update on the exact blocked state (and generation when supplied) read above: a rearm cannot modify a
+    // row that changed since (a newer generation, a fresh block, or a row another path already rearmed).
+    const result = this.store.db.prepare('UPDATE effect SET error = ?, attempts = 0, due = ?, generation = generation + 1 WHERE kind = ? AND key = ? AND error = ? AND generation = ?')
+      .run(error, this.now(), kind, key, row.error, row.generation)
     if (Number(result.changes) !== 1) return { rearmed: false }
     this.kick()
     return { rearmed: true }

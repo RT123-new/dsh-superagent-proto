@@ -224,7 +224,7 @@ it('sends one stop for a double click on Confirm', async () => {
 })
 
 it('final review 2.4: Execution lists blocked background tasks by safe class and rearms one only on an explicit confirmed click', async () => {
-  server.blockedEffects = [{ kind: 'relay', key: 'r1', class: 'permanent', attempts: 1, since: '2026-09-22T00:00:00Z', attemptUnknown: true }]
+  server.blockedEffects = [{ kind: 'relay', key: 'r1', class: 'permanent', attempts: 1, since: '2026-09-22T00:00:00Z', attemptUnknown: true, generation: 7 }]
   await mount()
   await click(zh['tab.execution'])
   expect(text()).toContain(zh.blockedEffectsTitle)
@@ -235,6 +235,7 @@ it('final review 2.4: Execution lists blocked background tasks by safe class and
   expect(text()).toContain(zh.blockedEffectUnknown)                                            // the duplicate warning is in the confirmation too
   expect(server.requests.some(request => request.path === 'effects/relay/rearm')).toBe(false)   // not before the confirmation
   await click(zh.confirm)
-  expect(server.requests.find(request => request.path === 'effects/relay/rearm')).toMatchObject({ method: 'POST', body: { key: 'r1' } })
+  // The confirmed click sends the acknowledged risk and the generation the operator saw, for the server's conditional update.
+  expect(server.requests.find(request => request.path === 'effects/relay/rearm')).toMatchObject({ method: 'POST', body: { key: 'r1', acknowledgeUnknownOutcome: true, expectedGeneration: 7 } })
   expect(text()).not.toContain('relay · r1')
 })

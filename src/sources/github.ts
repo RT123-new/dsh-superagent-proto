@@ -65,8 +65,10 @@ export const githubKind: SourceKind<GithubConfig> = {
     return { listened: true, observed: row !== undefined && config[OBSERVED[row]], ...row ? { row } : {} }
   },
   health: ['github'],
-  // Idempotent retries: sendGithub checks for its own durable message-id marker before posting (single-flight per key).
-  channel: { send: sendGithub, link: githubLink, idempotency: 'marker' },
+  // GitHub offers no provider idempotency key. The message-id marker pre-check makes an explicit operator rearm
+  // converge (the first post is visible by then), but it cannot prove an immediate automatic retry sees the first
+  // post (read-visibility race), so ambiguous post-attempt failures park for explicit recovery instead of auto-retrying.
+  channel: { send: sendGithub, link: githubLink },
   threadContext: githubThreadContext,
   // Bare numbers are local shorthand; qualified URLs must name this instance's repository.
   find: (query, config) => {

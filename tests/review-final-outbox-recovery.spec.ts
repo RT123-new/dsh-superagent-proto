@@ -157,3 +157,20 @@ it('POST rearm: the server refuses an unknown-outcome row without acknowledgeUnk
     .toMatchObject({ status: 200, body: { rearmed: true } })
   expect(await call('POST', 'effects/reply/rearm', { key: 'k', acknowledgeUnknownOutcome: 'yes' })).toMatchObject({ status: 400 })
 })
+
+it('a stale rearm request never modifies a newer generation (conditional update on the seen generation)', () => {
+  const { store, effects } = level()
+  parkUnknown(store, effects)
+  const seen = (store.db.prepare("SELECT generation FROM effect WHERE key = 'k'").get() as { generation: number }).generation
+  // The row advances before the operator's request lands (here: a legitimate acknowledged rearm, then a fresh block).
+  expect(effects.rearm('reply', 'k', { acknowledgeUnknownOutcome: true, expectedGeneration: seen })).toEqual({ rearmed: true })
+  store.db.prepare("UPDATE effect SET error = 'blocked:unknown_outcome: again [attempt-unknown]' WHERE key = 'k'").run()
+  // A request still carrying the first view's generation is refused; the newer row is untouched.
+  const before = store.db.prepare("SELECT error, generation FROM effect WHERE key = 'k'").get()
+  expect(effects.rearm('reply', 'k', { acknowledgeUnknownOutcome: true, expectedGeneration: seen })).toEqual({ rearmed: false })
+  expect(store.db.prepare("SELECT error, generation FROM effect WHERE key = 'k'").get()).toEqual(before)
+  // The same acknowledgement with the CURRENT generation succeeds.
+  const now = (store.db.prepare("SELECT generation FROM effect WHERE key = 'k'").get() as { generation: number }).generation
+  expect(now).not.toBe(seen)
+  expect(effects.rearm('reply', 'k', { acknowledgeUnknownOutcome: true, expectedGeneration: now })).toEqual({ rearmed: true })
+})

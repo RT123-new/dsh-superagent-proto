@@ -18,7 +18,7 @@ interface Paged { offset?: number; limit?: number }
 type Delivery = 'injected' | 'pending'
 
 /** A parked effect row as the operator sees it: static categories only, never the stored error text or payload. */
-export interface BlockedEffect { kind: string; key: string; class: string; attempts: number; since: string; attemptUnknown: boolean }
+export interface BlockedEffect { kind: string; key: string; class: string; attempts: number; since: string; attemptUnknown: boolean; generation: number }
 
 export interface Api {
   'GET state': { response: StateView }
@@ -37,7 +37,7 @@ export interface Api {
   'GET tickets/:id': { response: TicketPageView }
   'POST tickets/:id/retry': { response: { retried: true } }
   'GET effects/blocked': { response: { items: BlockedEffect[] } }
-  'POST effects/:kind/rearm': { body: { key: string; acknowledgeUnknownOutcome?: boolean }; response: { rearmed: boolean; requiresAcknowledgement?: boolean } }
+  'POST effects/:kind/rearm': { body: { key: string; acknowledgeUnknownOutcome?: boolean; expectedGeneration?: number }; response: { rearmed: boolean; requiresAcknowledgement?: boolean } }
   'POST tickets/:id/stop': { response: { stopped: true } }
   'POST executor/pause': { body: { paused: boolean }; response: { paused: boolean } }
   'PUT settings/:block': { body: { value: unknown; revision: number }; response: { revision: number; restarting: boolean } }

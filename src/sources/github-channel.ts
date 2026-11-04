@@ -24,6 +24,7 @@ export async function sendGithub(host: Pick<SourceContext, 'commands'>, message:
   const marker = `<!-- dsh-superagent:${checkedMessageId(message.id)} -->`
   try {
     // Retained trigger URLs also route replies queued before thread-aware delivery.
+    // Every failure before the POST is provably not-attempted (read-only calls) and may retry automatically.
     const address = githubAddress(message.channel.address.url ?? '', repository)
     let rootId: number | undefined
     if (address?.pr && address.discussion && address.number === number) {
@@ -35,8 +36,17 @@ export async function sendGithub(host: Pick<SourceContext, 'commands'>, message:
     const path = rootId === undefined ? `issues/${number}/comments` : `pulls/${number}/comments`
     const mine = (comment: z.infer<typeof CommentSchema>) => sameName(comment.user?.login ?? '', github.login)
       && (rootId === undefined || comment.in_reply_to_id === rootId) && (comment.body ?? '').includes(marker)
-    if ((await commands.pages(CommentSchema, path)).some(mine)) return 'sent'
+    let posted: boolean
+    try { posted = (await commands.pages(CommentSchema, path)).some(mine) }
+    catch (error) {
+      // A permanently gone target keeps its settlement; every other pre-POST failure is provably not-attempted.
+      if (gone(error)) throw error
+      throw new SendNotAttempted(error instanceof Error ? error.message : String(error))
+    }
+    if (posted) return 'sent'
     const target = rootId === undefined ? path : `${path}/${rootId}/replies`
+    // Past this point the request may have been accepted: a failure here is an unknown outcome, parked unless the
+    // channel proves idempotency (GitHub does not); an acknowledged operator rearm re-checks the marker and converges.
     await commands.api(z.unknown(), target, '--method', 'POST', '-f', `body=${message.text}\n\n${marker}`)
     return 'sent'
   } catch (error) {
