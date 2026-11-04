@@ -164,9 +164,14 @@ export class Settings {
     if (model && JSON.stringify(model) !== JSON.stringify(previous)) {
       try { await resolveRoleModel(this.host.context, model) }
       catch (error) {
-        // Never interpolate upstream prose: it can carry remote text or a credential. Only a wire-stable LlmError code is shown.
-        const reason = error && typeof error === 'object' && 'code' in error && typeof error.code === 'string' ? error.code : 'unavailable'
-        throw new UserError('modelUnavailable', { block, error: reason })
+        // Never reflect upstream content: prose or an attacker-chosen string code can carry remote text or a
+        // credential. Only codes from the finite LlmError contract of the pinned dsh-llm are shown; anything
+        // else becomes the fixed token 'unavailable'. Upstream detail remains in the server logs.
+        const LLM_CODES: ReadonlySet<string> = new Set(['DUPLICATE_ADAPTER', 'DUPLICATE_DIRECTORY', 'DUPLICATE_DISCOVERY', 'INVALID_ADAPTER',
+          'INVALID_CATALOG', 'INVALID_DIRECTORY', 'INVALID_DISCOVERY', 'INVALID_MODEL_CONTEXT', 'INVALID_MODEL_INFO', 'INVALID_MODEL_MAX_TOKENS',
+          'INVALID_MODEL_REASONING', 'INVALID_PREPARED_CALL', 'NO_ADAPTER', 'NO_DISCOVERY', 'REGISTRATION_DISPOSED', 'UNSUPPORTED_REASONING_EFFORT'])
+        const code = error && typeof error === 'object' && 'code' in error && typeof error.code === 'string' ? error.code : undefined
+        throw new UserError('modelUnavailable', { block, error: code !== undefined && LLM_CODES.has(code) ? code : 'unavailable' })
       }
     }
     rules.guard?.(current, candidate, origin)

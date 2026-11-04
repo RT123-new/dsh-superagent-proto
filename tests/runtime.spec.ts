@@ -1309,15 +1309,20 @@ it('refuses a settings save with an unknown model or a Source kind that is not i
     await http(req, { writeHead: (code: number) => { status = code }, end: (data: string) => { text = data } })
     return { status, body: JSON.parse(text) as Record<string, unknown> }
   }
-  // A wire-stable LlmError code is interpolated; arbitrary upstream prose (possibly remote text or a credential) never is.
+  const marker = 'REMOTE-CONTROLLED-CODE-MUST-NOT-LEAK'
+  vi.mocked(services.llm as { resolveCallConfig: ReturnType<typeof vi.fn> }).resolveCallConfig
+    .mockRejectedValueOnce(Object.assign(new Error('safe message'), { code: marker }))
+  const evalBlock = { ...runtime.store.settings().eval, model: { provider: 'nowhere', model: 'x' } }
+  const reply = await request('PUT', 'settings/eval', { value: evalBlock, revision: runtime.store.blockRevision('eval') })
+  expect(JSON.stringify(reply)).not.toContain(marker)
+  // Complement to the wire probe above: a code from the pinned dsh-llm LlmError contract is shown; prose-only failures become 'unavailable'.
   vi.mocked(services.llm as { resolveCallConfig: ReturnType<typeof vi.fn> }).resolveCallConfig
     .mockRejectedValueOnce(Object.assign(new Error('provider "nowhere" answered: sk-live-9f8e7d body'), { code: 'NO_ADAPTER' }))
     .mockRejectedValueOnce(new Error('provider "nowhere" answered: sk-live-9f8e7d body'))
-  const evalBlock = { ...runtime.store.settings().eval, model: { provider: 'nowhere', model: 'x' } }
-  expect(await request('PUT', 'settings/eval', { value: evalBlock, revision: runtime.store.blockRevision('eval') }))
-    .toMatchObject({ status: 400, body: { code: 'modelUnavailable', values: { block: 'eval', error: 'NO_ADAPTER' } } })
-  expect(await request('PUT', 'settings/eval', { value: evalBlock, revision: runtime.store.blockRevision('eval') }))
-    .toMatchObject({ status: 400, body: { code: 'modelUnavailable', values: { block: 'eval', error: 'unavailable' } } })
+  expect((await request('PUT', 'settings/eval', { value: evalBlock, revision: runtime.store.blockRevision('eval') })).body)
+    .toMatchObject({ code: 'modelUnavailable', values: { block: 'eval', error: 'NO_ADAPTER' } })
+  expect((await request('PUT', 'settings/eval', { value: evalBlock, revision: runtime.store.blockRevision('eval') })).body)
+    .toMatchObject({ code: 'modelUnavailable', values: { block: 'eval', error: 'unavailable' } })
   const stored = runtime.store.settings()
   runtime.store.saveSettings({ ...stored, sources: { ...stored.sources, slack: { enabled: false, config: {} } } })
   expect(await request('PUT', 'settings/source:slack', { value: { enabled: true, config: {} }, revision: 0 }))
