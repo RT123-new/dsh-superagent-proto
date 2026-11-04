@@ -435,6 +435,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `tests/issue-22-http-review.spec.ts` | Optional overview metrics adapter serialization, backward compatibility and bounded populated payload measurement |
 | `tests/issue-22-runtime-proof.spec.ts` | Actual Runtime-to-HTTP metrics snapshot composition |
 | `tests/issue-9-adversarial.spec.ts` | Independent metric reconciliation, validation, bounds and snapshot tests |
+| `tests/issue-9-slot-atomic.spec.ts` | Atomic slot observation boundaries and validation. |
 | `tests/issue-9-hooks-adversarial.spec.ts` | Independent production metric hook boundaries and isolation tests. |
 | `tests/issue-9-coverage-review.spec.ts` | Independent card-delivery and command hook semantics. |
 | `tests/issue-9-lifecycle-adversarial.spec.ts` | Independent causal correlation, receipt and settlement boundary tests. |

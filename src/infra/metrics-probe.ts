@@ -10,7 +10,7 @@ export interface MetricsLike {
   observe(stage: string, source: string | undefined, ms: number, outcome?: 'success' | 'failure'): void
   count(name: string, by?: number): void
   queue(name: string): { reconcile(n: number): void }
-  slotPool(name: string, capacity: number): { setCapacity(n: number): void; setCount(state: string, n: number): void }
+  slotPool(name: string, capacity: number): { setCapacity(n: number): void; setCount(state: string, n: number): void; transition?(capacity: number, counts: Readonly<Record<string, number>>): void }
   recordUsage(usage: TokenUsage, pricing?: Pricing, component?: string): unknown
   snapshot(): MetricsSnapshot
   readonly mono: () => number
@@ -44,7 +44,11 @@ export class Probe {
   /** Authoritative length of a durable queue, read at hook time from its owning query. */
   queueLength(name: string, length: number): void { this.safe(m => m.queue(name).reconcile(length)) }
   slots(pool: string, capacity: number, counts: Readonly<Record<string, number>>): void {
-    this.safe(m => { const p = m.slotPool(pool, capacity); p.setCapacity(capacity); for (const [state, n] of Object.entries(counts)) p.setCount(state, n) })
+    this.safe(m => {
+      const p = m.slotPool(pool, capacity)
+      if (p.transition) p.transition(capacity, counts)
+      else { p.setCapacity(capacity); for (const [state, n] of Object.entries(counts)) p.setCount(state, n) } // compatibility with older optional collectors
+    })
   }
   usage(component: string, usage: TokenUsage | undefined): void { this.safe(m => m.recordUsage(usage ?? {}, undefined, component)) }
 }
