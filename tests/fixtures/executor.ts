@@ -14,7 +14,7 @@ import { SettingsSchema, type Settings } from '../../src/policy.ts'
 export interface SpawnSpec { argv: string[]; cwd: string; signal?: AbortSignal; env?: Record<string, string> }
 interface Reader { readFrom(offset: number): { text: string; nextOffset: number; lossy: boolean } }
 export interface SpawnResult { exitCode: number | null; signal: string | null }
-export interface SpawnHandle { done: Promise<SpawnResult>; collected: { stdout: Reader; stderr: Reader } }
+export interface SpawnHandle { waitForExit(): Promise<boolean>; terminate(): void; done: Promise<SpawnResult>; collected: { stdout: Reader; stderr: Reader } }
 
 export const deferred = <T>() => {
   let resolve!: (value: T) => void, reject!: (error: unknown) => void
@@ -26,16 +26,17 @@ const reader = (get: () => string): Reader => ({ readFrom: () => ({ text: get(),
 
 /** An immediate spawn result; `exitCode` null reports a terminated process, as DSH's provider reports a killed range. */
 export const immediate = (exitCode: number | null, stderr = ''): SpawnHandle =>
-  ({ done: Promise.resolve({ exitCode, signal: exitCode === null ? 'SIGTERM' : null }),
+  ({ done: Promise.resolve({ exitCode, signal: exitCode === null ? 'SIGTERM' : null }), waitForExit: async () => true, terminate: () => {},
     collected: { stdout: reader(() => ''), stderr: reader(() => stderr) } })
 
 /** A spawn whose exit the test controls; aborting its signal ends it the way DSH's provider ends a terminated range. */
 export class ControlledSpawn {
   readonly handle: SpawnHandle
   private readonly end = deferred<SpawnResult>()
+  private readonly range = deferred<boolean>()
   private stderrText = ''
   constructor(readonly spec: SpawnSpec, options: { ignoreAbort?: boolean } = {}) {
-    this.handle = { done: this.end.promise,
+    this.handle = { done: this.end.promise, waitForExit: () => this.range.promise, terminate: () => this.stop(),
       collected: { stdout: reader(() => ''), stderr: reader(() => this.stderrText) } }
     if (!options.ignoreAbort) {
       if (spec.signal?.aborted) this.stop()
@@ -43,9 +44,9 @@ export class ControlledSpawn {
     }
   }
   /** Ends the command the way DSH's provider reports a terminated managed process: no exit code. */
-  stop(): void { this.end.resolve({ exitCode: null, signal: 'SIGTERM' }) }
+  stop(): void { this.end.resolve({ exitCode: null, signal: 'SIGTERM' }); this.range.resolve(true) }
   /** Ends the command normally with `exitCode` and `stderr` text. */
-  finish(exitCode: number, stderr = ''): void { this.stderrText = stderr; this.end.resolve({ exitCode, signal: null }) }
+  finish(exitCode: number, stderr = ''): void { this.stderrText = stderr; this.end.resolve({ exitCode, signal: null }); this.range.resolve(true) }
 }
 
 const now = (): string => new Date().toISOString()

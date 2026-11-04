@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ControlledSpawn, ExecutorFixture, deferred, immediate, type SpawnHandle } from './fixtures/executor.ts'
@@ -68,7 +68,7 @@ describe('independent adversarial review: Issues 4-5', () => {
     const { ticket, assignment } = f.mkTicket('range')
     const direct = deferred<{ exitCode: number | null; signal: string | null }>()
     const range = deferred<void>()
-    const waitForExit = vi.fn(() => range.promise)
+    const waitForExit = vi.fn(async () => { await range.promise; return true })
     let first = true
     f.intercept = spec => {
       if (spec.argv[0] !== 'sh' || !first) return undefined
@@ -89,4 +89,72 @@ describe('independent adversarial review: Issues 4-5', () => {
     expect(countWhileDescendantAlive).toBe(1)
     expect(f.engine.assignmentStarted).toHaveBeenCalledWith(ticket.id, replacement.id)
   })
+  for (const nonempty of [false, true]) for (const command of ['', 'setup']) {
+    it(`legacy matrix: ${nonempty ? 'non-empty' : 'empty'} directory with ${command ? 'configured' : 'no'} command`, async () => {
+      f = new ExecutorFixture({ prepare: command })
+      const { ticket, assignment } = f.mkTicket('matrix')
+      mkdirSync(ticket.execution!.directory, { recursive: true })
+      if (nonempty) writeFileSync(join(ticket.execution!.directory, 'work.txt'), 'keep me')
+      await f.launch(ticket, assignment)
+      const blocked = nonempty && !!command
+      expect(f.prepareCommands()).toHaveLength(command && !blocked ? 1 : 0)
+      expect(f.sessions.prompt).toHaveBeenCalledTimes(blocked ? 0 : 1)
+      if (nonempty) expect(readFileSync(join(ticket.execution!.directory, 'work.txt'), 'utf8')).toBe('keep me')
+      if (blocked) expect(f.engine.report).toHaveBeenCalledWith(ticket.id,
+        expect.objectContaining({ state: 'failed', summary: expect.stringContaining('move it aside') }))
+    })
+  }
+
+  it('persists failed quiescence proof across retries and executor restart', async () => {
+    f = new ExecutorFixture({ prepare: 'shell-with-descendant' })
+    const { ticket, assignment } = f.mkTicket('unobservable')
+    f.intercept = spec => spec.argv[0] === 'sh' ? { ...immediate(0),
+      waitForExit: async () => { throw new Error('provider lost range') } } : undefined
+    await f.launch(ticket, assignment)
+    expect((await readPreparation(f.stateDir, ticket.execution!.name))?.quiescence).toBe('unknown')
+    const next = f.newAssignment(ticket)
+    f.intercept = undefined
+    await f.launch(ticket, next)
+    expect(f.prepareCommands()).toHaveLength(1)
+    expect(f.sessions.prompt).not.toHaveBeenCalled()
+    const restarted = new ExecutorFixture({ prepare: 'shell-with-descendant', paths: { stateDir: f.stateDir, work: f.work } })
+    restarted.tickets.set(ticket.id, ticket)
+    try {
+      await restarted.launch(ticket, restarted.newAssignment(ticket))
+      expect(restarted.prepareCommands()).toHaveLength(0)
+      expect(restarted.sessions.prompt).not.toHaveBeenCalled()
+    } finally { restarted.dispose() }
+  })
+
+  it('invalidates launch if preparation changes while the delivery resolver waits', async () => {
+    f = new ExecutorFixture({ prepare: 'setup-v1' })
+    const { ticket, assignment } = f.mkTicket('delivery-config')
+    let accepted = false
+    f.sessions.prompt.mockImplementationOnce(async (_id, _request, _text, _mode, authorize, onAccepted) => {
+      f.settings = SettingsSchema.parse({ executor: { prepare: 'setup-v2', directory: f.work } })
+      authorize?.()
+      accepted = true
+      onAccepted?.()
+    })
+    await f.launch(ticket, assignment).catch(() => {})
+    expect(accepted).toBe(false)
+    expect(f.engine.assignmentStarted).not.toHaveBeenCalled()
+  })
+
+  it('does not launch an ended assignment even if its ticket stays live with no replacement yet', async () => {
+    f = new ExecutorFixture({ prepare: 'setup' })
+    const { ticket, assignment } = f.mkTicket('ended-live')
+    const creating = deferred<void>()
+    f.sessions.ensure.mockImplementationOnce(async () => {
+      await creating.promise
+      return { inbox: { remove: vi.fn() }, session: { snapshotEvents: () => [] } }
+    })
+    const launch = f.launch(ticket, assignment)
+    await vi.waitFor(() => expect(f.sessions.ensure).toHaveBeenCalled())
+    f.cancelAssignment(ticket, assignment, 'stopped')
+    creating.resolve()
+    await launch
+    expect(f.sessions.prompt).not.toHaveBeenCalled()
+  })
+
 })

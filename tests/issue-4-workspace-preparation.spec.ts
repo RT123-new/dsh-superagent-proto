@@ -77,7 +77,7 @@ describe('issue 4: workspace preparation is durable state, not directory presenc
     expect(fixture.engine.report).toHaveBeenCalledWith(ticket.id, expect.objectContaining({ state: 'failed' }))
   })
 
-  it('adopts a healthy legacy workspace without deleting its work or re-running the command', async () => {
+  it('blocks an unrecorded non-empty legacy workspace without deleting work or rerunning generic preparation', async () => {
     fixture = new ExecutorFixture({ prepare: 'make-worktree' })
     const { ticket, assignment } = fixture.mkTicket('aaaa')
     // A workspace created before preparation state existed: it holds worker output that must not be deleted.
@@ -85,7 +85,9 @@ describe('issue 4: workspace preparation is durable state, not directory presenc
     writeFileSync(join(ticket.execution!.directory, 'work.txt'), 'existing work')
     await fixture.launch(ticket, assignment)
     expect(fixture.prepareCommands()).toHaveLength(0)
-    expect(fixture.sessions.prompt).toHaveBeenCalled()
+    expect(existsSync(join(ticket.execution!.directory, 'work.txt'))).toBe(true)
+    expect(fixture.sessions.prompt).not.toHaveBeenCalled()
+    expect(fixture.engine.report).toHaveBeenCalledWith(ticket.id, expect.objectContaining({ summary: expect.stringContaining('Files were preserved') }))
   })
 
   it('records a durable prepared state that survives a restart, with no temporary files left behind', async () => {

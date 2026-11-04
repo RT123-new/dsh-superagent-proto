@@ -2,13 +2,13 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { SessionId } from '@deepseek-ai/dsh-session'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import { mkdir, rmdir, stat } from 'node:fs/promises'
+import { mkdir, readdir, rmdir, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { key, latestAssignment, latestReport, liveTicket, runningAssignment, threadKey, waitsForPerson } from '../core/index.ts'
 import type { AssessmentOutcome, Assignment, EngineForExecutor, Execution, Executor, Mandate, PolicyEffect, Ticket, TicketInput, Trigger }
   from '../core/index.ts'
 import type { Machine } from '../deployment.ts'
-import { runAsWorker, verifyDirectory } from '../infra/environment.ts'
+import { verifyDirectory } from '../infra/environment.ts'
 import type { Settings } from '../policy.ts'
 import type { Store } from '../app/store.ts'
 import { Later, type Effects } from '../app/effects.ts'
@@ -19,6 +19,7 @@ import { resultRelay } from '../app/notices.ts'
 import type { HealthEntry } from '../infra/health.ts'
 import { cancelled, collectJob, killJobs, runningJobs, stopBackground, stopSubagents, until, untilQuiet } from './background.ts'
 import { preparationIdentity, readPreparation, writePreparation, type PreparationRecord } from './workspace.ts'
+import { PreparationQuiescenceUnknown, runPreparationCommand } from './preparation-command.ts'
 
 const now = (): string => new Date().toISOString()
 /** Returns the worker session ID (`worker-<ticketId>`) for a ticket. */
@@ -239,6 +240,8 @@ export class DshExecutor implements Executor {
   private readonly launching = new Map<string, AbortController>()
   /** In-flight workspace preparations, by ticket, whose settle a replacement launch awaits before reusing the workspace. */
   private readonly preparing = new Map<string, Promise<void>>()
+  /** Failed provider quiescence proofs block reuse even if the failure record cannot be written. */
+  private readonly uncertainPreparations = new Set<string>()
   /** Registers the `launch` and `delivery` effect handlers; both are held (concurrency limit 0) while processing is paused. */
   constructor(private readonly host: ExecutorHost) {
     this.slots = new WorkerSlots(() => host.store.tickets.open().filter(ticket => this.running(ticket)).map(ticket => ticket.id),
@@ -257,24 +260,21 @@ export class DshExecutor implements Executor {
   private identity(): string {
     return preparationIdentity({ repository: this.host.repository(), prepareCommand: this.host.store.settings().executor.prepare })
   }
-  /**
-   * Whether the ticket's workspace verifiably prepared under the current configuration.
-   * A workspace from before preparation state existed keeps its work: it is adopted once it passes the same
-   * directory verification a fresh preparation runs. Anything else - a failed, cancelled or crash-interrupted
-   * (`preparing`) record, another configuration's record, or a record for another directory - prepares again.
+  /** Only a durable success record for this exact directory and configuration permits reuse.
+   * Missing/corrupt legacy state with configured preparation fails closed when work exists: generic readiness cannot be inferred.
+   * verifyDirectory checks credential safety only and cannot certify application readiness.
    */
   private async prepared(ticket: Ticket): Promise<boolean> {
     const directory = ticket.execution?.directory ?? ''
-    if (!await stat(directory).then(() => true, () => false)) return false
+    if (this.uncertainPreparations.has(ticket.id)) throw new PrepareFailed('Preparation process ownership is unresolved; stop the host and inspect the workspace before retrying.')
     const record = await readPreparation(this.host.machine.stateDir, ticket.execution?.name ?? '')
-    // A record describes the directory it was written for; one for another directory says nothing about this one.
-    if (record && record.directory === directory) return record.state === 'prepared' && record.identity === this.identity()
-    try { await verifyDirectory(directory, this.host.context.subprocess, this.host.lifetime) }
-    catch { return false }
-    await writePreparation(this.host.machine.stateDir, ticket.execution?.name ?? '',
-      { state: 'prepared', identity: this.identity(), directory, at: now(), detail: 'Adopted a workspace that predates preparation state' })
-      .catch(() => { /* A lost adoption record only re-verifies the workspace at the next launch. */ })
-    return true
+    if (record?.quiescence === 'unknown') throw new PrepareFailed('Preparation process ownership is unresolved. Stop the host, confirm the prior managed process range has stopped, and inspect the workspace before clearing its preparation record.')
+    if (!await stat(directory).then(value => value.isDirectory(), () => false)) return false
+    if (record?.directory === directory) return record.state === 'prepared' && record.identity === this.identity()
+    if (this.host.store.settings().executor.prepare.trim() && (await readdir(directory)).length) {
+      throw new PrepareFailed('Existing workspace has no valid preparation record. Files were preserved and the prepare command was not run. Back up and inspect the workspace, then move it aside or reconcile preparation state offline before retrying.')
+    }
+    return false
   }
   /**
    * Runs the configured `executor.prepare` command for a new ticket workspace in its parent directory with the ticket's
@@ -303,7 +303,7 @@ export class DshExecutor implements Executor {
     const timeout = AbortSignal.timeout(this.host.prepareTimeoutMs ?? PREPARE_TIMEOUT_MS)
     const signal = AbortSignal.any([this.host.lifetime, timeout, cancel])
     try {
-      if (command) await runAsWorker(this.host.context.subprocess, ['sh', '-c', command], dirname(directory), signal, env)
+      if (command) await runPreparationCommand(this.host.context.subprocess, ['sh', '-c', command], dirname(directory), signal, env)
         .catch(async (error: unknown) => {
           // Remove an empty directory left by a failed prepare command so a later retry does not treat it as already prepared.
           await rmdir(directory).catch(() => { /* Absent, or holding what the command wrote, which the output explains. */ })
@@ -311,15 +311,17 @@ export class DshExecutor implements Executor {
         })
       if (cancel.aborted) throw new PreparationCancelled()
       await mkdir(directory, { recursive: true })
-      await verifyDirectory(directory, this.host.context.subprocess, this.host.lifetime)
+      await verifyDirectory(directory, this.host.context.subprocess, signal)
     } catch (error) {
-      if (error instanceof PreparationCancelled || cancel.aborted || this.host.lifetime.aborted) {
+      if (error instanceof PreparationQuiescenceUnknown) this.uncertainPreparations.add(ticket.id)
+      if (!(error instanceof PreparationQuiescenceUnknown) && (error instanceof PreparationCancelled || cancel.aborted || this.host.lifetime.aborted)) {
         await mark({ state: 'cancelled', identity, directory, at: now(), detail: 'The assignment was cancelled or the host stopped' })
         throw new PreparationCancelled()
       }
       const detail = timeout.aborted ? `The prepare command ran past its ${Math.round((this.host.prepareTimeoutMs ?? PREPARE_TIMEOUT_MS) / 1000)}s timeout`
         : error instanceof Error ? error.message : String(error)
-      await mark({ state: 'failed', identity, directory, at: now(), detail })
+      await mark({ state: 'failed', identity, directory, at: now(), detail,
+        ...(error instanceof PreparationQuiescenceUnknown ? { quiescence: 'unknown' as const } : {}) })
       throw error instanceof PrepareFailed ? error : new PrepareFailed(`The prepare command failed: ${detail}`)
     }
     // The workspace is prepared only while the configuration it prepared under is still current; if it changed
@@ -495,11 +497,14 @@ export class DshExecutor implements Executor {
   }
   private relay({ id, text }: { id: string; text: string }): void { this.host.sessions.relay(id, text) }
   private async launch(ticket: Ticket, assignment: Assignment): Promise<void> {
+    const launchIdentity = this.identity()
     const current = () => {
       if (this.host.closing()) throw new Error('dsh-superagent is stopping')
       if (this.host.paused()) throw new Later('Processing is paused')
+      if (this.identity() !== launchIdentity) throw new Later('The preparation configuration changed during launch')
       const stored = this.host.store.tickets.get(ticket.id)
       return !!stored && liveTicket(stored) && latestAssignment(stored)?.id === assignment.id
+        && latestAssignment(stored)?.state !== 'ended'
     }
     // The assignment's cancellation controller: `stop` aborts it, which reaches the prepare command's process range.
     const controller = new AbortController()
@@ -516,6 +521,7 @@ export class DshExecutor implements Executor {
     }
     // Prepare the workspace unless it verifiably prepared under the current configuration (see `prepared`).
     if (!await this.prepared(ticket)) {
+      if (!current()) return
       const settle = this.prepareDirectory(ticket, controller.signal)
       this.preparing.set(ticket.id, settle)
       try { await settle }
