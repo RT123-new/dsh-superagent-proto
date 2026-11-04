@@ -36,3 +36,9 @@ Probe evidence: reports/evidence/probe-001-deepseek-flash.json (HTTP 200, 1265 m
 | 3 | 2026-11-04 ~06:53 | Repaired normal/seed11 arithmetic AST worker | 110 /0 | 34 | 0.0000738 | 0.0003277 |
 
 Independently inspected raw successful terminal usage and stopped ledger. Known worker charge0.0002277; pending reservation0; stopped=true. Initial$1 allocation remains reserved for this worker; unused allocation0.9997723, programme unallocated reserve3.9999. All other paid calls frozen. Failed model grammar task0/1, no result effect. Nine repaired and all baseline scenarios NOT TESTED live. No paired live improvement claim. See reports/paired-real-model-validation.md and evidence/paired-live/. Offline adapter seam and13-test harness independently rerun by integration; these are synthetic-output tests, not live success.
+
+## Prospective v2 bounded run (stopped after six calls)
+
+Independent integration recalculated every raw usage report at verified peak rates using decimal arithmetic: v2 cost **$0.000693936** (1016uncached input,256cached input,323output;1595total tokens). Six successful terminal records, explicit cache-write0. Normal paired worker prompt bytes identical (SHA256 e5d85819d5dd245585ac546dd35c6b827110af05d3275cfff44b51070f2ea359). V1 grammar failure retained separately. V2 baseline1/2eligible completed, repaired2/2; tiny synthetic Source/Engine/provider-adapter result, not full-service or speed/cost evidence. Independent offline v2 suite16/16 passes.
+
+Combined worker charge **$0.000921636**; conservative programme cumulative including rounded probe **$0.001021636**. Pending reservation0; v2stopped=true. Remaining original$1allocation **$0.999078364**, unallocated reserve still$3.9999. All additional paid calls frozen. Evidence: paired-v2-live/budget.json and six raw call records; reports/paired-prompt-v2-results.md.
