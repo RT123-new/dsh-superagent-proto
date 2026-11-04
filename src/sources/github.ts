@@ -66,10 +66,13 @@ export const githubKind: SourceKind<GithubConfig> = {
   health: ['github'],
   channel: { send: sendGithub, link: githubLink },
   threadContext: githubThreadContext,
-  // `#12`, `12`, or the page of an Issue or PR, of any repository, names Thread 12.
-  find: query => {
-    const number = (/^#?(\d+)$/.exec(query.trim()) ?? /github\.com\/[^/]+\/[^/]+\/(?:pull|issues)\/(\d+)/.exec(query))?.[1]
-    return { threads: number ? [`${SOURCE}:${number}`] : [], terms: [] }
+  // Bare numbers are local shorthand; qualified URLs must name this instance's repository.
+  find: (query, config) => {
+    const value = query.trim()
+    const local = /^#?(\d+)$/.exec(value)?.[1]
+    const address = !local && config?.repository ? githubAddress(value, config.repository) : undefined
+    const number = local ?? address?.number
+    return { threads: number !== undefined ? [`${SOURCE}:${number}`] : [], terms: [] }
   },
   policy: {
     schema: z.object({ allowed: z.array(z.object({ id: z.string().regex(/^[A-Za-z0-9-]+$/) }).strict()).default([]),
