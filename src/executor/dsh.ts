@@ -259,6 +259,8 @@ export class DshExecutor implements Executor {
   private readonly timers = new Set<ReturnType<typeof setTimeout>>()
   /** Cancellation controllers of in-flight launches, by assignment ID; `stop` aborts them once the ending commits. */
   private readonly launching = new Map<string, AbortController>()
+  /** Local monotonic stamps of launch effects awaiting their slot, by assignment ID; lost on restart (those waits stay unmeasured). */
+  private readonly launchStamps = new Map<string, number>()
   /** In-flight workspace preparations, by ticket, whose settle a replacement launch awaits before reusing the workspace. */
   private readonly preparing = new Map<string, Promise<void>>()
   /** Failed provider quiescence proofs block reuse even if the failure record cannot be written. */
@@ -360,7 +362,16 @@ export class DshExecutor implements Executor {
   }
   /** Enqueues a `launch` effect for an accepted or resumed assignment; launches start in queue order as worker slots free up. */
   start(ticket: Ticket, assignment: Assignment): void {
+    this.stampLaunch(assignment.id)
     this.host.effects.enqueue('launch', assignment.id, { ticketId: ticket.id, assignmentId: assignment.id })
+  }
+  /** Stamps the first enqueue of an assignment's launch; a full map drops the oldest stamp, counted as `launch_stamp_dropped` (its wait goes unmeasured). */
+  private stampLaunch(assignmentId: string): void {
+    if (!this.probe.enabled || this.launchStamps.has(assignmentId)) return
+    try {
+      if (this.launchStamps.size >= 5000) { this.launchStamps.delete(this.launchStamps.keys().next().value!); this.probe.count('launch_stamp_dropped') }
+      this.launchStamps.set(assignmentId, performance.now())
+    } catch { this.probe.count('metrics_error') }
   }
   /** Enqueues a `delivery` effect to steer pending inputs into `ticket`'s running worker session. */
   deliver(ticket: Ticket, assignment: Assignment): void {
@@ -374,8 +385,12 @@ export class DshExecutor implements Executor {
   private async launchQueued({ ticketId, assignmentId }: { ticketId: string; assignmentId: string }): Promise<void> {
     const ticket = this.host.store.tickets.get(ticketId)
     const assignment = ticket && latestAssignment(ticket)
-    if (!ticket || !liveTicket(ticket) || assignment?.id !== assignmentId || assignment.state !== 'pending') return
-    this.slots.reserve(ticketId, 'launch'); this.sampleSlots()
+    if (!ticket || !liveTicket(ticket) || assignment?.id !== assignmentId || assignment.state !== 'pending') { this.launchStamps.delete(assignmentId); return }
+    try { this.slots.reserve(ticketId, 'launch') } catch (error) { if (error instanceof Later) this.probe.count('launch_slot_denied'); throw error }
+    this.sampleSlots()
+    const queuedAt = this.launchStamps.get(assignmentId)
+    this.launchStamps.delete(assignmentId)
+    if (queuedAt !== undefined) this.probe.observe('slot_wait', 'internal', performance.now() - queuedAt)
     try { await this.launch(ticket, assignment); this.transient.delete(`launch:${assignmentId}`) }
     catch (error) {
       // Shutdown or pause re-queues the launch for resume, and transient network/provider errors retry with backoff.
@@ -472,7 +487,7 @@ export class DshExecutor implements Executor {
    * report with no Input delivered since, and stops its shell jobs and subagents, including jobs it left to a person.
    */
   stop(ticket: Ticket, assignment: Assignment, reason: string): void {
-    this.transient.delete(assignment.id); this.transient.delete(`launch:${assignment.id}`)
+    this.transient.delete(assignment.id); this.transient.delete(`launch:${assignment.id}`); this.launchStamps.delete(assignment.id)
     const report = assignment.report
     const busy = !!assignment.deliveredAt && !!report && assignment.deliveredAt >= report.at
     const ownTurn = (report?.state === 'ready' || report?.state === 'dropped') && !busy
