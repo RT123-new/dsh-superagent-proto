@@ -2,6 +2,7 @@
 import { z } from 'zod'
 import { liveTicket, runningAssignment, type EngineForExecutor, type Ticket } from '../../core/index.ts'
 import { IM_WORDS } from '../../infra/text.ts'
+import { readWorkspaceSlice, MAX_SLICE_LINES } from '../../executor/file-slice.ts'
 import { claimPull, readPull } from '../../sources/github-pull.ts'
 import type { SourceContext } from '../../sources/host.ts'
 import { readResource, type ResourceHost } from '../resources.ts'
@@ -25,6 +26,20 @@ export function executorTools(host: ExecutorToolsHost, ticket: Ticket): Tool[] {
   return [
     readTool('Read one page of a resource of this ticket that the resource parameter lists. Follow next_offset, and next_resource where a page names one.',
       true, (resource, offset, limit, signal) => readResource(host.resources, resource, offset, limit, ticketId, signal)),
+    tool({
+      name: 'orchestrator_file_slice',
+      description: 'Read only a small range of a source file inside this ticket workspace. Search with grep/glob first; follow next_line when present. Truncated-by-byte single lines need a narrower search.',
+      schema: z.object({
+        path: z.string().min(1).max(1024).describe('Relative file path inside the ticket workspace (never an absolute path).'),
+        start_line: z.number().int().min(1).default(1),
+        max_lines: z.number().int().min(1).max(MAX_SLICE_LINES).default(160),
+      }).strict(),
+      execute: async (args, signal) => {
+        const current = host.store.tickets.get(ticketId)
+        if (!current || !liveTicket(current) || !runningAssignment(current)) throw new Error('Ticket is not currently assigned')
+        return readWorkspaceSlice(current.execution?.directory, args.path, args.start_line, args.max_lines, signal)
+      },
+    }),
     tool({
       name: 'orchestrator_ack',
       description: 'Acknowledge one original human request before substantial work, as the replies section says; it posts as a reply to that message.',
