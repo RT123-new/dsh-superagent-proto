@@ -355,6 +355,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 | `src/app/views/settings.ts` | The settings page's view: each block with its revision, each Source's settings with its kind's form, and the execution environment |
 | `src/app/views/overview.ts` | The overview: Tickets that need a person, problems, the last day's flow and the Executor's load |
 | `src/executor/dsh.ts` | The DshExecutor, `WorkerSlots`, `ticketExecution`, `inputMessage` and `mandateInstructions` |
+| `src/executor/file-slice.ts` | Bounded, workspace-contained, line-addressable source reads for worker models; no OS-level sandbox or cross-process race guarantee |
 | `src/executor/preparation-command.ts` | Preparation-specific managed-process-range quiescence; direct shell exit alone is not completion |
 | `src/executor/workspace.ts` | Durable workspace preparation state: the atomic preparation record, its states (`preparing`, `prepared`, `failed`, `cancelled`), and the preparation configuration identity that invalidates stale success |
 | `src/executor/background.ts` | A worker's background work in DeepSeek Harness, the shell jobs its Session owns (`ctx.jobs`) and its subagents (`ctx.subagents`): `runningJobs`, `untilQuiet`, `killJobs`, `collectJobs`, `stopSubagents`, `stopBackground`, `until`, and `cancelled`, the workers whose turn a stop of their subagents cancelled |
@@ -537,6 +538,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 
 | `tests/issue-13-coordinator-load.spec.ts` | Coordinator conservation and deterministic workload invariants. |
 | `tests/issue-14-hol-blocking.spec.ts` | Ordered head-of-line characterization and isolated partition fixture. |
+| `tests/file-slice.spec.ts` | File-slice line pagination, UTF-8, oversized line, path containment and abort regressions. |
 | `tests/issue-15-retry-backoff.spec.ts` | Retry baseline characterization and proposed jitter formula (under integration update). |
 
 | `tests/issue-17-disposal.spec.ts` | Disposed idle continuations and settlement abort, independently of slotwake. |
