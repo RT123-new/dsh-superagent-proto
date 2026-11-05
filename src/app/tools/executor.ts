@@ -2,6 +2,7 @@
 import { z } from 'zod'
 import { liveTicket, runningAssignment, type EngineForExecutor, type Ticket } from '../../core/index.ts'
 import { IM_WORDS } from '../../infra/text.ts'
+import type { Probe } from '../../infra/metrics-probe.ts'
 import { readWorkspaceSlice, MAX_SLICE_LINES } from '../../executor/file-slice.ts'
 import { claimPull, readPull } from '../../sources/github-pull.ts'
 import type { SourceContext } from '../../sources/host.ts'
@@ -16,6 +17,7 @@ export interface ExecutorToolsHost {
   readonly store: Pick<Store, 'tickets' | 'replyStatus' | 'atomic'>
   readonly sessions: Pick<Sessions, 'relay' | 'notify'>
   readonly resources: ResourceHost
+  readonly probe?: Probe
   /** GitHub Source context whose pull-request rules govern claiming a reported PR. */
   readonly github: SourceContext
   sendReplies(): Promise<void>
@@ -37,7 +39,10 @@ export function executorTools(host: ExecutorToolsHost, ticket: Ticket): Tool[] {
       execute: async (args, signal) => {
         const current = host.store.tickets.get(ticketId)
         if (!current || !liveTicket(current) || !runningAssignment(current)) throw new Error('Ticket is not currently assigned')
-        return readWorkspaceSlice(current.execution?.directory, args.path, args.start_line, args.max_lines, signal)
+        const slice = await readWorkspaceSlice(current.execution?.directory, args.path, args.start_line, args.max_lines, signal)
+        host.probe?.count('worker_slice_reads')
+        host.probe?.count('worker_slice_bytes', slice.returned_bytes)
+        return slice
       },
     }),
     tool({
