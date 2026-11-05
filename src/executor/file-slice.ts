@@ -73,7 +73,7 @@ export async function readWorkspaceSlice(directory: string | undefined, path: st
       visit(decoder.write(buffer.subarray(0, bytesRead)))
       if (stopped) break
     }
-    if (!stopped && line >= startLine && part.length) { lines.push(part); lastLine = line }
+    if ((stopped === 'byte_limit' || !stopped) && line >= startLine && part.length) { lines.push(part); lastLine = line }
     // The continuation cursor is line-addressable. A byte-capped single line needs a
     // narrower query or a different tool; do not offer a cursor that cannot progress.
     return { path, start_line: startLine, lines: lines.length, text: lines.join('\n'),
