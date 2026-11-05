@@ -800,7 +800,7 @@ export class DshExecutor implements Executor {
   /** Schedules a worker turn retry with exponential backoff after a transient provider or network error. */
   private resumeAfter(ticketId: string, assignmentId: string, error: unknown): void {
     const tries = this.transient.get(assignmentId)!
-    const text = `Your last turn failed for a passing reason (${String(error).slice(0, 200)}). Continue the assignment where it stopped.`
+    const text = `Your last turn failed for a passing reason (${healthErrorDetail(error)}). Continue the assignment where it stopped.`
     this.resuming.add(assignmentId)
     // The retry's authorization: the ticket exists, is live and is still run by this Assignment. Checked when the wait
     // ends and again by the commit-time `authorize` below, since delivery waits asynchronously (Issue 6): checks made
@@ -925,13 +925,17 @@ export class DshExecutor implements Executor {
       ? last.data.message.content.filter(block => block.type === 'text').map(block => block.text).join('\n').trim() : ''
     const said = [text, stopped].filter(Boolean).join('\n\n')
     this.host.store.atomic(() => {
+      const previous = runningAssignment(current)?.report
       const before = latestReport(current)?.summary ?? ''
-      const updated = this.host.engine.report(ticket.id, { state: 'waiting', summary: said || before })
-      // A quiet final after orchestrator_report is not a new status or an empty handoff.
-      if (said) this.relay(resultRelay(updated, 'waiting', said))
-      else if (!before.trim()) {
-        this.relay(resultRelay(updated, 'waiting', 'Worker ended without a status report. Use orchestrator_ticket_request_status to request one.'))
-      }
+      // Waiting is not a successful completion. A worker that omitted the terminal report,
+      // even after producing convincing text, must leave a durable warning for the operator.
+      const noTerminalReport = !previous || previous.state === 'progress' || previous.state === 'waiting'
+      const warning = 'Worker ended without a terminal orchestrator_report. Completion is unverified; inspect the worktree and request status before treating this as done.'
+      const summary = [said || before, noTerminalReport ? warning : ''].filter(Boolean).join('\n\n')
+      const updated = this.host.engine.report(ticket.id, { state: 'waiting', summary })
+      if (noTerminalReport) this.probe.count('worker_report_missing')
+      // Always relay missing-report warnings, including when the worker left plausible final prose.
+      if (noTerminalReport || said) this.relay(resultRelay(updated, 'waiting', summary))
     })
   }
 }
