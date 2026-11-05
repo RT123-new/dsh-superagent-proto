@@ -60,7 +60,7 @@ function setup() {
   executor.install()
   return { state, sessions, engine, delivered, pending,
     failNext: (error: unknown) => { failure = error },
-    transientError: () => handlers.get('agent/error')!({ agent: { id: 'worker-t1' }, error: new Error('fetch failed') } as never) }
+    transientError: (error: Error = new Error('fetch failed')) => handlers.get('agent/error')!({ agent: { id: 'worker-t1' }, error } as never) }
 }
 
 afterEach(() => { vi.useRealTimers() })
@@ -76,6 +76,21 @@ it('delivers the retry under its stable idempotency id while the ticket and assi
   await vi.advanceTimersByTimeAsync(0)
   expect(h.delivered).toHaveLength(1)
   expect(h.engine.report).not.toHaveBeenCalled()
+})
+
+it('does not reflect provider-controlled error prose into the worker retry prompt', async () => {
+  vi.useFakeTimers()
+  const h = setup()
+  const marker = 'REMOTE-PROMPT-INJECTION-MUST-NOT-APPEAR'
+  h.transientError(Object.assign(new Error(`fetch failed: ${marker}`), { code: 'ECONNRESET' }))
+  await vi.advanceTimersByTimeAsync(BACKOFF_MS)
+  expect(h.sessions.prompt).toHaveBeenCalledTimes(1)
+  const retryText = h.sessions.prompt.mock.calls[0]![2]
+  expect(retryText).toContain('passing reason (transient)')
+  expect(retryText).not.toContain(marker)
+  h.pending.at(-1)!.commit()
+  await vi.advanceTimersByTimeAsync(0)
+  expect(h.delivered).toHaveLength(1)
 })
 
 it('abandons a retry whose ticket ended during the backoff wait', async () => {
