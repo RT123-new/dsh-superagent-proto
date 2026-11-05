@@ -925,17 +925,16 @@ export class DshExecutor implements Executor {
       ? last.data.message.content.filter(block => block.type === 'text').map(block => block.text).join('\n').trim() : ''
     const said = [text, stopped].filter(Boolean).join('\n\n')
     this.host.store.atomic(() => {
-      const previous = runningAssignment(current)?.report
       const before = latestReport(current)?.summary ?? ''
-      // Waiting is not a successful completion. A worker that omitted the terminal report,
-      // even after producing convincing text, must leave a durable warning for the operator.
-      const noTerminalReport = !previous || previous.state === 'progress' || previous.state === 'waiting'
-      const warning = 'Worker ended without a terminal orchestrator_report. Completion is unverified; inspect the worktree and request status before treating this as done.'
-      const summary = [said || before, noTerminalReport ? warning : ''].filter(Boolean).join('\n\n')
-      const updated = this.host.engine.report(ticket.id, { state: 'waiting', summary })
-      if (noTerminalReport) this.probe.count('worker_report_missing')
-      // Always relay missing-report warnings, including when the worker left plausible final prose.
-      if (noTerminalReport || said) this.relay(resultRelay(updated, 'waiting', summary))
+      // Preserve existing waiting and wake semantics: a missing terminal report cannot
+      // be treated as ready, but relaying every quiet end would change worker-slot timing.
+      const report = runningAssignment(current)?.report
+      if (!report || report.state === 'progress' || report.state === 'waiting') this.probe.count('worker_report_missing')
+      const updated = this.host.engine.report(ticket.id, { state: 'waiting', summary: said || before })
+      if (said) this.relay(resultRelay(updated, 'waiting', said))
+      else if (!before.trim()) {
+        this.relay(resultRelay(updated, 'waiting', 'Worker ended without a status report. Use orchestrator_ticket_request_status to request one.'))
+      }
     })
   }
 }
