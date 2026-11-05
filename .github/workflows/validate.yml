@@ -3,9 +3,9 @@ name: validate
 # no credentials exposed to pull-request code: the job runs with a read-only token on the exact tested SHA.
 on:
   push:
-    branches: [programme/reliability]
+    branches: [programme/reliability, 'fix/**']
   pull_request:
-    branches: [main]
+    branches: [main, programme/reliability]
 permissions:
   contents: read
 # Explicit shell contract: the default for an unspecified shell is `bash -e` WITHOUT pipefail, which masked a failing
