@@ -76,49 +76,58 @@ export function OverviewPage() {
   const { setup } = usePanelData()
   const { data, error, reload } = usePoll(() => call('GET overview'), [])
   if (!data) return <LoadState error={error} loading />
-  const stat = (label: string, value: ReactNode, route?: Route) => <span className="dt-stat">
-    <span className="dt-stat-label">{label}</span>
-    {route ? <button type="button" className="dt-textlink dt-stat-value" onClick={() => navigate(route)}>{value}</button> : <span
-      className="dt-stat-value">{value}</span>}
-  </span>
+  const stat = (label: string, value: ReactNode, route?: Route) => <div className="dt-stat">
+    <dt className="dt-stat-label">{label}</dt>
+    <dd className="dt-stat-value">{route ? <button type="button" className="dt-textlink" onClick={() => navigate(route)}>{value}</button>
+      : value}</dd>
+  </div>
   const more = (route: Route) => <button type="button" className="dt-textlink dt-more-link"
     onClick={() => navigate(route)}>{t('details')}</button>
   return <>
     {error && <><p className="dt-hint" role="status">{t('staleData')}</p><LoadState error={error} loading={false} /></>}
-    <Section title={t('pendingTickets')} count={data.person.length}>
-      {data.person.length ? <ul className="dt-list dt-cards">{data.person.map(ticket => <TicketLine key={ticket.id} ticket={ticket} question
-        onChanged={reload} />)}</ul>
-        : <Hint>{t('needsYouNone')}</Hint>}
-    </Section>
-    {data.problems.length > 0 && <Section title={t('problems')} count={data.problems.length}>
-      <ul className="dt-list dt-cards">{data.problems.map(problem => <ProblemLine key={problemKey(problem)} problem={problem}
-        onChanged={reload} />)}</ul>
-    </Section>}
-    <Section title={t('lastDay')} action={more({ page: 'trigger', query: { filter: 'recent' } })}>
-      {/* Received and evaluated counts operate on Triggers rather than Threads or Decisions, so they do not link to filtered views. */}
-      <div className="dt-stats">
-        {stat(t('flowReceivedLabel'), data.flow.received)}
-        {stat(t('flowFilteredLabel'), data.flow.filtered, data.flow.filtered ? { page: 'source' } : undefined)}
-        {stat(t('flowJudgedLabel'), data.flow.judged)}
-        {stat(t('flowAcceptedLabel'), data.flow.accepted, { page: 'eval', query: { window: '24h' } })}
-        {data.flow.dropped > 0 && stat(t('flowDroppedLabel'), data.flow.dropped, { page: 'source' })}
+    <div className="dt-workspace-grid">
+      <div className="dt-workspace-primary">
+        <Section title={t('pendingTickets')} count={data.person.length}>
+          {data.person.length ? <ul className="dt-list dt-cards">{data.person.map(ticket => <TicketLine key={ticket.id} ticket={ticket} question
+            onChanged={reload} />)}</ul>
+            : <div className="dt-workspace-empty"><Icon name="decision" size={24} /><div>
+              <Hint>{t('needsYouNone')}</Hint><Hint>{t('overviewEmptyHint')}</Hint>
+            </div></div>}
+        </Section>
+        {data.problems.length > 0 && <Section title={t('problems')} count={data.problems.length}>
+          <ul className="dt-list dt-cards">{data.problems.map(problem => <ProblemLine key={problemKey(problem)} problem={problem}
+            onChanged={reload} />)}</ul>
+        </Section>}
       </div>
-    </Section>
-    <Section title={t('term.executor')} action={more({ page: 'execution' })}>
-      {/* Pauses surface in `problems` above, so Executor counts render the same in both states; while setup waits, nothing runs. */}
-      {setup?.problem ? <Hint>{t('executorWaitingSetup')}</Hint> : <><div className="dt-stats">
-        {stat(t('executingLabel'), `${data.executor.running} / ${data.executor.maxWorkers}`)}
-        {stat(t('queuedLabel'), data.executor.queued)}
-        {stat(t('idleLabel'), data.executor.idle)}
-      </div>
-      {Number.isFinite(data.executor.running) && data.executor.maxWorkers > 0 && Number.isFinite(data.executor.maxWorkers) &&
-        <div className="dt-capacity">
-          <span>{t('capacityLabel')}{data.executor.running > data.executor.maxWorkers ? ' · ' + t('capacityOver') : ''}</span>
-          <div className="dt-capacity-track" aria-hidden="true"><span className="dt-capacity-fill" data-over={data.executor.running > data.executor.maxWorkers}
-            style={{ width: Math.min(100, Math.max(0, 100 * data.executor.running / data.executor.maxWorkers)) + '%' }} /></div>
-        </div>}
-      </>}
-    </Section>
+      <aside className="dt-workspace-aside">
+        <Section title={t('term.executor')} action={more({ page: 'execution' })}>
+          {/* Pauses surface above. Preserve observed counts in either state; while setup waits, nothing runs. */}
+          {setup?.problem ? <Hint>{t('executorWaitingSetup')}</Hint> : <>
+            <dl className="dt-stats">
+              {stat(t('executingLabel'), `${data.executor.running} / ${data.executor.maxWorkers}`)}
+              {stat(t('queuedLabel'), data.executor.queued)}
+              {stat(t('idleLabel'), data.executor.idle)}
+            </dl>
+            {Number.isFinite(data.executor.running) && data.executor.maxWorkers > 0 && Number.isFinite(data.executor.maxWorkers) &&
+              <div className="dt-capacity">
+                <span>{t('capacityLabel')}{data.executor.running > data.executor.maxWorkers ? ' · ' + t('capacityOver') : ''}</span>
+                <div className="dt-capacity-track" aria-hidden="true"><span className="dt-capacity-fill" data-over={data.executor.running > data.executor.maxWorkers}
+                  style={{ width: Math.min(100, Math.max(0, 100 * data.executor.running / data.executor.maxWorkers)) + '%' }} /></div>
+              </div>}
+          </>}
+        </Section>
+        <Section title={t('lastDay')} action={more({ page: 'trigger', query: { filter: 'recent' } })}>
+          {/* These are independent observed counts, not a conversion funnel. Received and evaluated Triggers have no matching list to link. */}
+          <dl className="dt-stats">
+            {stat(t('flowReceivedLabel'), data.flow.received)}
+            {stat(t('flowFilteredLabel'), data.flow.filtered, data.flow.filtered ? { page: 'source' } : undefined)}
+            {stat(t('flowJudgedLabel'), data.flow.judged)}
+            {stat(t('flowAcceptedLabel'), data.flow.accepted, { page: 'eval', query: { window: '24h' } })}
+            {data.flow.dropped > 0 && stat(t('flowDroppedLabel'), data.flow.dropped, { page: 'source' })}
+          </dl>
+        </Section>
+      </aside>
+    </div>
     {data.metrics && <MetricsPanel metrics={data.metrics} t={t} />}
     {!data.metrics && data.metricsState === 'failed' && <Section title={t('metricsTitle')}><Hint>{t('metricsSnapshotFailed')}</Hint></Section>}
   </>

@@ -98,11 +98,20 @@ function SearchResults({ result, query, onClose }: { result: SearchView; query: 
   </div>
 }
 
-function Header({ masterId }: { masterId: string | undefined }) {
-  const { t, call, openSession, notify } = usePanel()
+function ConnectionStatus() {
+  const { t } = usePanel()
   const { state, error } = usePanelData()
   const connection = error ? state ? 'stale' : 'offline' : !state ? 'pending' : state.paused ? 'paused' : 'ready'
   const connectionKey = ({ ready: 'connectionReady', paused: 'connectionPaused', stale: 'connectionStale', offline: 'connectionOffline', pending: 'connectionPending' } as const)[connection]
+  return <span className="dt-connection" data-connection={connection} role="status">
+    <Icon name={connection === 'offline' || connection === 'stale' ? 'alert' : connection === 'paused' ? 'pause' : connection === 'pending' ? 'clock' : 'decision'} size={14} />
+    {t(connectionKey)}
+  </span>
+}
+
+function Header({ masterId }: { masterId: string | undefined }) {
+  const { t, call, openSession, notify, navigate } = usePanel()
+  const { state } = usePanelData()
   const [glossary, setGlossary] = useState(false)
   const [query, setQuery] = useState('')
   const [result, setResult] = useState<{ query: string; value: SearchView }>()
@@ -130,9 +139,11 @@ function Header({ masterId }: { masterId: string | undefined }) {
     })
   }
   return <header className="dt-head">
-    <div className="dt-head-title"><div className="dt-brand-mark" aria-hidden="true"><NavigationIcon name="execution" /></div>
-      <div><p className="dt-head-kicker">{t('opsSubtitle')}</p><h1 className="dt-title">{t('title')}</h1></div>
-      <span className="dt-status-badge" data-connection={connection} role="status"><span className="dt-status-indicator" aria-hidden="true" />{t(connectionKey)}</span>
+    <div className="dt-head-title">
+      <button type="button" className="dt-brand" onClick={() => navigate(HOME)} aria-label={`${t('title')}: ${t('openOverview')}`}>
+        {t('title')}<span aria-hidden="true">.</span>
+      </button>
+      <span className="dt-repository">{state?.setup.accounts?.repository ?? t('opsSubtitle')}</span>
     </div>
     <div className="dt-toolbar">
       <form ref={search} className="dt-search" role="search" aria-busy={searching} onSubmit={submit} onKeyDown={event => { if (event.key === 'Escape') show() }}>
@@ -144,7 +155,7 @@ function Header({ masterId }: { masterId: string | undefined }) {
       </form>
       <Button variant="ghost" size="sm" icon={<Icon name="question" />} aria-label={t('glossary')} title={t('glossary')} aria-haspopup="dialog"
         onClick={() => setGlossary(true)} />
-      <Button variant="outline" size="sm" icon={<Icon name="session" size={14} />} disabled={!masterId}
+      <Button variant="primary" size="sm" icon={<Icon name="session" size={14} />} disabled={!masterId}
         onClick={() => { if (masterId) openSession(masterId).catch(failure => notify(errorText(failure))) }}>{t('openMaster')}</Button>
     </div>
     <Glossary open={glossary} onClose={() => setGlossary(false)} />
@@ -174,10 +185,19 @@ function Pages({ route, openTab, deploymentForm }: { route: Route; openTab: (tab
   return <div className="dt-page">
     <div className="dt-column">
       <Header masterId={state?.masterId} />
-      {error && state && <p className="dt-error" role="status">{t('staleData')} {error.message}</p>}
-      <SegmentedTabs className="dt-tabs" label={t('pagesLabel')} value={route.page} onChange={openTab}
-        items={TABS.map(value => ({ value, label: t(`tab.${value}`), icon: <NavigationIcon name={value} />, id: `dt-tab-${value}`, panelId: 'dt-page' }))} />
-      <main id="dt-page" role="tabpanel" aria-labelledby={`dt-tab-${route.page}`} className={route.page === 'overview' ? 'dt-main dt-ops-overview' : 'dt-main'}>{page}</main>
+      <div className="dt-workspace-nav">
+        <SegmentedTabs className="dt-tabs" label={t('pagesLabel')} value={route.page} onChange={openTab}
+          items={TABS.map(value => ({ value, label: t(`tab.${value}`), icon: <NavigationIcon name={value} />, id: `dt-tab-${value}`, panelId: 'dt-page' }))} />
+        <ConnectionStatus />
+      </div>
+      {error && state && <p className="dt-error dt-stale-banner" role="status">{t('staleData')} {error.message}</p>}
+      <main id="dt-page" role="tabpanel" aria-labelledby={`dt-tab-${route.page}`} className={route.page === 'overview' ? 'dt-main dt-ops-overview' : 'dt-main'}>
+        {!route.id && <div className="dt-workspace-heading">
+          <h1>{t(`workspaceTitle.${route.page}`)}</h1>
+          <p>{t(`workspaceIntro.${route.page}`)}</p>
+        </div>}
+        {page}
+      </main>
     </div>
   </div>
 }

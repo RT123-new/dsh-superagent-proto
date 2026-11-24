@@ -1,0 +1,114 @@
+{
+  "baseline": "f68f117343758c9e3c94bab30f0a5a0feedb0305",
+  "fixture_sha256": "100f663176e27002e52ffd169f6d4867d3f4aeee29a417a2e8aa600388a9acaa",
+  "preview_sha256": "71c1f01ffdb43126236c77513ec8368a8e888fd546c5865a53a75fa38cf23e69",
+  "local_check": {
+    "command": "pnpm check",
+    "typecheck": "pass",
+    "test_files": 155,
+    "tests_passed": 1857,
+    "tests_skipped": 2,
+    "suite_seconds": 43.11,
+    "build": "pass"
+  },
+  "fixture_export": {
+    "tests_passed": 1
+  },
+  "browser": {
+    "application": "Actual production React App and CSS with a local fixture API and approximate host tokens",
+    "desktop": {
+      "iframe_viewport": [
+        1440,
+        1000
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "page_client_width": 1425,
+      "page_scroll_width": 1425
+    },
+    "standalone_desktop": {
+      "page_client_width": 1348,
+      "page_scroll_width": 1348,
+      "body_font_sizes_px": [
+        13,
+        16,
+        20
+      ]
+    },
+    "mobile": {
+      "iframe_viewport": [
+        390,
+        844
+      ],
+      "theme": "light",
+      "languages": [
+        "English",
+        "Chinese"
+      ],
+      "page_client_width": 375,
+      "page_scroll_width": 375
+    },
+    "tablet_search": {
+      "iframe_viewport": [
+        768,
+        1024
+      ],
+      "before": {
+        "left": -73.203125,
+        "right": 486.796875,
+        "width": 560
+      },
+      "after": {
+        "left": 34.546875,
+        "right": 594.546875,
+        "width": 560
+      }
+    },
+    "settings_savebar": {
+      "before_margin": "0px -16px -16px",
+      "after_margin": "0px",
+      "after_left": 198.546875,
+      "after_right": 718.453125,
+      "parent_left": 198.546875,
+      "parent_right": 718.453125,
+      "discard_restored_value": true
+    },
+    "mobile_dialog": {
+      "left": 24,
+      "right": 366,
+      "width": 342,
+      "body_text_px": 16,
+      "escape_closed": true,
+      "restored_focus": "Stop"
+    },
+    "keyboard_home": {
+      "selected": "Overview",
+      "focus": "Overview",
+      "tab_stops": 1
+    },
+    "mobile_metrics_scroll": {
+      "client_width": 335,
+      "scroll_width": 462,
+      "arrow_right_scroll_left": 16
+    },
+    "routes_checked": [
+      "Overview",
+      "Source",
+      "Trigger",
+      "Eval",
+      "Execution",
+      "Settings",
+      "Ticket detail"
+    ],
+    "empty_state_confirmed": true,
+    "application_errors_in_inspected_console_entries": [],
+    "limits": [
+      "No installed DSH host",
+      "No exhaustive assistive-technology or WCAG audit",
+      "Dark mobile capture interrupted by shared preview routing; not claimed as passed",
+      "No live provider/model actions"
+    ]
+  }
+}

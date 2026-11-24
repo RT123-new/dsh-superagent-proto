@@ -53,7 +53,7 @@ it('stops an open Ticket from its page after confirmation', async () => {
 it('shows a Ticket with its stage, its Mandate details with the Trigger and Decision behind it, its Threads, and the rest behind disclosures', async () => {
   await mount()
   await click(all('.dt-open').find(button => button.textContent === '修复回归')!)
-  expect(document.querySelector('.dt-page-title h2')?.textContent).toBe('修复回归')
+  expect(document.querySelector('.dt-page-title h1')?.textContent).toBe('修复回归')
   // Progress is in the Channels and the Session, so the page has no report section.
   expect(all('.dt-section-title').map(title => title.querySelector('.dt-section-name')?.textContent)).toEqual(['授权详情', '未送达的输入', '订阅的线程'])
   expect(document.querySelector('.dt-status-line .dt-stage')?.textContent).toBe(zh.executingLabel)
