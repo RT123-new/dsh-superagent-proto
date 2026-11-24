@@ -273,6 +273,25 @@ export type TicketEndBy = 'executor' | 'human'
 export type TicketOutcome = 'completed' | 'merged' | 'closed' | 'dropped' | 'stopped'
 /** A question for a person; `triggerId` is the human message that raised it, whose conversation it goes back to. */
 export interface Attention { id: string; question: string; triggerId?: string }
+/** Worker-authored recovery hint; persisted by the host, never authoritative over the source request or real repository state. */
+export interface ResumeSnapshotInput {
+  currentState: string
+  nextAction: string
+  openQuestion: string
+  completedWork: string[]
+  testsPerformed: string[]
+  remainingWork: string[]
+  evidenceRefs: string[]
+  gitHeadAtCapture?: string
+}
+/** Versioned snapshot, tied to one ticket and the assignment that generated it. */
+export interface ResumeSnapshot extends ResumeSnapshotInput {
+  schemaVersion: 1
+  ticketId: string
+  assignmentId: string
+  capturedAt: string
+  revision: number
+}
 /** Ticket aggregate: an authorized work item with its assignments, channels, thread bindings, and inputs. */
 export interface Ticket {
   id: string
@@ -283,6 +302,8 @@ export interface Ticket {
   channels: ChannelRef[]
   /** When, by whom, and how the ticket ended, with a person's or the host's reason beyond the outcome; an open ticket has none. */
   ended?: { at: string; by: TicketEndBy; outcome: TicketOutcome; reason?: string }
+  /** Latest successfully committed recovery hint. Does not grant any authority. */
+  resumeSnapshot?: ResumeSnapshot
   /** Open question for a person; cleared by the executor or when the ticket ends. */
   attention?: Attention
   assignments: Assignment[]

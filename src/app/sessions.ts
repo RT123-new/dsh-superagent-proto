@@ -338,7 +338,12 @@ export class Sessions {
       const version = this.promptFor(agent, context.signal !== undefined)
       const current = ticket && host.store.tickets.get(ticket.id)
       const composed = host.prompts.compose(version.config, master ? 'orchestrator' : 'worker', current ? host.environment(current) : undefined)
-      return `[dsh-superagent prompt revision ${version.revision}]\n${composed}\n${current ? mandateInstructions(current.mandate) : ''}`
+      // The worker cannot read deployment settings. Render the flag on every
+      // request, including for a Session created before the setting changed.
+      const recovery = current ? host.store.settings().executor.resumeSnapshotsEnabled
+        ? 'Resume snapshots enabled: use resume_snapshot.'
+        : 'Resume snapshots disabled: omit resume_snapshot.' : ''
+      return `[dsh-superagent prompt revision ${version.revision}]\n${composed}\n${current ? mandateInstructions(current.mandate) : ''}${recovery ? `\n${recovery}` : ''}`
     }, ...(master ? { complete: true } : {}) }))
     // A recreated skill scope (e.g. after the skills service restarts) starts empty, so reset `binding.skills` before rebinding.
     let initialized = false

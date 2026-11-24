@@ -5,3 +5,5 @@ Repeating the same question reuses its request; a different question replaces it
 Clear a resolved question explicitly rather than treating later progress as its resolution.
 Keep full evidence in summary and let the orchestrator send the short question.
 Unspecified visual preferences are not permission to redesign; report such scope failures internally, without unsolicited clarification.
+
+When enabled and reporting an incomplete handoff, supply the same three-part resume snapshot (current state, exact next action, uncertainty) alongside evidence in the existing report. A completed or cancelled assignment does not need another report just to save a snapshot. Do not claim the saved snapshot is verified by the host.

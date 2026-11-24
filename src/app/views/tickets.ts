@@ -6,6 +6,7 @@ import type { Store } from '../store.ts'
 import { channelLink, decisionView, newestFirst, page, snapshot, threadSummary, ticketLine, type Snapshot,
   type ViewHost } from './records.ts'
 import { markdown, preview } from './text.ts'
+import { snapshotPotentiallyStale, validatedResumeSnapshot } from '../resume-snapshot.ts'
 
 export type BasisFact =
   | { name: 'addressed'; value: 'mention' | 'direct' } | { name: 'followup' } | { name: 'admission'; value: AdmissionCell } | { name: 'observation' }
@@ -60,6 +61,7 @@ export function ticketDetail(host: ViewHost, id: string) {
   const view = snapshot(host)
   const { stage } = ticketStage(ticket)
   const decision = store.decisions.get(ticket.decisionId)
+  const recovery = store.settings().executor.resumeSnapshotsEnabled ? validatedResumeSnapshot(ticket) : undefined
   const input = (value: Ticket['inputs'][number]) => {
     const trigger = value.kind === 'trigger' ? store.triggers.get(value.triggerId) : undefined
     const handback = trigger && store.triggers.disposition(trigger.id)?.handbacks?.find(item => item.ticketId === id)
@@ -74,6 +76,9 @@ export function ticketDetail(host: ViewHost, id: string) {
   return { ...ticketLine(view, ticket), mandate: { ...ticket.mandate, actor: view.actor(ticket.mandate.actor, human) },
     basis: basisFacts(ticket.mandate.basis, view.rule), paused: store.settings().paused,
     channels: ticket.channels.map(channel => channelLink(view, channel)),
+    ...(recovery ? {
+      resumeSnapshot: { ...recovery, potentiallyStale: snapshotPotentiallyStale(ticket, recovery), verified: false as const },
+    } : {}),
     decision: decision ? decisionView(view, decision) : undefined,
     // Every started Assignment ran in the ticket's one worker Session. A running assignment whose worker reported a non-progress state has finished its turn unless a human response resumed the ticket.
     assignments: ticket.assignments.map(assignment => ({ ...assignment, ...assignment.startedAt ? { ref: workerSessionId(ticket.id) } : {},

@@ -489,3 +489,83 @@ it('gives a worker the other messages of the request its ticket was accepted fro
   expect(page).toMatchObject({ batch: [{ trigger_id: other, read: `trigger/${other}` }] })
   expect(await h.runTool(`worker-${ticket.id}`, 'orchestrator_read', { resource: `trigger/${other}` })).toMatchObject({ trigger_id: other })
 })
+
+it('stores optional worker resume hints only when enabled, without sacrificing a report if invalid', async () => {
+  const { ticket, sessionId } = await h.acceptedTicket(feishu('1', '@bot 修一下回归'))
+  const valid = { currentState: 'Verified changed source.', nextAction: 'Run regression tests.',
+    openQuestion: 'CI result not known.', completedWork: ['Updated source.'], testsPerformed: [],
+    remainingWork: ['Run tests.'], evidenceRefs: ['src/sources/github.ts'] }
+  const report = (resume_snapshot: unknown, summary = 'Progress') =>
+    h.runTool(sessionId, 'orchestrator_report', { state: 'progress', summary, resume_snapshot })
+  await report(valid)
+  expect(h.runtime.store.tickets.get(ticket.id)?.resumeSnapshot).toBeUndefined()
+  await expect(h.runTool(sessionId, 'orchestrator_read', {
+    resource: `ticket/${ticket.id}/resume-snapshot`,
+  })).rejects.toThrow()
+  const original = h.runtime.store.settings()
+  h.runtime.store.saveSettings({ ...original, executor: { ...original.executor, resumeSnapshotsEnabled: true } })
+  const result = await report(valid)
+  expect(result).toMatchObject({ reported: true })
+  const snapshot = h.runtime.store.tickets.get(ticket.id)?.resumeSnapshot
+  expect(snapshot).toMatchObject({ schemaVersion: 1, ticketId: ticket.id, revision: 1,
+    nextAction: 'Run regression tests.' })
+  expect(await h.runTool(sessionId, 'orchestrator_read', {
+    resource: `ticket/${ticket.id}/resume-snapshot`,
+  })).toMatchObject({ text: expect.stringContaining('Run regression tests.') })
+  const bad = await report({ ...valid, nextAction: 'Use token=abcdefghijklmnopqrstuvxyz' }, 'Still reporting')
+  expect(bad).toMatchObject({ reported: true, snapshot_ignored: 'invalid' })
+  expect(h.runtime.store.tickets.get(ticket.id)?.assignments.at(-1)?.report?.summary).toBe('Still reporting')
+  expect(h.runtime.store.tickets.get(ticket.id)?.resumeSnapshot).toEqual(snapshot)
+  await report(valid, 'Duplicate note')
+  expect(h.runtime.store.tickets.get(ticket.id)?.resumeSnapshot?.revision).toBe(1)
+  await report(undefined, 'No new snapshot')
+  expect(h.runtime.store.tickets.get(ticket.id)?.resumeSnapshot).toEqual(snapshot)
+  const changed = { ...valid, currentState: 'Additional check done.' }
+  await report(changed, 'Updated state')
+  expect(h.runtime.store.tickets.get(ticket.id)?.resumeSnapshot).toMatchObject({
+    revision: 2, currentState: 'Additional check done.',
+  })
+  h.runtime.store.saveSettings({ ...h.runtime.store.settings(),
+    executor: { ...h.runtime.store.settings().executor, resumeSnapshotsEnabled: false } })
+  await expect(h.runTool(sessionId, 'orchestrator_read', {
+    resource: `ticket/${ticket.id}/resume-snapshot`,
+  })).rejects.toThrow()
+})
+
+it('rejects worker reports when the replacement assignment is pending', async () => {
+  const { ticket, sessionId } = await h.acceptedTicket(feishu('1', '@bot Fix the regression'))
+  const stored = h.runtime.store.tickets.get(ticket.id)!
+  const previous = stored.assignments.at(-1)!
+  stored.assignments = [...stored.assignments.slice(0, -1), { ...previous, state: 'ended' },
+    { ...previous, id: 'replacement-pending', state: 'pending' }]
+  h.runtime.store.tickets.save(stored)
+  await expect(h.runTool(sessionId, 'orchestrator_report', { state: 'ready', summary: 'Stale completion' }))
+    .rejects.toThrow('No assignment is running')
+  expect(h.runtime.store.tickets.get(ticket.id)?.assignments.at(-1)?.state).toBe('pending')
+})
+
+it('replaces invalid persisted snapshot metadata atomically with a new valid note', async () => {
+  const { ticket, sessionId } = await h.acceptedTicket(feishu('1', '@bot Fix the regression'))
+  const settings = h.runtime.store.settings()
+  h.runtime.store.saveSettings({ ...settings, executor: { ...settings.executor, resumeSnapshotsEnabled: true } })
+  const payload = { currentState: 'Patch prepared.', nextAction: 'Run tests.', openQuestion: 'CI is unknown.',
+    completedWork: [], testsPerformed: [], remainingWork: ['Run tests.'], evidenceRefs: ['src/app/resources.ts'] }
+  const report = (args: object = {}) => h.runTool(sessionId, 'orchestrator_report', {
+    state: 'progress', summary: 'Current evidence', resume_snapshot: payload, ...args,
+  })
+  await report()
+  for (const metadata of [{ revision: 'broken' }, { ticketId: 'different-ticket' }, { capturedAt: 'invalid' }]) {
+    const stored = h.runtime.store.tickets.get(ticket.id)!
+    const corrupt = { ...stored.resumeSnapshot!, ...metadata } as unknown as typeof stored.resumeSnapshot
+    stored.resumeSnapshot = corrupt
+    h.runtime.store.tickets.save(stored)
+    await expect(h.runTool(sessionId, 'orchestrator_read', { resource: `ticket/${ticket.id}/resume-snapshot` })).rejects.toThrow()
+    // A rejected report must leave the earlier record untouched, including its invalid metadata.
+    await expect(report({ state: 'ready', human_action: 'Which result should I deliver?' })).rejects.toThrow()
+    expect(h.runtime.store.tickets.get(ticket.id)?.resumeSnapshot).toEqual(corrupt)
+    expect(await report()).not.toHaveProperty('snapshot_ignored')
+    expect(h.runtime.store.tickets.get(ticket.id)?.resumeSnapshot).toMatchObject({ ticketId: ticket.id, revision: 1 })
+    await expect(h.runTool(sessionId, 'orchestrator_read', { resource: `ticket/${ticket.id}/resume-snapshot` }))
+      .resolves.toMatchObject({ text: expect.stringContaining('Patch prepared.') })
+  }
+})
