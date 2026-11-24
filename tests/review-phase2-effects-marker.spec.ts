@@ -81,13 +81,33 @@ describe('effect attempt marker sequences', () => {
     expect(a.effects.attemptUnknown('reply', 'k')).toBe(false)
   })
 
-  it('re-enqueue while an attempt is in flight (new generation) is not clobbered by the old attempt settling', async () => {
-    const a = open(); const hung: (() => void)[] = []; drive(a.effects, ['hang', 'ok'], hung)
-    a.store.atomic(() => a.effects.enqueue('reply', 'k', { v: 1 } as never)); a.effects.start(); await new Promise(resolve => setTimeout(resolve, 30))
-    a.store.atomic(() => a.effects.enqueue('reply', 'k', { v: 2 } as never))   // coalesces: new generation, error reset
+  it('re-enqueue of a mutable effect while in flight is not clobbered by the old generation settling', async () => {
+    const a = open(); const seen: string[] = []; const hung: (() => void)[] = []
+    let started!: () => void
+    const firstStarted = new Promise<void>(resolve => { started = resolve })
+    a.effects.handle('relay', async payload => {
+      seen.push(payload.text)
+      if (seen.length === 1) await new Promise<void>(resolve => { hung.push(resolve); started() })
+    }, { markAttempt: true })
+    a.store.atomic(() => a.effects.enqueue('relay', 'k', { text: 'first' })); a.effects.start()
+    await firstStarted
+    a.store.atomic(() => a.effects.enqueue('relay', 'k', { text: 'second' }))
     expect(row(a.store)).toEqual({ attempts: 0, error: '' })
-    hung[0]!(); await new Promise(resolve => setTimeout(resolve, 30))
-    expect(row(a.store)?.error ?? '').not.toContain(ATTEMPT_UNKNOWN)
+    hung[0]!(); await a.effects.idle('relay')
+    expect(seen).toEqual(['first', 'second'])
+    expect(row(a.store)).toBeUndefined()
+  })
+
+  it('re-enqueue of the same immutable reply cannot erase a crash marker', async () => {
+    const a = open(); const hung: (() => void)[] = []; drive(a.effects, ['hang'], hung)
+    a.store.atomic(() => a.effects.enqueue('reply', 'k', {})); a.effects.start()
+    await new Promise(resolve => setTimeout(resolve, 30))
+    expect(row(a.store)?.error).toContain(ATTEMPT_STARTED)
+    a.store.atomic(() => a.effects.enqueue('reply', 'k', {}))
+    expect(row(a.store)?.error).toContain(ATTEMPT_STARTED)
+    const restarted = open(a.file); restarted.effects.start()
+    expect(restarted.effects.attemptUnknown('reply', 'k')).toBe(true)
+    expect(restarted.effects.blocked('reply').map(item => item.key)).toEqual(['k'])
   })
 
   it('an old row from before markers (failed once, plain text) is not misread as unknown and still completes', async () => {

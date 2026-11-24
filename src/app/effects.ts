@@ -44,7 +44,8 @@ type Options<K extends EffectKind> = Partial<Pick<Handler<K>, 'limit' | 'retry' 
  * Durable attempt markers, kept as a SUFFIX of the existing `error` column so they compose with failure text and never hide
  * the `blocked:` prefix. `[attempt-started]`: an attempt is in flight (or the host died in it). `[attempt-unknown]`: an
  * attempt began and the host stopped before its outcome was recorded, so the remote effect may have happened. Unknown is sticky:
- * later failures keep it, and only a recorded success (row deleted) or an explicit re-enqueue (new payload) clears it.
+ * later failures keep it. For replies, a recorded success removes the row; ordinary re-enqueue cannot erase an
+ * attempt marker, because the key identifies an immutable outbox receipt. Other kinds may replace their payload.
  */
 export const ATTEMPT_STARTED = '[attempt-started]'
 export const ATTEMPT_UNKNOWN = '[attempt-unknown]'
@@ -81,7 +82,7 @@ export class Effects {
     private readonly closing: () => boolean = () => false) {
     this.seq = Number(store.db.prepare('SELECT IFNULL(MAX(seq), 0) AS seq FROM effect').get()?.seq ?? 0)
   }
-  /** Upserts an effect in the caller's transaction, coalescing with any waiting row of the same kind and key while keeping its queue position. */
+  /** Upserts an effect in the caller's transaction, coalescing mutable payloads while preserving in-flight or uncertain reply receipts. */
   enqueue<K extends EffectKind>(kind: K, key: string, payload: EffectPayloads[K]): void {
     // A crash-uncertain reply recovers only through explicit operator rearm: an ordinary enqueue (such as a coalesced
     // upsert) must never silently clear its block and make it automatically retryable. Other kinds keep coalescing.
