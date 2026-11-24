@@ -3,6 +3,8 @@ import { act, useState, type ComponentType } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import { ApiError, caller, usePoll } from '../src/client/api.ts'
+import { PanelProvider } from '../src/client/provider.tsx'
+import { ConfirmButton } from '../src/client/widgets.tsx'
 import { apply } from '../src/client/index.tsx'
 import { zh } from '../src/client/locales.ts'
 import { SettingsSchema } from '../src/policy.ts'
@@ -211,4 +213,59 @@ it('aborts a stalled management read and labels an unacknowledged write unknown 
     await write
     expect(fetcher).toHaveBeenCalledTimes(2)
   } finally { vi.useRealTimers() }
+})
+
+it('invalidates an in-flight search when nonempty input changes, while a new submitted search still renders', async () => {
+  serve()
+  const original = globalThis.fetch
+  const responses: ((result: Response) => void)[] = []
+  vi.stubGlobal('fetch', vi.fn((url: string, options?: RequestInit) => {
+    if (url.startsWith('/orchestrator/api/search?')) return new Promise<Response>(done => responses.push(done))
+    return original(url, options)
+  }))
+  const view = await render(fixture(['master']).main, { t })
+  try {
+    const input = view.container.querySelector<HTMLInputElement>('input[type="search"]')!
+    const type = async (value: string) => act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value)
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    const submit = () => act(async () => { input.form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })) })
+    await type('original'); await submit()
+    expect(responses).toHaveLength(1)
+    expect(view.container.querySelector('.dt-search-progress')).not.toBeNull()
+    await type('replacement')
+    await act(async () => { responses[0]!(Response.json({ tickets: [], threads: [], items: [] })) })
+    expect(view.container.querySelector('.dt-search-results')).toBeNull()
+    expect(view.container.querySelector('.dt-search-progress')).toBeNull()
+    await submit()
+    expect(responses).toHaveLength(2)
+    await act(async () => { responses[1]!(Response.json({ tickets: [], threads: [], items: [] })) })
+    expect(view.container.querySelector('.dt-search-results')).not.toBeNull()
+  } finally { view.dispose() }
+})
+
+it('freezes the consent text and action together across polls and keeps a pending confirmation open', async () => {
+  serve()
+  let finish!: () => void
+  const first = vi.fn(() => new Promise<void>(resolve => { finish = resolve }))
+  const second = vi.fn(async () => {})
+  const container = document.createElement('div'); document.body.append(container)
+  const root = createRoot(container)
+  const render = (replacement: boolean) => <PanelProvider t={t}><ConfirmButton label="Apply" title={replacement ? 'Second title' : 'First title'}
+    message={replacement ? 'Second warning' : 'First warning'} onConfirm={replacement ? second : first} /></PanelProvider>
+  try {
+    await act(async () => { root.render(render(false)) })
+    await act(async () => { container.querySelector('button')!.click() })
+    await act(async () => { root.render(render(true)) })
+    const dialog = document.querySelector('[role="dialog"]')!
+    expect(dialog.getAttribute('aria-label')).toBe('First title')
+    expect(dialog.textContent).toContain('First warning')
+    await act(async () => { [...dialog.querySelectorAll('button')].find(b => b.textContent === zh.confirm)!.click() })
+    expect(first).toHaveBeenCalledTimes(1); expect(second).not.toHaveBeenCalled()
+    await act(async () => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })) })
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull()
+    await act(async () => { finish() })
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+  } finally { act(() => root.unmount()); container.remove() }
 })

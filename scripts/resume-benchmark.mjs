@@ -30,7 +30,13 @@ const finite = (value, name, positive = false) => {
     throw new Error(`${name} must be a ${positive ? 'positive' : 'nonnegative'} finite number`)
   return value
 }
-export function evaluate(pairs) {
+export function evaluate(pairs, protocol) {
+  // The caller must declare an absolute quality target before seeing outcomes.
+  // Supplying this object is not proof of preregistration or independent trials.
+  if (protocol !== undefined && (!protocol || typeof protocol.id !== 'string' || !protocol.id.trim()
+    || typeof protocol.minCorrectRate !== 'number' || !Number.isFinite(protocol.minCorrectRate)
+    || protocol.minCorrectRate <= 0 || protocol.minCorrectRate > 1))
+    throw new Error('protocol requires an id and minCorrectRate in (0, 1]')
   if (!Array.isArray(pairs) || !pairs.length) throw new Error('Provide at least one paired trial')
   const ids = new Set()
   for (const [i, pair] of pairs.entries()) {
@@ -39,12 +45,18 @@ export function evaluate(pairs) {
     for (const label of ['baseline', 'snapshot']) {
       const run = pair[label]
       if (!run) throw new Error(`Missing ${label} for ${pair.id}`)
-      finite(run.resumeMs, `${pair.id}.${label}.resumeMs`, true)
+      if (run.resumeMs === null) {
+        if (run.outcome !== 'never_resumed' || run.correct !== false)
+          throw new Error(`${pair.id}.${label}: null resumeMs requires never_resumed and correct=false`)
+      } else {
+        if (run.outcome === 'never_resumed') throw new Error(`${pair.id}.${label}: never_resumed requires null resumeMs`)
+        finite(run.resumeMs, `${pair.id}.${label}.resumeMs`, true)
+      }
       finite(run.endToEndMs, `${pair.id}.${label}.endToEndMs`, true)
-      finite(run.tokens, `${pair.id}.${label}.tokens`, true)
+      finite(run.tokens, `${pair.id}.${label}.tokens`)
       if (typeof run.correct !== 'boolean') throw new Error(`Missing correctness verdict for ${pair.id}.${label}`)
       if (run.totalCost !== undefined) finite(run.totalCost, `${pair.id}.${label}.totalCost`)
-      if (run.resumeMs > run.endToEndMs) throw new Error(`${pair.id}.${label}: resumeMs exceeds endToEndMs`)
+      if (run.resumeMs !== null && run.resumeMs > run.endToEndMs) throw new Error(`${pair.id}.${label}: resumeMs exceeds endToEndMs`)
       for (const field of ['safetyFailures', 'staleErrors']) {
         if (run[field] !== undefined && (!Number.isSafeInteger(run[field]) || run[field] < 0))
           throw new Error(`${pair.id}.${label}.${field} must be a nonnegative integer`)
@@ -54,13 +66,19 @@ export function evaluate(pairs) {
     }
   }
   // 'tokens' must include prompt/output/cached usage plus all snapshot-generation overhead.
-  const timePairs = pairs.map(p => ratio(p.baseline.resumeMs, p.snapshot.resumeMs))
-  const tokenPairs = pairs.map(p => ratio(p.baseline.tokens, p.snapshot.tokens))
-  const latency = { baselineMedianMs: median(pairs.map(p => p.baseline.resumeMs)),
-    snapshotMedianMs: median(pairs.map(p => p.snapshot.resumeMs)), medianRelativeImprovement: median(timePairs),
-    confidence95: timePairs.length >= 2 ? confidence(timePairs) : null, baselineP95Ms: percentile(pairs.map(p => p.baseline.endToEndMs), .95),
-    snapshotP95Ms: percentile(pairs.map(p => p.snapshot.endToEndMs), .95) }
-  const token = { baselineMedian: median(pairs.map(p => p.baseline.tokens)),
+  const comparable = pairs.filter(p => p.baseline.resumeMs !== null && p.snapshot.resumeMs !== null)
+  const baselineNeverResumed = pairs.filter(p => p.baseline.resumeMs === null).length
+  const snapshotNeverResumed = pairs.filter(p => p.snapshot.resumeMs === null).length
+  const timePairs = comparable.map(p => ratio(p.baseline.resumeMs, p.snapshot.resumeMs))
+  const tokenPairs = pairs.filter(p => p.baseline.tokens > 0).map(p => ratio(p.baseline.tokens, p.snapshot.tokens))
+  const latency = { comparablePairs: comparable.length, baselineNeverResumed, snapshotNeverResumed,
+    baselineMedianMs: median(comparable.map(p => p.baseline.resumeMs)),
+    snapshotMedianMs: median(comparable.map(p => p.snapshot.resumeMs)), medianRelativeImprovement: median(timePairs),
+    confidence95: timePairs.length >= 2 ? confidence(timePairs) : null,
+    // A censoring window is not a completed duration. Do not report it as such.
+    baselineP95Ms: baselineNeverResumed ? null : percentile(pairs.map(p => p.baseline.endToEndMs), .95),
+    snapshotP95Ms: snapshotNeverResumed ? null : percentile(pairs.map(p => p.snapshot.endToEndMs), .95) }
+  const token = { comparablePairs: tokenPairs.length, baselineMedian: median(pairs.map(p => p.baseline.tokens)),
     snapshotMedian: median(pairs.map(p => p.snapshot.tokens)), medianRelativeImprovement: median(tokenPairs) }
   const baselineCorrect = pairs.filter(p => p.baseline.correct).length
   const snapshotCorrect = pairs.filter(p => p.snapshot.correct).length
@@ -78,7 +96,12 @@ export function evaluate(pairs) {
     ? pairs.filter(p => p.snapshot.usedSnapshot).length : null
   const baselineSnapshotUses = pairs.every(p => typeof p.baseline.usedSnapshot === 'boolean')
     ? pairs.filter(p => p.baseline.usedSnapshot).length : null
+  const baselineSafetyFailures = pairs.every(p => p.baseline.safetyFailures !== undefined)
+    ? sum(pairs.map(p => p.baseline.safetyFailures)) : null
+  const baselineStaleErrors = pairs.every(p => p.baseline.staleErrors !== undefined)
+    ? sum(pairs.map(p => p.baseline.staleErrors)) : null
   const telemetryKnown = safetyFailures !== null && staleErrors !== null && usedSnapshots !== null && baselineSnapshotUses !== null
+    && baselineSafetyFailures !== null && baselineStaleErrors !== null
   const costsKnown = pairs.every(p => p.baseline.totalCost !== undefined && p.snapshot.totalCost !== undefined)
   const cost = costsKnown ? (() => {
     const baseline = sum(pairs.map(p => p.baseline.totalCost))
@@ -87,24 +110,26 @@ export function evaluate(pairs) {
       baselinePerCorrect: baselineCorrect ? baseline / baselineCorrect : null,
       snapshotPerCorrect: snapshotCorrect ? snapshot / snapshotCorrect : null }
   })() : null
-  const latencyOK = latency.snapshotP95Ms <= latency.baselineP95Ms * 1.1
-  const pass = pairs.length >= 30 && latency.medianRelativeImprovement >= 0.2 && latency.confidence95?.lower > 0 &&
+  const latencyOK = latency.snapshotP95Ms !== null && latency.baselineP95Ms !== null && latency.snapshotP95Ms <= latency.baselineP95Ms * 1.1
+  const pass = protocol !== undefined && pairs.length >= 30 && comparable.length === pairs.length
+    && tokenPairs.length === pairs.length && latency.medianRelativeImprovement >= 0.2 && latency.confidence95?.lower > 0 &&
     // A faster wrong answer is not a successful recovery; zero correct completions cannot pass.
-    token.medianRelativeImprovement >= 0.2 && snapshotCorrect > 0 && correctness.snapshotRate >= correctness.baselineRate &&
-    correctness.regressedPairs.length === 0 && telemetryKnown && baselineSnapshotUses === 0 && usedSnapshots > 0 && safetyFailures === 0 && staleErrors === 0 &&
+    token.medianRelativeImprovement >= 0.2 && correctness.snapshotRate >= protocol.minCorrectRate && correctness.snapshotRate >= correctness.baselineRate &&
+    correctness.regressedPairs.length === 0 && telemetryKnown && baselineSnapshotUses === 0 && usedSnapshots > 0 && safetyFailures === 0 && staleErrors === 0 && baselineSafetyFailures === 0 && baselineStaleErrors === 0 &&
     latencyOK && cost !== null && cost.saving > 0
-  return { n: pairs.length, latency, token, correctness, safety: { failures: safetyFailures, failedTrials, staleErrors,
+  return { n: pairs.length, protocol: protocol ?? null, latency, token, correctness, safety: { failures: safetyFailures, failedTrials, staleErrors, baselineSafetyFailures, baselineStaleErrors,
     baselineSnapshotUses, snapshotUses: usedSnapshots, snapshotUseRate: usedSnapshots === null ? null : usedSnapshots / pairs.length,
     failureRate: failedTrials === null ? null : failedTrials / pairs.length,
     eventsPerTrial: safetyFailures === null ? null : safetyFailures / pairs.length,
     staleErrorRate: usedSnapshots && staleErrors !== null ? staleErrors / usedSnapshots : null },
-    cost, verdict: pass ? 'meets_preregistered_targets' : pairs.length < 30 || cost === null
-      ? 'inconclusive_missing_trials_or_cost' : !telemetryKnown ? 'inconclusive_missing_safety_or_usage' : 'targets_not_met' }
+    cost, verdict: pass ? 'meets_declared_targets' : protocol === undefined ? 'inconclusive_missing_protocol'
+      : pairs.length < 30 || cost === null ? 'inconclusive_missing_trials_or_cost'
+      : !telemetryKnown ? 'inconclusive_missing_safety_or_usage' : 'targets_not_met' }
 }
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   try {
     if (!process.argv[2]) throw new Error('Usage: node scripts/resume-benchmark.mjs paired-trials.json')
     const body = JSON.parse(readFileSync(process.argv[2], 'utf8'))
-    process.stdout.write(JSON.stringify(evaluate(body.pairs), null, 2) + '\n')
+    process.stdout.write(JSON.stringify(evaluate(body.pairs, body.protocol), null, 2) + '\n')
   } catch (error) { process.stderr.write(String(error) + '\n'); process.exitCode = 1 }
 }
