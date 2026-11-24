@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { Engine, MemoryRepositories, UserError, followupOwners, key, runningAssignment, ticketOutcome, ticketStage,
   waitsForPerson } from '../src/core/index.ts'
 import type { Assessor, Assignment, Candidate, EngineOptions, Executor, OutboundMessage, Outcome, Policy, Ticket, Trigger } from '../src/core/index.ts'
+import { resumeSnapshotHint } from '../src/app/resume-snapshot.ts'
 
 const member = { source: 'chat', id: 'alice' }
 const guest = { source: 'chat', id: 'guest' }
@@ -1626,6 +1627,22 @@ describe('resume snapshot lifecycle', () => {
     completedWork: ['Updated polling.'], testsPerformed: [], remainingWork: ['Run tests.'],
     evidenceRefs: ['src/sources/github.ts'],
   })
+  it('keeps a snapshot stale when an older input was delivered but not read before capture', () => {
+    const h = harness(), id = accepted(h).ticketId!
+    const current = () => h.repo.tickets.get(id)!
+    const assignmentId = runningAssignment(current())!.id
+    h.tick(1); h.engine.receive(trigger('2')); h.settle()
+    expect(current().undelivered).toEqual([])
+    expect(current().inputs.at(-1)).toMatchObject({ kind: 'trigger', readAt: null })
+    h.tick(1); h.engine.report(id, { state: 'progress', summary: 'Old step reports', assignmentId, resumeSnapshot: note() })
+    expect(resumeSnapshotHint(current())).toMatchObject({ potentially_stale: true })
+    // Taking the input into a later step cannot make an earlier snapshot reflect it.
+    h.tick(1); h.read(id)
+    expect(resumeSnapshotHint(current())).toMatchObject({ potentially_stale: true })
+    h.tick(1); h.engine.report(id, { state: 'progress', summary: 'New step reports', assignmentId,
+      resumeSnapshot: { ...note(), currentState: 'New constraint considered.' } })
+    expect(resumeSnapshotHint(current())).toMatchObject({ potentially_stale: false })
+  })
   it('commits evidence with its report, deduplicates an unchanged note and retains it when omitted', () => {
     const h = harness(), id = accepted(h).ticketId!
     const assignmentId = runningAssignment(h.repo.tickets.get(id)!)!.id
@@ -1637,6 +1654,16 @@ describe('resume snapshot lifecycle', () => {
     expect(h.repo.tickets.get(id)!.resumeSnapshot).toEqual(first)
     h.tick(1); h.engine.report(id, { state: 'waiting', summary: 'Waiting for response.', assignmentId })
     expect(h.repo.tickets.get(id)!.resumeSnapshot).toEqual(first)
+  })
+  it('does not preserve a removed optional git-head claim as an unchanged snapshot', () => {
+    const h = harness(), id = accepted(h).ticketId!
+    const assignmentId = runningAssignment(h.repo.tickets.get(id)!)!.id
+    h.engine.report(id, { state: 'progress', summary: 'First', assignmentId, resumeSnapshot: { ...note(), gitHeadAtCapture: 'a'.repeat(40) } })
+    h.tick(1)
+    h.engine.report(id, { state: 'progress', summary: 'No verified head', assignmentId, resumeSnapshot: note() })
+    const snapshot = h.repo.tickets.get(id)!.resumeSnapshot!
+    expect(snapshot.revision).toBe(2)
+    expect(snapshot.gitHeadAtCapture).toBeUndefined()
   })
   it('rejects an old assignment report after restart without overwriting recovery state', () => {
     const h = harness(), id = accepted(h).ticketId!

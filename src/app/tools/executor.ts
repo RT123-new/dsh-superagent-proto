@@ -1,13 +1,13 @@
 /** Executor Session tools for reading ticket context, acknowledging requests, managing threads, handing back out-of-scope triggers, and reporting status. */
 import { z } from 'zod'
-import { latestAssignment, liveTicket, type EngineForExecutor, type Ticket } from '../../core/index.ts'
+import { runningAssignment, liveTicket, type EngineForExecutor, type Ticket } from '../../core/index.ts'
 import { IM_WORDS } from '../../infra/text.ts'
 import { claimPull, readPull } from '../../sources/github-pull.ts'
 import type { SourceContext } from '../../sources/host.ts'
 import { readResource, type ResourceHost } from '../resources.ts'
 import type { Store } from '../store.ts'
 import { reportRelay, threadFollowedNotice } from '../notices.ts'
-import { ResumeSnapshotInputSchema, ResumeSnapshotSchema } from '../resume-snapshot.ts'
+import { ResumeSnapshotInputSchema, ResumeSnapshotSchema, validatedResumeSnapshot } from '../resume-snapshot.ts'
 import type { Sessions } from '../sessions.ts'
 import { AcknowledgementSchema, readTool, tool, type Tool } from './tool.ts'
 
@@ -87,22 +87,33 @@ export function executorTools(host: ExecutorToolsHost, ticket: Ticket): Tool[] {
       execute: async (args, signal) => {
         const current = host.store.tickets.get(ticketId)
         if (!current || !liveTicket(current)) throw new Error('Ticket ended (PR was closed or work finished); do not resume it')
-        const expectedAssignment = latestAssignment(current)?.id
+        const expectedAssignment = runningAssignment(current)?.id
+        if (!expectedAssignment) throw new Error('No assignment is running; this report was not recorded')
         const pull = args.pr_number != null ? await readPull(host.github, args.pr_number, signal) : undefined
         // Claim the PR, record the report, and queue the relay atomically so a rejected PR claim or invalid report leaves no partial state, and a recorded report always reaches the main Session.
+        signal?.throwIfAborted()
         return host.store.atomic(() => {
           const fresh = host.store.tickets.get(ticketId)
-          if (!fresh || !liveTicket(fresh) || latestAssignment(fresh)?.id !== expectedAssignment)
+          if (!fresh || !liveTicket(fresh) || runningAssignment(fresh)?.id !== expectedAssignment)
             throw new Error('Ticket or assignment changed while preparing report')
           const refused = pull && claimPull(host.github, ticketId, pull)
           if (refused) throw new Error(refused)
           const snapshotEnabled = host.store.settings().executor.resumeSnapshotsEnabled
           const snapshot = snapshotEnabled && args.resume_snapshot !== undefined
             ? ResumeSnapshotInputSchema.safeParse(args.resume_snapshot) : undefined
+          const previousSnapshot = snapshot?.success ? validatedResumeSnapshot(fresh) : undefined
           const snapshotFits = !!snapshot?.success && ResumeSnapshotSchema.safeParse({
             ...snapshot.data, schemaVersion: 1, ticketId, assignmentId: expectedAssignment,
-            capturedAt: new Date().toISOString(), revision: (fresh.resumeSnapshot?.revision ?? 0) + 1,
+            capturedAt: new Date().toISOString(), revision: (previousSnapshot?.revision ?? 0) + 1,
           }).success
+          if (snapshotFits && fresh.resumeSnapshot && !previousSnapshot) {
+            // Do not let corrupt metadata poison revisions or preserve an invalid
+            // note through duplicate detection. Reread after claimPull's binding;
+            // the replacement and the report still commit or roll back together.
+            const repaired = host.store.tickets.get(ticketId)!
+            delete repaired.resumeSnapshot
+            host.store.tickets.save(repaired)
+          }
           const report = { state: args.state, summary: args.summary, ...(args.human_action !== undefined ? { question: args.human_action } : {}),
             ...(args.question_for_trigger_id ? { askedBy: args.question_for_trigger_id } : {}),
             ...(args.reply_to_trigger_id ? { answers: args.reply_to_trigger_id } : {}),

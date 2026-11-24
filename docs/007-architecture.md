@@ -404,6 +404,7 @@ Some generic modules still refer directly to GitHub or Feishu:
 
 | Test | Covers |
 | --- | --- |
+| `tests/review-second-worker-errors.spec.ts` | Deferred agent errors and retry failures cannot mutate a replacement assignment |
 | `tests/core-engine.spec.ts` | Domain rules on in-memory repositories: receiving, Eval, fan-out, resume and stop, interrupted Assignments, the pause, Policy changes, reports and outcomes, attaching, replies, failed deliveries, snapshot persistence and dismissed problems |
 | `tests/resume-snapshot.spec.ts` | Snapshot payload validation, size limits, secret detection, bounded hint formatting, stale-input and assignment detection |
 | `tests/resume-benchmark.spec.ts` | Deterministic paired-resumption metric calculations, bootstrap confidence bounds, incomplete data and invalid trials |
@@ -622,3 +623,7 @@ Point `DSH_HOME` at a temporary directory and create a new profile there. Copy t
 ## Experimental resume snapshots
 
 The optional `executor.resumeSnapshotsEnabled` setting defaults to false. When enabled, a worker may include a bounded `resume_snapshot` payload in an existing `orchestrator_report`. The Engine persists this hint on the Ticket within the report's transaction, with a host-owned revision, Ticket and Assignment identifiers, and capture time. Duplicate payloads from the same Assignment do not advance the revision. Recovery of a later Assignment includes a short, explicitly untrusted hint and a pointer to `ticket/<id>/resume-snapshot`. Waking workers may also receive the hint when their message fits. The original user request, current repository and PR state, active permissions, and newer input take precedence. No separate summarisation agent, storage service or database migration is required. These snapshots have not yet been shown to improve resumption performance; run controlled benchmarks before enabling by default.
+
+Each worker model request states the current enabled/disabled setting, including after a setting change in an existing Session. An unread trigger or one read at or after capture makes the hint potentially stale, even when delivery already removed that input from the queue. Older non-trigger notes and policy inputs have no per-input read timestamp: delivery alone cannot prove that the model consumed them. A hint marked not potentially stale therefore remains unverified. A valid new note replaces malformed persisted snapshot metadata atomically with its report.
+
+The paired benchmark requires explicit `baseline.usedSnapshot: false` for every baseline before a positive verdict; missing baseline usage remains inconclusive and observed use invalidates that control. `safety.failures` counts events, `failedTrials` counts trials with at least one event, `failureRate` is the affected fraction of trials, and `eventsPerTrial` preserves the event density. Its finite-duration schema does not represent a trial that never resumes; a real experiment needs a preregistered censoring and failure policy instead of excluding those trials or inventing completion times. Partial candidate adoption is reported separately and does not establish the efficacy of snapshots among actual users.

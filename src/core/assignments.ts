@@ -128,6 +128,7 @@ export class Assignments extends EnginePart {
       // Do not increment revision for a verbatim duplicate; identity/time are owned by the host.
       const old = ticket.resumeSnapshot
       const unchanged = old && old.assignmentId === assignment.id
+        && old.gitHeadAtCapture === report.resumeSnapshot.gitHeadAtCapture
         && (Object.keys(report.resumeSnapshot) as (keyof ResumeSnapshotInput)[])
           .every(field => JSON.stringify(old[field]) === JSON.stringify(report.resumeSnapshot?.[field]))
       if (!unchanged) ticket.resumeSnapshot = {

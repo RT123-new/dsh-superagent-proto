@@ -1,9 +1,9 @@
 name: Validate pull requests
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feature/evidence-backed-resume-snapshots]
   push:
-    branches: [feature/evidence-backed-resume-snapshots]
+    branches: [feature/evidence-backed-resume-snapshots, fix/resume-snapshot-audit-20261124]
 permissions:
   contents: read
 jobs:
