@@ -40,7 +40,7 @@ it('returns to the exact page after a remount of the main panel', async () => {
   await mount()
   await click('修复回归')
   await remount()
-  expect(document.querySelector('.dt-page-title h2')?.textContent).toBe('修复回归')
+  expect(document.querySelector('.dt-page-title h1')?.textContent).toBe('修复回归')
 })
 
 it('shows domain terms in the interface language only and lists both languages in the (?) glossary', async () => {

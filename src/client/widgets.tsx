@@ -130,7 +130,7 @@ export function PageHead({ title, children }: { title: ReactNode; children?: Rea
   const { back, backLabel } = usePanel()
   return <div className="dt-page-head">
     <Button variant="ghost" size="sm" icon={<Icon name="chevron-left" />} onClick={back}>{backLabel}</Button>
-    <div className="dt-page-title"><h2>{title}</h2>{children && <span className="dt-actions">{children}</span>}</div>
+    <div className="dt-page-title"><h1>{title}</h1>{children && <span className="dt-actions">{children}</span>}</div>
   </div>
 }
 /** Trigger a host setup re-check and restart, prompting for confirmation when running Assignments would be interrupted. */
