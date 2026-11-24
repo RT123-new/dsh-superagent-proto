@@ -87,7 +87,12 @@ export class Effects {
     // upsert) must never silently clear its block and make it automatically retryable. Other kinds keep coalescing.
     if (kind === 'reply') {
       const existing = this.store.db.prepare("SELECT error FROM effect WHERE kind = 'reply' AND key = ?").get(key) as { error: string } | undefined
-      if (typeof existing?.error === 'string' && existing.error.startsWith('blocked:unknown_outcome')) { this.kick(); return }
+      if (typeof existing?.error === 'string' && (existing.error.startsWith('blocked:unknown_outcome')
+        || hasMarker(existing.error, ATTEMPT_STARTED) || hasMarker(existing.error, ATTEMPT_UNKNOWN))) {
+        // An identical receipt has no new payload. Never erase the durable marker
+        // while a send is in flight or after an operator acknowledged uncertainty.
+        this.kick(); return
+      }
     }
     this.store.db.prepare(`INSERT INTO effect (kind, key, value, seq, due, since) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(kind, key) DO UPDATE
       SET value = excluded.value, generation = generation + 1, attempts = 0, error = '', due = excluded.due`)

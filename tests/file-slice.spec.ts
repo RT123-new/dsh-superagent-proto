@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm, symlink, truncate, writeFile } from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { MAX_SLICE_BYTES, readWorkspaceSlice } from '../src/executor/file-slice.ts'
+import { MAX_SLICE_BYTES, MAX_SLICE_SCAN_BYTES, readWorkspaceSlice } from '../src/executor/file-slice.ts'
 
 describe('ticket-scoped bounded source file reads', () => {
   let directory: string
@@ -30,6 +31,35 @@ describe('ticket-scoped bounded source file reads', () => {
     expect(page.next_line).toBeNull()
     expect(page.returned_bytes).toBe(MAX_SLICE_BYTES)
     expect(page.text).toHaveLength(MAX_SLICE_BYTES)
+  })
+
+  it('counts separators and resumes an omitted line without losing source text', async () => {
+    await writeFile(join(directory, 'boundary.txt'), 'a'.repeat(MAX_SLICE_BYTES - 1) + '\nβeta\nlast')
+    const first = await readWorkspaceSlice(directory, 'boundary.txt')
+    expect(first).toMatchObject({ lines: 1, returned_bytes: MAX_SLICE_BYTES - 1, next_line: 2, truncated_by: 'byte_limit' })
+    expect((await readWorkspaceSlice(directory, 'boundary.txt', first.next_line!)).text).toBe('βeta\nlast')
+    await writeFile(join(directory, 'blank.txt'), 'a'.repeat(MAX_SLICE_BYTES) + '\n\n')
+    expect(await readWorkspaceSlice(directory, 'blank.txt')).toMatchObject({ lines: 1, returned_bytes: MAX_SLICE_BYTES, next_line: 2, truncated_by: 'byte_limit' })
+    expect(await readWorkspaceSlice(directory, 'blank.txt', 2)).toMatchObject({ text: '', lines: 1, next_line: null })
+  })
+
+  it('does not advertise a nonexistent next page when the line cap equals EOF', async () => {
+    await writeFile(join(directory, 'exact.txt'), 'one\r\ntwo\r\n')
+    expect(await readWorkspaceSlice(directory, 'exact.txt', 1, 2)).toMatchObject({ text: 'one\ntwo', returned_bytes: 7, lines: 2, next_line: null, truncated_by: null })
+    await writeFile(join(directory, 'exact.txt'), 'one\ntwo')
+    expect(await readWorkspaceSlice(directory, 'exact.txt', 1, 2)).toMatchObject({ next_line: null, truncated_by: null })
+  })
+
+  it('bounds prefix scanning even when the requested line is absent', async () => {
+    const path = join(directory, 'sparse.txt')
+    await writeFile(path, '')
+    await truncate(path, MAX_SLICE_SCAN_BYTES + 1)
+    await expect(readWorkspaceSlice(directory, 'sparse.txt', 2)).rejects.toThrow('scan limit exceeded')
+  })
+
+  it.skipIf(process.platform === 'win32')('rejects a FIFO before opening it for a blocking read', async () => {
+    execFileSync('mkfifo', [join(directory, 'pipe')])
+    await expect(readWorkspaceSlice(directory, 'pipe')).rejects.toThrow('Not a regular file')
   })
 
   it('rejects directory traversal, absolute paths and symlinks to external files', async () => {

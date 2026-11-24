@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { Effects, Later } from '../src/app/effects.ts'
+import { ATTEMPT_STARTED, ATTEMPT_UNKNOWN, Effects, Later } from '../src/app/effects.ts'
 import { Store } from '../src/app/store.ts'
 import { HealthBoard } from '../src/infra/health.ts'
 import { deferred } from './fixtures/async.ts'
@@ -212,4 +212,30 @@ it('reports a failure of the queue itself under its kind, until a dispatch of th
 it('refuses a second handler for a kind', () => {
   effects.handle('relay', async () => {})
   expect(() => effects.handle('relay', async () => {})).toThrow('The relay effects already have a handler')
+})
+
+it('does not erase an in-flight reply marker on ordinary re-enqueue', async () => {
+  const hold = deferred()
+  const run = vi.fn(async () => { await hold.promise })
+  effects.handle('reply', run, { markAttempt: true })
+  effects.enqueue('reply', 'receipt', {})
+  await vi.waitFor(() => expect(run).toHaveBeenCalledTimes(1))
+  const row = () => store.db.prepare("SELECT error, generation FROM effect WHERE kind = 'reply' AND key = ?").get('receipt')
+  try {
+    const before = row()
+    expect(before).toMatchObject({ error: ATTEMPT_STARTED })
+    effects.enqueue('reply', 'receipt', {})
+    expect(row()).toEqual(before)
+  } finally { hold.resolve(); await effects.idle() }
+  expect(run).toHaveBeenCalledTimes(1)
+})
+
+it('preserves sticky reply uncertainty when a rearmed receipt is enqueued again', () => {
+  effects.enqueue('reply', 'receipt', {})
+  store.db.prepare("UPDATE effect SET error = ? WHERE kind = 'reply' AND key = ?")
+    .run('blocked:unknown_outcome: uncertain ' + ATTEMPT_UNKNOWN, 'receipt')
+  expect(effects.rearm('reply', 'receipt', { acknowledgeUnknownOutcome: true })).toEqual({ rearmed: true })
+  expect(effects.attemptUnknown('reply', 'receipt')).toBe(true)
+  effects.enqueue('reply', 'receipt', {})
+  expect(effects.attemptUnknown('reply', 'receipt')).toBe(true)
 })
