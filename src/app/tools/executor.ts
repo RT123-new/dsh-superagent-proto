@@ -1,6 +1,6 @@
 /** Executor Session tools for reading ticket context, acknowledging requests, managing threads, handing back out-of-scope triggers, and reporting status. */
 import { z } from 'zod'
-import { latestAssignment, liveTicket, type EngineForExecutor, type Ticket } from '../../core/index.ts'
+import { runningAssignment, liveTicket, type EngineForExecutor, type Ticket } from '../../core/index.ts'
 import { IM_WORDS } from '../../infra/text.ts'
 import { claimPull, readPull } from '../../sources/github-pull.ts'
 import type { SourceContext } from '../../sources/host.ts'
@@ -87,12 +87,14 @@ export function executorTools(host: ExecutorToolsHost, ticket: Ticket): Tool[] {
       execute: async (args, signal) => {
         const current = host.store.tickets.get(ticketId)
         if (!current || !liveTicket(current)) throw new Error('Ticket ended (PR was closed or work finished); do not resume it')
-        const expectedAssignment = latestAssignment(current)?.id
+        const expectedAssignment = runningAssignment(current)?.id
+        if (!expectedAssignment) throw new Error('No assignment is running; this report was not recorded')
         const pull = args.pr_number != null ? await readPull(host.github, args.pr_number, signal) : undefined
         // Claim the PR, record the report, and queue the relay atomically so a rejected PR claim or invalid report leaves no partial state, and a recorded report always reaches the main Session.
+        signal?.throwIfAborted()
         return host.store.atomic(() => {
           const fresh = host.store.tickets.get(ticketId)
-          if (!fresh || !liveTicket(fresh) || latestAssignment(fresh)?.id !== expectedAssignment)
+          if (!fresh || !liveTicket(fresh) || runningAssignment(fresh)?.id !== expectedAssignment)
             throw new Error('Ticket or assignment changed while preparing report')
           const refused = pull && claimPull(host.github, ticketId, pull)
           if (refused) throw new Error(refused)

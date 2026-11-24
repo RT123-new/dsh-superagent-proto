@@ -35,6 +35,23 @@ describe('resume benchmark calculation', () => {
     delete (records[0]!.snapshot as { totalCost?: number }).totalCost
     expect(run(records).value?.cost).toBe(null)
   })
+  it('does not treat missing safety or snapshot-use observations as measured zero', () => {
+    const records = Array.from({ length: 30 }, (_, i) => pair(i))
+    delete (records[0]!.snapshot as { safetyFailures?: number }).safetyFailures
+    expect(run(records).value).toMatchObject({ verdict: 'inconclusive_missing_safety_or_usage',
+      safety: { failures: null, failureRate: null } })
+    const unused = Array.from({ length: 30 }, (_, i) => ({ ...pair(i), snapshot: { ...pair(i).snapshot, usedSnapshot: false } }))
+    expect(run(unused).value).toMatchObject({ verdict: 'targets_not_met', safety: { snapshotUses: 0, staleErrorRate: null } })
+    delete (unused[0]!.snapshot as { usedSnapshot?: boolean }).usedSnapshot
+    expect(run(unused).value).toMatchObject({ verdict: 'inconclusive_missing_safety_or_usage', safety: { snapshotUses: null } })
+  })
+  it('rejects impossible duration order, fractional failure counts and malformed usage flags', () => {
+    const original = pair(1)
+    for (const snapshot of [{ ...original.snapshot, resumeMs: 9000 },
+      { ...original.snapshot, safetyFailures: .25 }, { ...original.snapshot, usedSnapshot: 'yes' }]) {
+      expect(run([{ ...original, snapshot }]).status).not.toBe(0)
+    }
+  })
   it('rejects malformed or duplicate trial records', () => {
     const duplicate = run([pair(1), pair(1)])
     expect(duplicate.status).not.toBe(0)

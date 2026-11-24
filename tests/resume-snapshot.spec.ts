@@ -32,6 +32,9 @@ describe('resume snapshots', () => {
       completedWork: Array(8).fill('x'.repeat(300)) }).success).toBe(false)
     expect(ResumeSnapshotInputSchema.safeParse({ ...input(), nextAction: 'Use token=abcdefghijklmnopqrstuvxyz' }).success).toBe(false)
     expect(ResumeSnapshotInputSchema.safeParse({ ...input(), gitHeadAtCapture: 'not-a-sha' }).success).toBe(false)
+    for (const nextAction of ['github_pat_' + 'a'.repeat(30), 'Bearer\nabcdefghijklmnopqrst', '{"token":"abcdefghijklmnopqrst"}']) {
+      expect(ResumeSnapshotInputSchema.safeParse({ ...input(), nextAction }).success).toBe(false)
+    }
   })
   it('injects only a bounded untrusted hint and a read pointer for the correct ticket', () => {
     expect(resumeSnapshotHint(ticket(persisted()))).toMatchObject({
@@ -40,11 +43,18 @@ describe('resume snapshots', () => {
     })
     expect(resumeSnapshotHint(ticket({ ...persisted(), ticketId: 'another-ticket' }))).toBeUndefined()
     expect(resumeSnapshotHint(ticket())).toBeUndefined()
+    expect(resumeSnapshotHint(ticket({ ...persisted(), assignmentId: 'unknown-assignment' }))).toBeUndefined()
   })
   it('marks a newer human input or changed assignment as potentially stale', () => {
     const later = ticket(persisted())
     later.inputs = [{ id: 'message-2', kind: 'text', at: '2026-11-04T12:01:00.000Z', text: 'New constraint' }]
     expect(resumeSnapshotHint(later)).toMatchObject({ potentially_stale: true })
+    const sameInstant = ticket(persisted())
+    sameInstant.inputs = [{ id: 'message-3', kind: 'text', at: '2026-11-04T13:00:00+01:00', text: 'Same instant' }]
+    expect(resumeSnapshotHint(sameInstant)).toMatchObject({ potentially_stale: true })
+    const undelivered = ticket(persisted())
+    undelivered.undelivered = ['older-pending-input']
+    expect(resumeSnapshotHint(undelivered)).toMatchObject({ potentially_stale: true })
     const newAssignment = ticket(persisted())
     newAssignment.assignments.push({ id: 'assignment-2', state: 'pending', createdAt: '2026-11-04T12:03:00.000Z' })
     expect(resumeSnapshotHint(newAssignment)).toMatchObject({ potentially_stale: true })

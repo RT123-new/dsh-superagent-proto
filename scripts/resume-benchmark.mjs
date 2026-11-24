@@ -4,6 +4,8 @@
  * Each trial must begin from the same task and repository state in both conditions.
  */
 import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const median = values => {
   if (!values.length) return null
@@ -42,8 +44,13 @@ export function evaluate(pairs) {
       finite(run.tokens, `${pair.id}.${label}.tokens`, true)
       if (typeof run.correct !== 'boolean') throw new Error(`Missing correctness verdict for ${pair.id}.${label}`)
       if (run.totalCost !== undefined) finite(run.totalCost, `${pair.id}.${label}.totalCost`)
-      if (run.safetyFailures !== undefined) finite(run.safetyFailures, `${pair.id}.${label}.safetyFailures`)
-      if (run.staleErrors !== undefined) finite(run.staleErrors, `${pair.id}.${label}.staleErrors`)
+      if (run.resumeMs > run.endToEndMs) throw new Error(`${pair.id}.${label}: resumeMs exceeds endToEndMs`)
+      for (const field of ['safetyFailures', 'staleErrors']) {
+        if (run[field] !== undefined && (!Number.isSafeInteger(run[field]) || run[field] < 0))
+          throw new Error(`${pair.id}.${label}.${field} must be a nonnegative integer`)
+      }
+      if (run.usedSnapshot !== undefined && typeof run.usedSnapshot !== 'boolean')
+        throw new Error(`${pair.id}.${label}.usedSnapshot must be boolean`)
     }
   }
   // 'tokens' must include prompt/output/cached usage plus all snapshot-generation overhead.
@@ -51,16 +58,22 @@ export function evaluate(pairs) {
   const tokenPairs = pairs.map(p => ratio(p.baseline.tokens, p.snapshot.tokens))
   const latency = { baselineMedianMs: median(pairs.map(p => p.baseline.resumeMs)),
     snapshotMedianMs: median(pairs.map(p => p.snapshot.resumeMs)), medianRelativeImprovement: median(timePairs),
-    confidence95: confidence(timePairs), baselineP95Ms: percentile(pairs.map(p => p.baseline.endToEndMs), .95),
+    confidence95: timePairs.length >= 2 ? confidence(timePairs) : null, baselineP95Ms: percentile(pairs.map(p => p.baseline.endToEndMs), .95),
     snapshotP95Ms: percentile(pairs.map(p => p.snapshot.endToEndMs), .95) }
   const token = { baselineMedian: median(pairs.map(p => p.baseline.tokens)),
     snapshotMedian: median(pairs.map(p => p.snapshot.tokens)), medianRelativeImprovement: median(tokenPairs) }
   const correctness = { baselineRate: sum(pairs.map(p => Number(p.baseline.correct))) / pairs.length,
     snapshotRate: sum(pairs.map(p => Number(p.snapshot.correct))) / pairs.length,
     regressedPairs: pairs.filter(p => p.baseline.correct && !p.snapshot.correct).map(p => p.id) }
-  const safetyFailures = sum(pairs.map(p => p.snapshot.safetyFailures ?? 0))
-  const staleErrors = sum(pairs.map(p => p.snapshot.staleErrors ?? 0))
-  const usedSnapshots = pairs.filter(p => p.snapshot.usedSnapshot === true).length
+  // Missing telemetry is unknown, not a measured zero. Report totals/rates only
+  // for completely observed candidate cohorts; a feature never used cannot pass.
+  const safetyFailures = pairs.every(p => p.snapshot.safetyFailures !== undefined)
+    ? sum(pairs.map(p => p.snapshot.safetyFailures)) : null
+  const staleErrors = pairs.every(p => p.snapshot.staleErrors !== undefined)
+    ? sum(pairs.map(p => p.snapshot.staleErrors)) : null
+  const usedSnapshots = pairs.every(p => typeof p.snapshot.usedSnapshot === 'boolean')
+    ? pairs.filter(p => p.snapshot.usedSnapshot).length : null
+  const telemetryKnown = safetyFailures !== null && staleErrors !== null && usedSnapshots !== null
   const costsKnown = pairs.every(p => p.baseline.totalCost !== undefined && p.snapshot.totalCost !== undefined)
   const cost = costsKnown ? (() => {
     const baseline = sum(pairs.map(p => p.baseline.totalCost))
@@ -68,17 +81,18 @@ export function evaluate(pairs) {
     return { baseline, snapshot, saving: baseline - snapshot, savingFraction: baseline > 0 ? (baseline - snapshot) / baseline : null }
   })() : null
   const latencyOK = latency.snapshotP95Ms <= latency.baselineP95Ms * 1.1
-  const pass = pairs.length >= 30 && latency.medianRelativeImprovement >= 0.2 && latency.confidence95.lower > 0 &&
+  const pass = pairs.length >= 30 && latency.medianRelativeImprovement >= 0.2 && latency.confidence95?.lower > 0 &&
     token.medianRelativeImprovement >= 0.2 && correctness.snapshotRate >= correctness.baselineRate &&
-    correctness.regressedPairs.length === 0 && safetyFailures === 0 && staleErrors === 0 &&
+    correctness.regressedPairs.length === 0 && telemetryKnown && usedSnapshots > 0 && safetyFailures === 0 && staleErrors === 0 &&
     latencyOK && cost !== null && cost.saving > 0
   return { n: pairs.length, latency, token, correctness, safety: { failures: safetyFailures, staleErrors,
-    snapshotUses: usedSnapshots, failureRate: safetyFailures / pairs.length,
-    staleErrorRate: usedSnapshots ? staleErrors / usedSnapshots : null },
+    snapshotUses: usedSnapshots, snapshotUseRate: usedSnapshots === null ? null : usedSnapshots / pairs.length,
+    failureRate: safetyFailures === null ? null : safetyFailures / pairs.length,
+    staleErrorRate: usedSnapshots && staleErrors !== null ? staleErrors / usedSnapshots : null },
     cost, verdict: pass ? 'meets_preregistered_targets' : pairs.length < 30 || cost === null
-      ? 'inconclusive_missing_trials_or_cost' : 'targets_not_met' }
+      ? 'inconclusive_missing_trials_or_cost' : !telemetryKnown ? 'inconclusive_missing_safety_or_usage' : 'targets_not_met' }
 }
-if (process.argv[1] && new URL(import.meta.url).pathname === process.argv[1]) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   try {
     if (!process.argv[2]) throw new Error('Usage: node scripts/resume-benchmark.mjs paired-trials.json')
     const body = JSON.parse(readFileSync(process.argv[2], 'utf8'))

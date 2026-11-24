@@ -531,3 +531,15 @@ it('stores optional worker resume hints only when enabled, without sacrificing a
     resource: `ticket/${ticket.id}/resume-snapshot`,
   })).rejects.toThrow()
 })
+
+it('rejects worker reports when the replacement assignment is pending', async () => {
+  const { ticket, sessionId } = await h.acceptedTicket(feishu('1', '@bot Fix the regression'))
+  const stored = h.runtime.store.tickets.get(ticket.id)!
+  const previous = stored.assignments.at(-1)!
+  stored.assignments = [...stored.assignments.slice(0, -1), { ...previous, state: 'ended' },
+    { ...previous, id: 'replacement-pending', state: 'pending' }]
+  h.runtime.store.tickets.save(stored)
+  await expect(h.runTool(sessionId, 'orchestrator_report', { state: 'ready', summary: 'Stale completion' }))
+    .rejects.toThrow('No assignment is running')
+  expect(h.runtime.store.tickets.get(ticket.id)?.assignments.at(-1)?.state).toBe('pending')
+})

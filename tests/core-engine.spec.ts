@@ -1638,6 +1638,16 @@ describe('resume snapshot lifecycle', () => {
     h.tick(1); h.engine.report(id, { state: 'waiting', summary: 'Waiting for response.', assignmentId })
     expect(h.repo.tickets.get(id)!.resumeSnapshot).toEqual(first)
   })
+  it('does not preserve a removed optional git-head claim as an unchanged snapshot', () => {
+    const h = harness(), id = accepted(h).ticketId!
+    const assignmentId = runningAssignment(h.repo.tickets.get(id)!)!.id
+    h.engine.report(id, { state: 'progress', summary: 'First', assignmentId, resumeSnapshot: { ...note(), gitHeadAtCapture: 'a'.repeat(40) } })
+    h.tick(1)
+    h.engine.report(id, { state: 'progress', summary: 'No verified head', assignmentId, resumeSnapshot: note() })
+    const snapshot = h.repo.tickets.get(id)!.resumeSnapshot!
+    expect(snapshot.revision).toBe(2)
+    expect(snapshot.gitHeadAtCapture).toBeUndefined()
+  })
   it('rejects an old assignment report after restart without overwriting recovery state', () => {
     const h = harness(), id = accepted(h).ticketId!
     const old = runningAssignment(h.repo.tickets.get(id)!)!.id
