@@ -9,7 +9,7 @@ import { feishuKind } from '../src/sources/feishu.ts'
 import { githubKind } from '../src/sources/github.ts'
 import { snapshot, threadSummary, ticketSummary, triggerView } from '../src/app/views/records.ts'
 import { basisFacts, ticketDetail } from '../src/app/views/tickets.ts'
-import { threadDetail } from '../src/app/views/threads.ts'
+import { search, threadDetail } from '../src/app/views/threads.ts'
 import { droppedReplies, sourcesStatus } from '../src/app/views/sources.ts'
 import { overview } from '../src/app/views/overview.ts'
 import { markdown, plain } from '../src/app/views/text.ts'
@@ -318,4 +318,12 @@ it('reads each ticket a page\'s follow-ups reached once, and nothing for a messa
   const records = { tickets: { get: vi.fn() }, threads: { get: vi.fn() }, triggers: store.triggers }
   expect(followupOwners(store.triggers.get('f3')!, records)).toEqual([])
   expect([records.tickets.get, records.threads.get].map(read => read.mock.calls.length)).toEqual([0, 0])
+})
+
+it('avoids a global subscription index scan for plain-text ticket searches', () => {
+  const host = views()
+  live('unique plain title')
+  const scan = vi.spyOn(store.read, 'subscribedThreads')
+  expect(search(host, 'unique plain title', { entries: () => new Map<string, string>().entries() }).tickets.map(ticket => ticket.id)).toEqual(['unique plain title'])
+  expect(scan).not.toHaveBeenCalled()
 })

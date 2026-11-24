@@ -9,12 +9,13 @@ import type { SourceContext } from '../../sources/host.ts'
 import { readResource, type ResourceHost } from '../resources.ts'
 import type { Store } from '../store.ts'
 import { reportRelay, threadFollowedNotice } from '../notices.ts'
+import { ResumeSnapshotInputSchema, ResumeSnapshotSchema, validatedResumeSnapshot } from '../resume-snapshot.ts'
 import type { Sessions } from '../sessions.ts'
 import { AcknowledgementSchema, readTool, tool, type Tool } from './tool.ts'
 
 export interface ExecutorToolsHost {
   readonly engine: Pick<EngineForExecutor, 'report' | 'reply' | 'markUnrelated' | 'handback' | 'followForContext'>
-  readonly store: Pick<Store, 'tickets' | 'replyStatus' | 'atomic'>
+  readonly store: Pick<Store, 'tickets' | 'replyStatus' | 'atomic' | 'settings'>
   readonly sessions: Pick<Sessions, 'relay' | 'notify'>
   readonly resources: ResourceHost
   readonly probe?: Probe
@@ -104,6 +105,7 @@ export function executorTools(host: ExecutorToolsHost, ticket: Ticket): Tool[] {
       schema: z.object({
         state: z.enum(['progress', 'ready', 'blocked', 'failed', 'dropped']),
         summary: z.string().min(1),
+        resume_snapshot: z.unknown().optional().describe('Experimental only: object with currentState, nextAction, openQuestion (strings); completedWork, testsPerformed, remainingWork, evidenceRefs (string arrays); optional gitHeadAtCapture. Invalid hints are ignored.'),
         human_action: z.string().trim().min(1).max(1000).nullish().describe('One concrete question for a person, also with state=progress; omit to keep the pending one, null to clear it.'),
         question_for_trigger_id: z.string().optional().describe('With human_action: the human message that raised the question, which is asked where that person wrote.'),
         pr_number: z.number().int().positive().nullish().describe(`The ticket's PR: its source PR, or one by ${host.github.deployment.github.login} from a branch named after this ticket (DSH_SUPERAGENT_NAME).`),
@@ -125,14 +127,32 @@ export function executorTools(host: ExecutorToolsHost, ticket: Ticket): Tool[] {
           if (!now || !liveTicket(now) || runningAssignment(now)?.id !== assignmentId) throw new Error('Assignment replaced or ticket ended; this report was not recorded')
           const refused = pull && claimPull(host.github, ticketId, pull)
           if (refused) throw new Error(refused)
+          const snapshotEnabled = host.store.settings().executor.resumeSnapshotsEnabled
+          const snapshot = snapshotEnabled && args.resume_snapshot !== undefined
+            ? ResumeSnapshotInputSchema.safeParse(args.resume_snapshot) : undefined
+          const previousSnapshot = snapshot?.success ? validatedResumeSnapshot(now) : undefined
+          const snapshotFits = !!snapshot?.success && ResumeSnapshotSchema.safeParse({
+            ...snapshot.data, schemaVersion: 1, ticketId, assignmentId: assignmentId,
+            capturedAt: new Date().toISOString(), revision: (previousSnapshot?.revision ?? 0) + 1,
+          }).success
+          if (snapshotFits && now.resumeSnapshot && !previousSnapshot) {
+            // Do not let corrupt metadata poison revisions or preserve an invalid
+            // note through duplicate detection. Reread after claimPull's binding;
+            // the replacement and the report still commit or roll back together.
+            const repaired = host.store.tickets.get(ticketId)!
+            delete repaired.resumeSnapshot
+            host.store.tickets.save(repaired)
+          }
           const report = { state: args.state, summary: args.summary, ...(args.human_action !== undefined ? { question: args.human_action } : {}),
             ...(args.question_for_trigger_id ? { askedBy: args.question_for_trigger_id } : {}),
-            ...(args.reply_to_trigger_id ? { answers: args.reply_to_trigger_id } : {}) }
+            ...(args.reply_to_trigger_id ? { answers: args.reply_to_trigger_id } : {}),
+            ...(snapshot?.success && snapshotFits ? { resumeSnapshot: snapshot.data } : {}), assignmentId }
           const updated = host.engine.report(ticketId, report)
           const relay = reportRelay(updated, report)
           if (relay) host.sessions.relay(relay.id, relay.text)
           const notification = relay ? 'orchestrator' : 'internal_only'
-          return { reported: true, notification, ...(updated.attention ? { attention: updated.attention } : {}) }
+          return { reported: true, notification, ...(snapshot && !snapshotFits ? { snapshot_ignored: 'invalid' } : {}),
+            ...(updated.attention ? { attention: updated.attention } : {}) }
         })
       },
     }),

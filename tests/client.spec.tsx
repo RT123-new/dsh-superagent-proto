@@ -3,6 +3,8 @@ import { act, useState, type ComponentType } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import { ApiError, caller, usePoll } from '../src/client/api.ts'
+import { PanelProvider } from '../src/client/provider.tsx'
+import { ConfirmButton } from '../src/client/widgets.tsx'
 import { apply } from '../src/client/index.tsx'
 import { zh } from '../src/client/locales.ts'
 import { SettingsSchema } from '../src/policy.ts'
@@ -142,4 +144,128 @@ it('tells a dsh-superagent that does not answer from a record it does not have, 
     status: 400, missing: false, unreachable: false })
   expect(await failure(async () => Response.json({ error: 'Unknown ticket', code: 'unknownTicket' }, { status: 404 }))).toEqual({
     message: 'user unknownTicket', status: 404, missing: true, unreachable: false })
+})
+
+
+it('coalesces an arbitrary burst of reloads into one trailing request and settles after it', async () => {
+  const calls: ((value: string) => void)[] = []
+  let reload!: () => Promise<void>
+  function Harness() { reload = usePoll(() => new Promise<string>(done => calls.push(done)), [], 1000).reload; return null }
+  const root = createRoot(document.createElement('div'))
+  try {
+    await act(async () => { root.render(<Harness />) })
+    expect(calls).toHaveLength(1)
+    const waiters = Array.from({ length: 200 }, () => reload())
+    let done = false
+    void Promise.all(waiters).then(() => { done = true })
+    await act(async () => { calls[0]!('initial') })
+    expect(calls).toHaveLength(2)
+    expect(done).toBe(false)
+    await act(async () => { calls[1]!('fresh'); await Promise.all(waiters) })
+    expect(done).toBe(true)
+    expect(calls).toHaveLength(2)
+  } finally { act(() => root.unmount()) }
+})
+
+it('does not dispatch a queued reload after unmount', async () => {
+  const calls: ((value: string) => void)[] = []
+  let reload!: () => Promise<void>
+  function Harness() { reload = usePoll(() => new Promise<string>(done => calls.push(done)), []).reload; return null }
+  const root = createRoot(document.createElement('div'))
+  await act(async () => { root.render(<Harness />) })
+  const trailing = reload()
+  act(() => root.unmount())
+  await trailing
+  await act(async () => { calls[0]!('late') })
+  expect(calls).toHaveLength(1)
+})
+
+it('rejects malformed success bodies and does not pretend a mutation was acknowledged', async () => {
+  const messages = { offline: 'offline', notRunning: 'not running', serverError: (status: number) => String(status),
+    requestFailed: (status: number) => String(status), setup: () => 'setup', user: () => 'user',
+    invalidResponse: 'invalid read', mutationUnknown: 'unknown mutation', readTimeout: 'read timed out' }
+  const call = caller(() => messages)
+  for (const body of ['', '<html>not json</html>', 'null', 'true', '"string"']) {
+    const fetcher = vi.fn(async () => new Response(body, { status: 200 }))
+    vi.stubGlobal('fetch', fetcher)
+    await expect(call('GET state')).rejects.toThrow('invalid read')
+    await expect(call('POST executor/pause', { body: { paused: true } })).rejects.toThrow('unknown mutation')
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  }
+})
+
+it('aborts a stalled management read and labels an unacknowledged write unknown without retry', async () => {
+  vi.useFakeTimers()
+  try {
+    const messages = { offline: 'offline', notRunning: 'not running', serverError: (status: number) => String(status),
+      requestFailed: (status: number) => String(status), setup: () => 'setup', user: () => 'user',
+      mutationUnknown: 'unknown mutation', readTimeout: 'read timed out' }
+    const fetcher = vi.fn((_url: string, options: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      options.signal!.addEventListener('abort', () => reject(new Error('aborted')), { once: true })
+    }))
+    vi.stubGlobal('fetch', fetcher)
+    const call = caller(() => messages)
+    const read = expect(call('GET state')).rejects.toThrow('read timed out')
+    await vi.advanceTimersByTimeAsync(30_000)
+    await read
+    const write = expect(call('POST executor/pause', { body: { paused: true } })).rejects.toThrow('unknown mutation')
+    await vi.advanceTimersByTimeAsync(60_000)
+    await write
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  } finally { vi.useRealTimers() }
+})
+
+it('invalidates an in-flight search when nonempty input changes, while a new submitted search still renders', async () => {
+  serve()
+  const original = globalThis.fetch
+  const responses: ((result: Response) => void)[] = []
+  vi.stubGlobal('fetch', vi.fn((url: string, options?: RequestInit) => {
+    if (url.startsWith('/orchestrator/api/search?')) return new Promise<Response>(done => responses.push(done))
+    return original(url, options)
+  }))
+  const view = await render(fixture(['master']).main, { t })
+  try {
+    const input = view.container.querySelector<HTMLInputElement>('input[type="search"]')!
+    const type = async (value: string) => act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value)
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    const submit = () => act(async () => { input.form!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })) })
+    await type('original'); await submit()
+    expect(responses).toHaveLength(1)
+    expect(view.container.querySelector('.dt-search-progress')).not.toBeNull()
+    await type('replacement')
+    await act(async () => { responses[0]!(Response.json({ tickets: [], threads: [], items: [] })) })
+    expect(view.container.querySelector('.dt-search-results')).toBeNull()
+    expect(view.container.querySelector('.dt-search-progress')).toBeNull()
+    await submit()
+    expect(responses).toHaveLength(2)
+    await act(async () => { responses[1]!(Response.json({ tickets: [], threads: [], items: [] })) })
+    expect(view.container.querySelector('.dt-search-results')).not.toBeNull()
+  } finally { view.dispose() }
+})
+
+it('freezes the consent text and action together across polls and keeps a pending confirmation open', async () => {
+  serve()
+  let finish!: () => void
+  const first = vi.fn(() => new Promise<void>(resolve => { finish = resolve }))
+  const second = vi.fn(async () => {})
+  const container = document.createElement('div'); document.body.append(container)
+  const root = createRoot(container)
+  const render = (replacement: boolean) => <PanelProvider t={t}><ConfirmButton label="Apply" title={replacement ? 'Second title' : 'First title'}
+    message={replacement ? 'Second warning' : 'First warning'} onConfirm={replacement ? second : first} /></PanelProvider>
+  try {
+    await act(async () => { root.render(render(false)) })
+    await act(async () => { container.querySelector('button')!.click() })
+    await act(async () => { root.render(render(true)) })
+    const dialog = document.querySelector('[role="dialog"]')!
+    expect(dialog.getAttribute('aria-label')).toBe('First title')
+    expect(dialog.textContent).toContain('First warning')
+    await act(async () => { [...dialog.querySelectorAll('button')].find(b => b.textContent === zh.confirm)!.click() })
+    expect(first).toHaveBeenCalledTimes(1); expect(second).not.toHaveBeenCalled()
+    await act(async () => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })) })
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull()
+    await act(async () => { finish() })
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+  } finally { act(() => root.unmount()); container.remove() }
 })

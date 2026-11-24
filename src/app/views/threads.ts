@@ -70,9 +70,10 @@ export function search(host: ViewHost, query: string, links: Pick<TextCache, 'en
     : [] })
   const lower = value.toLowerCase()
   // Match tickets by threads they own (e.g., bound PRs) or subscribe to, as well as by title.
-  const reaches = (ticket: Ticket) => [...(ticket.follows ?? []).map(follow => follow.thread),
-    ...view.threadsOf(ticket.id).map(thread => thread.key)]
-  const matches = (ticket: Ticket) => reaches(ticket).some(key => named.threads.includes(key)) || ticket.title.toLowerCase().includes(lower)
+  const namedKeys = new Set(named.threads)
+  // A title match needs no subscription scan. Plain text searches with no named threads never build the subscription index.
+  const matches = (ticket: Ticket) => ticket.title.toLowerCase().includes(lower) || (namedKeys.size > 0 &&
+    ((ticket.follows ?? []).some(follow => namedKeys.has(follow.thread)) || view.threadsOf(ticket.id).some(thread => namedKeys.has(thread.key))))
   const tickets = store.tickets.list().filter(matches).sort(newestFirst).slice(0, 10).map(ticketSummary)
   // Omit automated triggers from threads already included in `threads`.
   const shownThreads = new Set(threads.map(thread => thread.key))

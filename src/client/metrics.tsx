@@ -16,17 +16,32 @@ const slotState = (t: T, state: string) => { const key = `metricsSlotState.${sta
 export function MetricsPanel({ metrics: m, t }: { metrics: MetricsSnapshot; t: T }) {
   const unknown = t('metricsUnknown')
   const rowsFor = (durations: MetricsSnapshot['durations'], placeholders: boolean) => {
-    const observed = Object.entries(durations)
-    const stages = [...STAGES, ...new Set(observed.map(([key]) => key.split('|')[0]!).filter(stage => !STAGES.includes(stage)))]
-    return stages.flatMap<[string, DurationSummary | undefined]>(stage => {
-      const samples = observed.filter(([key]) => key.split('|')[0] === stage)
-      return samples.length ? samples : placeholders ? [[`${stage}|-`, undefined]] : []
-    })
+    const groups = new Map<string, [string, DurationSummary][]>();
+    for (const [key, value] of Object.entries(durations)) {
+      const stage = key.split('|')[0]!
+      let group = groups.get(stage)
+      if (!group) { group = []; groups.set(stage, group) }
+      group.push([key, value])
+    }
+    const stages = [...STAGES, ...Array.from(groups.keys()).filter(stage => !STAGES.includes(stage))]
+    return stages.flatMap<[string, DurationSummary | undefined]>(stage =>
+      groups.get(stage) ?? (placeholders ? [[`${stage}|-`, undefined]] : []))
   }
   const label = (stage: string) => { const key = `metricsStage.${stage}` as DshSuperagentKey; const value = t(key); return value === key ? stage : value }
+  const ranked = Object.entries(m.durations).filter(([, v]) => v.count > 0 && typeof v.p95Ms === 'number' && Number.isFinite(v.p95Ms) && v.p95Ms >= 0)
+    .sort(([, a], [, b]) => b.p95Ms! - a.p95Ms!).slice(0, 5)
+  const maximum = ranked[0]?.[1].p95Ms ?? 0
   return <Section title={t('metricsTitle')}>
     <Hint>{t('metricsScope', { window: m.window })}</Hint><Hint>{t('metricsPartialProgram')}</Hint>
     <p className="dt-hint">{wall(m.sinceWallMs, unknown)}{' → '}{wall(m.atWallMs, unknown)}</p>
+    {ranked.length > 0 && <div className="dt-latency-rank"><h3>{t('metricsLatencyRank')}</h3>
+      <Hint>{t('metricsLatencyRankHint')}</Hint>
+      <ol>{ranked.map(([key, v]) => <li key={key} className="dt-latency-row">
+        <div className="dt-latency-meta"><span>{label(key.split('|')[0]!)} / {key.split('|')[1]}</span>
+          <strong>{number(v.p95Ms, unknown, ' ms')} <small>· {t('metricsSamples')}: {v.count}</small></strong></div>
+        <div className="dt-latency-track" aria-hidden="true"><span className="dt-latency-fill" style={{ width: (maximum > 0 ? 100 * v.p95Ms! / maximum : 0) + '%' }} /></div>
+      </li>)}</ol>
+    </div>}
     {([[t('metricsSuccess'), rowsFor(m.durations, true)], [t('metricsFailure'), rowsFor(m.failedDurations ?? {}, false)]] as const).map(([title, rows]) => <div key={title}>
       <h3>{title}</h3>
       {rows.length ? <div className="dt-metrics-scroll" tabIndex={0} role="region" aria-label={`${title}: ${t('metricsStage')}`}><table className="dt-metrics-table">
@@ -49,7 +64,7 @@ export function MetricsPanel({ metrics: m, t }: { metrics: MetricsSnapshot; t: T
       ['metricsInputMiss', m.tokens.inputCacheMiss], ['metricsInputHit', m.tokens.inputCacheHit], ['metricsOutput', m.tokens.output],
       ['metricsCacheWrite', m.tokens.cacheWrite], ['metricsReasoning', m.tokens.reasoning], ['metricsCost', m.tokens.costUsd],
       ['metricsCostUnknown', m.tokens.costUnknownReports],
-    ] as const).map(([key, v]) => <div key={key}><dt>{t(key)}</dt><dd>{key === 'metricsCost' && v !== null ? v.toFixed(6) : number(v, unknown)}</dd></div>)}</dl>
+    ] as const).map(([key, v]) => <div key={key}><dt>{t(key)}</dt><dd>{key === 'metricsCost' && typeof v === 'number' && Number.isFinite(v) ? v.toFixed(6) : number(v, unknown)}</dd></div>)}</dl>
     <p className="dt-hint">{t('metricsUsageUnknown')}: {m.tokens.unknownReports.inputCacheHit ?? 0} / {m.tokens.unknownReports.inputCacheMiss ?? 0} / {m.tokens.unknownReports.output ?? 0}</p>
     <p className="dt-hint">{t('metricsExtraCoverage')}</p>{m.process && <><h3>{t('metricsProcess')}</h3><dl className="dt-metrics-usage">{([
       ['metricsCpuUser', m.process.cpuUserMicros], ['metricsCpuSystem', m.process.cpuSystemMicros], ['metricsRss', m.process.rssBytes],

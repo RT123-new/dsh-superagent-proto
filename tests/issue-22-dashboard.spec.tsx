@@ -98,3 +98,16 @@ it('labels committed lifecycle boundaries and optional process resources without
     expect(node.textContent).toContain(dict.metricsCpuUser)
   }
 })
+
+it('ranks observed successful P95 values without counting failed or unobserved rows', () => {
+  const metrics = new Metrics()
+  metrics.observe('worker_turn', 'internal', 80)
+  metrics.observe('workspace_prepare', 'github', 20)
+  metrics.observe('eval_run', 'github', 900, 'failure')
+  const node = render(metrics)
+  const rows = [...node.querySelectorAll('.dt-latency-row')]
+  expect(rows).toHaveLength(2)
+  expect(rows[0]!.textContent).toContain('80 ms')
+  expect(rows[1]!.textContent).toContain('20 ms')
+  expect(node.querySelector('.dt-latency-rank')!.textContent).not.toContain('900')
+})

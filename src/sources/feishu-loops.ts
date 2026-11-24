@@ -68,13 +68,43 @@ async function watch(ctx: SourceContext, signal: AbortSignal): Promise<void> {
 /** Wait before restarting the event consumer: 1s after a run that stayed up for a minute, otherwise exponential backoff up to 60s. */
 export const consumerRetry = (previous: number | undefined, ranMs: number): number =>
   previous === undefined || ranMs >= 60_000 ? 1000 : Math.min(previous * 2, 60_000)
+/** Byte-bounded NDJSON framing. Pulling one line at a time propagates backpressure to the child stream.
+ * Undefined represents one oversized discarded frame; the next valid line remains readable.
+ */
+export async function* boundedEventLines(input: AsyncIterable<Buffer>, limit = 1_048_576): AsyncGenerator<string | undefined> {
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 1_048_576) throw new RangeError('Invalid event line limit')
+  const buffer = Buffer.allocUnsafe(limit)
+  let used = 0; let oversized = false
+  for await (const chunk of input) {
+    for (let at = 0; at < chunk.length;) {
+      const lf = chunk.indexOf(10, at)
+      const end = lf < 0 ? chunk.length : lf
+      const size = end - at
+      if (!oversized) {
+        if (used + size > limit) { oversized = true; used = 0 }
+        else { chunk.copy(buffer, used, at, end); used += size }
+      }
+      if (lf < 0) break
+      yield oversized ? undefined : buffer.subarray(0, used).toString('utf8').replace(/\r$/, '')
+      used = 0; oversized = false; at = lf + 1
+    }
+  }
+  if (oversized || used) yield oversized ? undefined : buffer.subarray(0, used).toString('utf8').replace(/\r$/, '')
+}
 async function consume(ctx: SourceContext, signal: AbortSignal): Promise<void> {
   const child = spawn(bot(ctx).cli, ['event', 'consume', 'im.message.receive_v1', '--as', 'bot'],
     { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, LARKSUITE_CLI_NO_UPDATE_NOTIFIER: '1',
       LARKSUITE_CLI_NO_SKILLS_NOTIFIER: '1' } })
-  const stdout = createInterface({ input: child.stdout }); const stderr = createInterface({ input: child.stderr })
-  let chain = Promise.resolve(); let diagnostic = ''; let ready = false; let reportedError = false
-  const stop = (): void => { child.stdin.end(); child.kill('SIGTERM') }
+  const stderr = createInterface({ input: child.stderr })
+  let diagnostic = ''; let ready = false; let reportedError = false
+  let force: ReturnType<typeof setTimeout> | undefined
+  const stop = (): void => {
+    child.stdin.end(); child.kill('SIGTERM')
+    if (force === undefined && child.exitCode === null && child.signalCode === null) {
+      force = setTimeout(() => { if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL') }, 2000)
+      force.unref()
+    }
+  }
   signal.addEventListener('abort', stop, { once: true })
   const timeout = setTimeout(() => { diagnostic = 'Feishu event consumer did not become ready within 45 seconds'; stop() }, 45_000)
   stderr.on('line', (line: string) => {
@@ -85,25 +115,36 @@ async function consume(ctx: SourceContext, signal: AbortSignal): Promise<void> {
       if (!reportedError) ctx.report('feishu', { state: 'ready', detail: 'Listening for bot events', at: new Date().toISOString() })
     } else if (/WARN|drop|error/.test(line)) { reportedError = true; ctx.report('feishu', { state: 'error', detail: diagnostic }) }
   })
-  stdout.on('line', (line: string) => {
-    chain = chain.then(async () => {
-      if (line.length > 1_048_576) throw new Error('Feishu event exceeds 1 MiB')
-      const trigger = feishuTrigger(JSON.parse(line), bot(ctx).botId, bot(ctx).appId)
-      // Events already read when the Source is disabled are dropped; the consumer stops shortly after.
-      if (!trigger || !enabled(ctx)) return
-      const chats = ctx.state.get(KV.feishu.chats) ?? {}
-      chats[String(trigger.meta.chatId)] = trigger.meta.direct === true
-      ctx.state.set(KV.feishu.chats, chats)
-      await receive(ctx, trigger)
-    }).catch(error => { reportedError = true; ctx.report('feishu', { state: 'error', detail: String(error) }) })
+  // Register lifecycle listeners before reading; the process can exit while persistence is pending.
+  // Resolve with an error rather than reject early while the reader is still active.
+  const closed = new Promise<Error | undefined>(resolve => {
+    child.once('error', error => resolve(error))
+    child.once('close', code => resolve(signal.aborted ? undefined : new Error(`Feishu event consumer exited (${code}, ready=${ready}): ${diagnostic}`)))
   })
+  if (signal.aborted) stop()
+  const reportFrameError = (detail: string) => { reportedError = true; ctx.report('feishu', { state: 'error', detail }) }
   try {
-    await new Promise<void>((resolve, reject) => {
-      child.once('error', reject)
-      const exited = (code: number | null) => new Error(`Feishu event consumer exited (${code}, ready=${ready}): ${diagnostic}`)
-      child.once('close', (code) => signal.aborted ? resolve() : reject(exited(code)))
-    })
-  } finally { clearTimeout(timeout); signal.removeEventListener('abort', stop); stdout.close(); stderr.close(); await chain }
+    for await (const line of boundedEventLines(child.stdout)) {
+      if (signal.aborted) break
+      if (line === undefined) { reportFrameError('Feishu event exceeds 1 MiB'); continue }
+      let value: unknown
+      try { value = JSON.parse(line) } catch { reportFrameError('Invalid Feishu event JSON'); continue }
+      try {
+        const trigger = feishuTrigger(value, bot(ctx).botId, bot(ctx).appId)
+        if (!trigger || !enabled(ctx) || signal.aborted) continue
+        const chats = ctx.state.get(KV.feishu.chats) ?? {}
+        chats[String(trigger.meta.chatId)] = trigger.meta.direct === true
+        ctx.state.set(KV.feishu.chats, chats)
+        await receive(ctx, trigger)
+      } catch (error) { reportFrameError(String(error)) }
+    }
+    const failure = await closed
+    if (failure && !signal.aborted) throw failure
+  } finally {
+    clearTimeout(timeout); signal.removeEventListener('abort', stop)
+    if (child.exitCode === null && child.signalCode === null) { stop(); await closed }
+    clearTimeout(force); stderr.close()
+  }
 }
 
 /** Refreshes the map of joined chats (`chat_id -> name`); throws on failure so the previously stored list remains intact. */

@@ -4,7 +4,7 @@ import { backfillChat, consumerRetry, feishuKind, feishuTriggerId, feishuRef, fe
   from '../src/sources/feishu.ts'
 import { KV } from '../src/kv.ts'
 import { apply as applyFeishu, pollThreads as pollFeishuThreads } from '../src/sources/feishu.ts'
-import { runFeishu } from '../src/sources/feishu-loops.ts'
+import { boundedEventLines, runFeishu } from '../src/sources/feishu-loops.ts'
 import { commentTrigger, githubAddress, githubChannel, issueTrigger, type GithubComment, type GithubIssue } from '../src/sources/github-trigger.ts'
 import { claimPull, observePull, pullEndNotices, pullOf, ticketBranch, type Pull } from '../src/sources/github-pull.ts'
 import { ciCounts, ciFact, ciSummary } from '../src/sources/github-read.ts'
@@ -1255,7 +1255,7 @@ describe('feishu event consumer', () => {
   [ "$1" = event ] || { echo '{"ok":true,"data":{}}'; exit 0; }
   n=$(cat '${dir}/runs' 2>/dev/null || echo 0); n=$((n + 1)); echo $n > '${dir}/runs'; echo $$ > '${dir}/pid'
   case ${mode} in
-    late-ready) printf 'not json\n'; sleep 0.1; echo '[event] ready' >&2; sleep 0.1; cat '${dir}/events'; exec sleep 60 ;;
+    late-ready) printf 'not json\n'; while [ ! -f '${dir}/release-ready' ]; do sleep 0.02; done; echo '[event] ready' >&2; cat '${dir}/events'; touch '${dir}/printed'; exec sleep 60 ;;
     never) exec sleep 60 ;;
     warn) echo '[event] ready' >&2; echo 'WARN the connection was reset' >&2; exec sleep 60 ;;
     ready) echo '[event] ready' >&2; exec sleep 60 ;;
@@ -1304,11 +1304,13 @@ describe('feishu event consumer', () => {
     expect(health.feishu).toMatchObject({ state: 'error', detail: expect.stringContaining('JSON') })
     controller.abort(); await running; store.close()
   }, 20_000)
-  it('PRE-1: a delayed readiness line cannot clear a malformed-event diagnostic', async () => {
+  it('does not let delayed readiness overwrite an already observed malformed-event error', async () => {
     writeFileSync(join(dir, 'events'), event('om_after_ready', 'oc_group', 'group') + '\n')
     const { ctx, health, store } = consumerSource(cli('late-ready'))
     running = runFeishu(ctx, controller.signal)
     try {
+      await vi.waitFor(() => expect(health.feishu).toMatchObject({ state: 'error', detail: expect.stringContaining('JSON') }), until)
+      writeFileSync(join(dir, 'release-ready'), '')
       await vi.waitFor(() => expect(store.triggers.get(feishuTriggerId('om_after_ready'))).toBeDefined(), until)
       expect(health.feishu).toMatchObject({ state: 'error', detail: expect.stringContaining('JSON') })
     } finally { controller.abort(); await running; store.close() }
@@ -1746,4 +1748,24 @@ describe('github notifications lane parking (fine-grained token)', () => {
     expect(laneOf(h)).toBeUndefined()
     h.store.close()
   })
+})
+
+it('frames UTF-8 events across chunks, discards overlong frames, then resumes at the next newline', async () => {
+  const chunks = [Buffer.from([0xe4, 0xbd]), Buffer.from([0xa0, 13, 10]), Buffer.from('1234'), Buffer.from('56789\nok\nlast')]
+  async function* input() { yield* chunks }
+  const actual = []
+  for await (const line of boundedEventLines(input(), 8)) actual.push(line)
+  expect(actual).toEqual(['你', undefined, 'ok', 'last'])
+})
+
+it('pulls no further event chunks while the consumer is processing a yielded frame', async () => {
+  let reads = 0
+  async function* input() { for (const line of ['a\n', 'b\n', 'c']) { reads++; yield Buffer.from(line) } }
+  const frames = boundedEventLines(input(), 8)
+  expect(await frames.next()).toEqual({ value: 'a', done: false })
+  expect(reads).toBe(1)
+  expect(await frames.next()).toEqual({ value: 'b', done: false })
+  expect(reads).toBe(2)
+  expect(await frames.next()).toEqual({ value: 'c', done: false })
+  expect(await frames.next()).toMatchObject({ done: true })
 })

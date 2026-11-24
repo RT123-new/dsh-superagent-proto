@@ -26,19 +26,27 @@ export interface ApiMessages {
   offline: string; notRunning: string; serverError: (status: number) => string; requestFailed: (status: number) => string
   setup: (problem: SetupProblem) => string
   user: (failure: UserFailure) => string
+  invalidResponse?: string; readTimeout?: string; mutationUnknown?: string
 }
 const isUserError = (code: unknown): code is UserErrorCode => typeof code === 'string' && Object.hasOwn(USER_ERRORS, code)
 
 /** Calls one management endpoint; the `x-orchestrator-request` header marks the request as originating from this page. */
 async function api<T>(messages: ApiMessages, path: string, method: string, body?: unknown): Promise<T> {
-  let response: Response
+  let response: Response, text: string
   const json = body === undefined ? {} : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }
+  const controller = new AbortController()
+  // Bound both header and body reads. Never automatically retry a mutation: the server may have committed it.
+  const read = method === 'GET'
+  const timer = setTimeout(() => controller.abort(), read ? 30_000 : 60_000)
   try {
-    response = await fetch(`/orchestrator/api/${path}`, { method, ...json, headers: { 'x-orchestrator-request': '1', ...json.headers } })
+    response = await fetch(`/orchestrator/api/${path}`, { method, ...json, signal: controller.signal,
+      headers: { 'x-orchestrator-request': '1', ...json.headers } })
+    text = await response.text()
   } catch {
-    throw new ApiError(messages.offline, 0, { unreachable: true })
-  }
-  const text = await response.text()
+    const message = read ? controller.signal.aborted ? messages.readTimeout ?? messages.offline : messages.offline
+      : messages.mutationUnknown ?? messages.offline
+    throw new ApiError(message, 0, { unreachable: true })
+  } finally { clearTimeout(timer) }
   let value: unknown
   try { value = text ? JSON.parse(text) : {} } catch { value = undefined }
   if (!response.ok) {
@@ -54,6 +62,10 @@ async function api<T>(messages: ApiMessages, path: string, method: string, body?
     throw new ApiError(message, status, { issues, ...failure.setup ? { setup: failure.setup } : {}, ...user ? { user } : {},
       ...text ? {} : { unreachable: true } })
   }
+  // A successful status with a missing/malformed body is not a successful management response.
+  if (!text.trim() || value === undefined || value === null || typeof value !== 'object')
+    throw new ApiError(read ? messages.invalidResponse ?? messages.requestFailed(502)
+      : messages.mutationUnknown ?? messages.requestFailed(502), response.status, { unreachable: true })
   return value as T
 }
 
@@ -72,25 +84,46 @@ export function usePoll<T>(load: () => Promise<T>, deps: readonly unknown[], int
   useEffect(() => {
     let active = true
     let timer: ReturnType<typeof setTimeout> | undefined
-    // Serialize requests so a manual reload after a mutation runs after the current poll finishes.
-    let queue = Promise.resolve()
+    // At most one active request and one trailing refresh. A reload during a read
+    // waits for the trailing read (important after mutations), not for stale data.
+    let current: Promise<void> | undefined
+    let trailing: { promise: Promise<void>; resolve: () => void } | undefined
     const once = async () => {
-      clearTimeout(timer)
+      if (!active) return
       try {
         const value = await loader.current()
         if (active) setState(previous => same(previous.data, value) ? previous.error ? { data: previous.data as T } : previous : { data: value })
       } catch (failure) {
-        if (active) setState(previous => ({ ...previous, error: failure instanceof Error ? failure : new Error(String(failure)) }))
-      } finally {
-        if (active) timer = setTimeout(run, document.hidden ? intervalMs * HIDDEN_FACTOR : intervalMs)
+        if (active) {
+          const error = failure instanceof Error ? failure : new Error(String(failure))
+          setState(previous => ({ ...previous, error }))
+        }
       }
     }
-    const run = () => (queue = queue.then(once))
+    const run = (): Promise<void> => {
+      if (!active) return Promise.resolve()
+      clearTimeout(timer)
+      if (current) {
+        if (!trailing) {
+          let resolve!: () => void
+          const promise = new Promise<void>(done => { resolve = done })
+          trailing = { promise, resolve }
+        }
+        return trailing.promise
+      }
+      current = Promise.resolve().then(once).finally(() => {
+        current = undefined
+        const queued = trailing; trailing = undefined
+        if (queued) { if (active) void run().then(queued.resolve); else queued.resolve() }
+        else if (active) timer = setTimeout(() => { void run() }, document.hidden ? intervalMs * HIDDEN_FACTOR : intervalMs)
+      })
+      return current
+    }
     const shown = () => { if (!document.hidden) void run() }
     refresh.current = run
     void run()
     document.addEventListener('visibilitychange', shown)
-    return () => { active = false; clearTimeout(timer); document.removeEventListener('visibilitychange', shown) }
+    return () => { active = false; clearTimeout(timer); trailing?.resolve(); trailing = undefined; document.removeEventListener('visibilitychange', shown) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, intervalMs])
   const reload = useCallback(() => refresh.current(), [])
