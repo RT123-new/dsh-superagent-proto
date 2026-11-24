@@ -1030,6 +1030,20 @@ it('tells both roles the execution environment through a generated prompt sectio
   expect(Object.keys(next.prompts.preview(next.prompts.current().config).skills)).not.toContain('feishu')
 })
 
+it('tells an existing worker whether resume snapshots are enabled at each model request', async () => {
+  const { sessionId } = await acceptedTicket()
+  const request = () => sections.get(sessionId)!.text({ signal: new AbortController().signal })
+  expect(request()).toContain('Resume snapshots disabled: omit resume_snapshot.')
+  for (const enabled of [true, false]) {
+    const settings = runtime.store.settings()
+    runtime.store.saveSettings({ ...settings, executor: { ...settings.executor, resumeSnapshotsEnabled: enabled } })
+    expect(request()).toContain(enabled
+      ? 'Resume snapshots enabled: use resume_snapshot.'
+      : 'Resume snapshots disabled: omit resume_snapshot.')
+  }
+  expect(sections.get(runtime.masterId)!.text({})).not.toContain('Resume snapshots disabled: omit resume_snapshot.')
+})
+
 it('lets a worker read the prompt version it works under and the ones it worked under before, also after a restart, and no other', async () => {
   const { sessionId } = await acceptedTicket()
   const save = () => { const { config, revision } = runtime.prompts.current(); return runtime.prompts.save({ ...config, delivery: `${config.delivery}.` }, revision, 'panel').revision }

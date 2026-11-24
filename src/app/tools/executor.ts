@@ -7,7 +7,7 @@ import type { SourceContext } from '../../sources/host.ts'
 import { readResource, type ResourceHost } from '../resources.ts'
 import type { Store } from '../store.ts'
 import { reportRelay, threadFollowedNotice } from '../notices.ts'
-import { ResumeSnapshotInputSchema, ResumeSnapshotSchema } from '../resume-snapshot.ts'
+import { ResumeSnapshotInputSchema, ResumeSnapshotSchema, validatedResumeSnapshot } from '../resume-snapshot.ts'
 import type { Sessions } from '../sessions.ts'
 import { AcknowledgementSchema, readTool, tool, type Tool } from './tool.ts'
 
@@ -101,10 +101,19 @@ export function executorTools(host: ExecutorToolsHost, ticket: Ticket): Tool[] {
           const snapshotEnabled = host.store.settings().executor.resumeSnapshotsEnabled
           const snapshot = snapshotEnabled && args.resume_snapshot !== undefined
             ? ResumeSnapshotInputSchema.safeParse(args.resume_snapshot) : undefined
+          const previousSnapshot = snapshot?.success ? validatedResumeSnapshot(fresh) : undefined
           const snapshotFits = !!snapshot?.success && ResumeSnapshotSchema.safeParse({
             ...snapshot.data, schemaVersion: 1, ticketId, assignmentId: expectedAssignment,
-            capturedAt: new Date().toISOString(), revision: (fresh.resumeSnapshot?.revision ?? 0) + 1,
+            capturedAt: new Date().toISOString(), revision: (previousSnapshot?.revision ?? 0) + 1,
           }).success
+          if (snapshotFits && fresh.resumeSnapshot && !previousSnapshot) {
+            // Do not let corrupt metadata poison revisions or preserve an invalid
+            // note through duplicate detection. Reread after claimPull's binding;
+            // the replacement and the report still commit or roll back together.
+            const repaired = host.store.tickets.get(ticketId)!
+            delete repaired.resumeSnapshot
+            host.store.tickets.save(repaired)
+          }
           const report = { state: args.state, summary: args.summary, ...(args.human_action !== undefined ? { question: args.human_action } : {}),
             ...(args.question_for_trigger_id ? { askedBy: args.question_for_trigger_id } : {}),
             ...(args.reply_to_trigger_id ? { answers: args.reply_to_trigger_id } : {}),

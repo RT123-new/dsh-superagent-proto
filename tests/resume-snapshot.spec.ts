@@ -59,4 +59,20 @@ describe('resume snapshots', () => {
     newAssignment.assignments.push({ id: 'assignment-2', state: 'pending', createdAt: '2026-11-04T12:03:00.000Z' })
     expect(resumeSnapshotHint(newAssignment)).toMatchObject({ potentially_stale: true })
   })
+  it('requires an input read before capture, with conservative handling of legacy and ambiguous times', () => {
+    for (const [readAt, deliveredAt, stale] of [
+      ['2026-11-04T11:59:59.000Z', undefined, false],
+      ['2026-11-04T13:00:00+01:00', undefined, true],
+      ['invalid', undefined, true],
+      [null, undefined, true],
+      [undefined, undefined, true],
+      [undefined, '2026-11-04T11:59:59.000Z', false],
+      [undefined, '2026-11-04T12:00:01.000Z', true],
+    ] as const) {
+      const value = ticket(persisted())
+      value.inputs = [{ id: 'message', kind: 'trigger', triggerId: 'trigger',
+        at: '2026-11-04T11:59:00.000Z', readAt, deliveredAt }]
+      expect(resumeSnapshotHint(value)?.potentially_stale).toBe(stale)
+    }
+  })
 })

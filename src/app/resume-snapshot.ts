@@ -48,13 +48,20 @@ export function validatedResumeSnapshot(ticket: Ticket): ResumeSnapshot | undefi
   return snapshot.data
 }
 
-/** Unread inputs and equal/invalid timestamps are conservatively considered stale. */
+/** Receipt is not a read: pending/unread inputs and equal/invalid read times make a hint stale. */
 export function snapshotPotentiallyStale(ticket: Ticket, snapshot: ResumeSnapshot): boolean {
   const captured = Date.parse(snapshot.capturedAt)
   return snapshot.assignmentId !== latestAssignment(ticket)?.id || !!ticket.undelivered?.length
     || !Number.isFinite(captured) || ticket.inputs.some(input => {
       const at = Date.parse(input.at)
-      return !Number.isFinite(at) || at >= captured
+      if (!Number.isFinite(at) || at >= captured) return true
+      if (input.kind !== 'trigger') return false
+      // Delivery removes an input from `undelivered` while it may still wait in
+      // the Session inbox. A later read cannot retroactively update this note.
+      // Legacy inputs use delivery time; without either timestamp the read is unknown.
+      const readAt = input.readAt === undefined ? input.deliveredAt : input.readAt
+      const read = readAt ? Date.parse(readAt) : NaN
+      return !Number.isFinite(read) || read >= captured
     })
 }
 

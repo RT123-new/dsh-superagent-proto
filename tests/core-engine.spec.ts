@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { Engine, MemoryRepositories, UserError, followupOwners, key, runningAssignment, ticketOutcome, ticketStage,
   waitsForPerson } from '../src/core/index.ts'
 import type { Assessor, Assignment, Candidate, EngineOptions, Executor, OutboundMessage, Outcome, Policy, Ticket, Trigger } from '../src/core/index.ts'
+import { resumeSnapshotHint } from '../src/app/resume-snapshot.ts'
 
 const member = { source: 'chat', id: 'alice' }
 const guest = { source: 'chat', id: 'guest' }
@@ -1625,6 +1626,22 @@ describe('resume snapshot lifecycle', () => {
     currentState: 'Patch prepared.', nextAction: 'Run regression suite.', openQuestion: 'Unknown CI status.',
     completedWork: ['Updated polling.'], testsPerformed: [], remainingWork: ['Run tests.'],
     evidenceRefs: ['src/sources/github.ts'],
+  })
+  it('keeps a snapshot stale when an older input was delivered but not read before capture', () => {
+    const h = harness(), id = accepted(h).ticketId!
+    const current = () => h.repo.tickets.get(id)!
+    const assignmentId = runningAssignment(current())!.id
+    h.tick(1); h.engine.receive(trigger('2')); h.settle()
+    expect(current().undelivered).toEqual([])
+    expect(current().inputs.at(-1)).toMatchObject({ kind: 'trigger', readAt: null })
+    h.tick(1); h.engine.report(id, { state: 'progress', summary: 'Old step reports', assignmentId, resumeSnapshot: note() })
+    expect(resumeSnapshotHint(current())).toMatchObject({ potentially_stale: true })
+    // Taking the input into a later step cannot make an earlier snapshot reflect it.
+    h.tick(1); h.read(id)
+    expect(resumeSnapshotHint(current())).toMatchObject({ potentially_stale: true })
+    h.tick(1); h.engine.report(id, { state: 'progress', summary: 'New step reports', assignmentId,
+      resumeSnapshot: { ...note(), currentState: 'New constraint considered.' } })
+    expect(resumeSnapshotHint(current())).toMatchObject({ potentially_stale: false })
   })
   it('commits evidence with its report, deduplicates an unchanged note and retains it when omitted', () => {
     const h = harness(), id = accepted(h).ticketId!

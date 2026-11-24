@@ -543,3 +543,29 @@ it('rejects worker reports when the replacement assignment is pending', async ()
     .rejects.toThrow('No assignment is running')
   expect(h.runtime.store.tickets.get(ticket.id)?.assignments.at(-1)?.state).toBe('pending')
 })
+
+it('replaces invalid persisted snapshot metadata atomically with a new valid note', async () => {
+  const { ticket, sessionId } = await h.acceptedTicket(feishu('1', '@bot Fix the regression'))
+  const settings = h.runtime.store.settings()
+  h.runtime.store.saveSettings({ ...settings, executor: { ...settings.executor, resumeSnapshotsEnabled: true } })
+  const payload = { currentState: 'Patch prepared.', nextAction: 'Run tests.', openQuestion: 'CI is unknown.',
+    completedWork: [], testsPerformed: [], remainingWork: ['Run tests.'], evidenceRefs: ['src/app/resources.ts'] }
+  const report = (args: object = {}) => h.runTool(sessionId, 'orchestrator_report', {
+    state: 'progress', summary: 'Current evidence', resume_snapshot: payload, ...args,
+  })
+  await report()
+  for (const metadata of [{ revision: 'broken' }, { ticketId: 'different-ticket' }, { capturedAt: 'invalid' }]) {
+    const stored = h.runtime.store.tickets.get(ticket.id)!
+    const corrupt = { ...stored.resumeSnapshot!, ...metadata } as unknown as typeof stored.resumeSnapshot
+    stored.resumeSnapshot = corrupt
+    h.runtime.store.tickets.save(stored)
+    await expect(h.runTool(sessionId, 'orchestrator_read', { resource: `ticket/${ticket.id}/resume-snapshot` })).rejects.toThrow()
+    // A rejected report must leave the earlier record untouched, including its invalid metadata.
+    await expect(report({ state: 'ready', human_action: 'Which result should I deliver?' })).rejects.toThrow()
+    expect(h.runtime.store.tickets.get(ticket.id)?.resumeSnapshot).toEqual(corrupt)
+    expect(await report()).not.toHaveProperty('snapshot_ignored')
+    expect(h.runtime.store.tickets.get(ticket.id)?.resumeSnapshot).toMatchObject({ ticketId: ticket.id, revision: 1 })
+    await expect(h.runTool(sessionId, 'orchestrator_read', { resource: `ticket/${ticket.id}/resume-snapshot` }))
+      .resolves.toMatchObject({ text: expect.stringContaining('Patch prepared.') })
+  }
+})

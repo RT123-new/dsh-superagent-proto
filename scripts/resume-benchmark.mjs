@@ -67,15 +67,18 @@ export function evaluate(pairs) {
   const correctness = { baselineCorrect, snapshotCorrect, baselineRate: baselineCorrect / pairs.length,
     snapshotRate: snapshotCorrect / pairs.length,
     regressedPairs: pairs.filter(p => p.baseline.correct && !p.snapshot.correct).map(p => p.id) }
-  // Missing telemetry is unknown, not a measured zero. Report totals/rates only
-  // for completely observed candidate cohorts; a feature never used cannot pass.
+  // Missing telemetry is unknown, not a measured zero. A valid comparison also
+  // needs an explicitly unexposed baseline; the group name alone is not evidence.
   const safetyFailures = pairs.every(p => p.snapshot.safetyFailures !== undefined)
     ? sum(pairs.map(p => p.snapshot.safetyFailures)) : null
+  const failedTrials = safetyFailures === null ? null : pairs.filter(p => p.snapshot.safetyFailures > 0).length
   const staleErrors = pairs.every(p => p.snapshot.staleErrors !== undefined)
     ? sum(pairs.map(p => p.snapshot.staleErrors)) : null
   const usedSnapshots = pairs.every(p => typeof p.snapshot.usedSnapshot === 'boolean')
     ? pairs.filter(p => p.snapshot.usedSnapshot).length : null
-  const telemetryKnown = safetyFailures !== null && staleErrors !== null && usedSnapshots !== null
+  const baselineSnapshotUses = pairs.every(p => typeof p.baseline.usedSnapshot === 'boolean')
+    ? pairs.filter(p => p.baseline.usedSnapshot).length : null
+  const telemetryKnown = safetyFailures !== null && staleErrors !== null && usedSnapshots !== null && baselineSnapshotUses !== null
   const costsKnown = pairs.every(p => p.baseline.totalCost !== undefined && p.snapshot.totalCost !== undefined)
   const cost = costsKnown ? (() => {
     const baseline = sum(pairs.map(p => p.baseline.totalCost))
@@ -88,11 +91,12 @@ export function evaluate(pairs) {
   const pass = pairs.length >= 30 && latency.medianRelativeImprovement >= 0.2 && latency.confidence95?.lower > 0 &&
     // A faster wrong answer is not a successful recovery; zero correct completions cannot pass.
     token.medianRelativeImprovement >= 0.2 && snapshotCorrect > 0 && correctness.snapshotRate >= correctness.baselineRate &&
-    correctness.regressedPairs.length === 0 && telemetryKnown && usedSnapshots > 0 && safetyFailures === 0 && staleErrors === 0 &&
+    correctness.regressedPairs.length === 0 && telemetryKnown && baselineSnapshotUses === 0 && usedSnapshots > 0 && safetyFailures === 0 && staleErrors === 0 &&
     latencyOK && cost !== null && cost.saving > 0
-  return { n: pairs.length, latency, token, correctness, safety: { failures: safetyFailures, staleErrors,
-    snapshotUses: usedSnapshots, snapshotUseRate: usedSnapshots === null ? null : usedSnapshots / pairs.length,
-    failureRate: safetyFailures === null ? null : safetyFailures / pairs.length,
+  return { n: pairs.length, latency, token, correctness, safety: { failures: safetyFailures, failedTrials, staleErrors,
+    baselineSnapshotUses, snapshotUses: usedSnapshots, snapshotUseRate: usedSnapshots === null ? null : usedSnapshots / pairs.length,
+    failureRate: failedTrials === null ? null : failedTrials / pairs.length,
+    eventsPerTrial: safetyFailures === null ? null : safetyFailures / pairs.length,
     staleErrorRate: usedSnapshots && staleErrors !== null ? staleErrors / usedSnapshots : null },
     cost, verdict: pass ? 'meets_preregistered_targets' : pairs.length < 30 || cost === null
       ? 'inconclusive_missing_trials_or_cost' : !telemetryKnown ? 'inconclusive_missing_safety_or_usage' : 'targets_not_met' }

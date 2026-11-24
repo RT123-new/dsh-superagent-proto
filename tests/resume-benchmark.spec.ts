@@ -14,7 +14,7 @@ function run(pairs: unknown) {
   } finally { rmSync(dir, { recursive: true, force: true }) }
 }
 const pair = (i: number) => ({ id: `task-${i}`,
-  baseline: { resumeMs: 1000, endToEndMs: 6000, tokens: 1000, correct: true, totalCost: 1 },
+  baseline: { resumeMs: 1000, endToEndMs: 6000, tokens: 1000, correct: true, totalCost: 1, usedSnapshot: false },
   snapshot: { resumeMs: 600, endToEndMs: 5900, tokens: 700, correct: true, totalCost: .75,
     safetyFailures: 0, staleErrors: 0, usedSnapshot: true },
 })
@@ -44,6 +44,23 @@ describe('resume benchmark calculation', () => {
     expect(run(unused).value).toMatchObject({ verdict: 'targets_not_met', safety: { snapshotUses: 0, staleErrorRate: null } })
     delete (unused[0]!.snapshot as { usedSnapshot?: boolean }).usedSnapshot
     expect(run(unused).value).toMatchObject({ verdict: 'inconclusive_missing_safety_or_usage', safety: { snapshotUses: null } })
+  })
+  it('cannot validate a snapshot comparison when the baseline used snapshots or its usage is unknown', () => {
+    const records = Array.from({ length: 30 }, (_, i) => pair(i))
+    records[0]!.baseline.usedSnapshot = true
+    expect(run(records).value).toMatchObject({ verdict: 'targets_not_met', safety: { baselineSnapshotUses: 1 } })
+    delete (records[0]!.baseline as { usedSnapshot?: boolean }).usedSnapshot
+    expect(run(records).value).toMatchObject({ verdict: 'inconclusive_missing_safety_or_usage',
+      safety: { baselineSnapshotUses: null } })
+  })
+  it('distinguishes the fraction of affected trials from the number of safety events', () => {
+    const records = Array.from({ length: 30 }, (_, i) => pair(i))
+    records[0]!.snapshot.safetyFailures = 60
+    expect(run(records).value).toMatchObject({ verdict: 'targets_not_met', safety: {
+      failures: 60, failedTrials: 1, failureRate: 1 / 30, eventsPerTrial: 2,
+    } })
+    delete (records[1]!.snapshot as { safetyFailures?: number }).safetyFailures
+    expect(run(records).value).toMatchObject({ safety: { failures: null, failedTrials: null, failureRate: null, eventsPerTrial: null } })
   })
   it('rejects impossible duration order, fractional failure counts and malformed usage flags', () => {
     const original = pair(1)
