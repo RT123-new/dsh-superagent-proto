@@ -50,7 +50,7 @@ export async function readWorkspaceSlice(directory: string | undefined, path: st
     if (!(await handle.stat()).isFile()) throw new Error('Not a regular file')
     const buffer = Buffer.allocUnsafe(4096), decoder = new StringDecoder('utf8')
     const lines: string[] = []
-    let line = 1, part = '', partBytes = 0, bytes = 0, scanned = 0
+    let line = 1, part = '', partBytes = 0, bytes = 0, scanned = 0, pendingCR = false
     let stopped: FileSlice['truncated_by'] = null
     let next: number | null = null
     const separator = () => lines.length ? 1 : 0
@@ -60,14 +60,20 @@ export async function readWorkspaceSlice(directory: string | undefined, path: st
       next = lines.length ? line : null
     }
     const finishLine = (): void => {
-      const value = part.endsWith('\r') ? part.slice(0, -1) : part
-      const size = Buffer.byteLength(value, 'utf8')
+      const size = Buffer.byteLength(part, 'utf8')
       if (bytes + separator() + size > MAX_SLICE_BYTES) { byteLimit(); return }
       bytes += separator() + size
-      lines.push(value)
+      lines.push(part)
       part = ''
       partBytes = 0
+      pendingCR = false
       line++
+    }
+    const append = (char: string): void => {
+      const size = Buffer.byteLength(char, 'utf8')
+      if (bytes + separator() + partBytes + size > MAX_SLICE_BYTES) { byteLimit(); return }
+      partBytes += size
+      part += char
     }
     const visit = (piece: string): void => {
       // Avoid iterating over every character of a skipped prefix.
@@ -84,10 +90,11 @@ export async function readWorkspaceSlice(directory: string | undefined, path: st
         // files ending at the line cap must not expose a phantom continuation.
         if (lines.length >= maxLines) { stopped = 'line_limit'; next = line; break }
         if (char === '\n') { finishLine(); continue }
-        const size = Buffer.byteLength(char, 'utf8')
-        if (bytes + separator() + partBytes + size > MAX_SLICE_BYTES) { byteLimit(); break }
-        partBytes += size
-        part += char
+        // A trailing CR is stripped at LF/EOF, including across read buffers. Defer
+        // counting it until another non-LF character proves it belongs to the text.
+        if (pendingCR) { append('\r'); pendingCR = false; if (stopped) break }
+        if (char === '\r') pendingCR = true
+        else append(char)
       }
     }
     for (;;) {
@@ -102,7 +109,7 @@ export async function readWorkspaceSlice(directory: string | undefined, path: st
       visit(decoder.write(buffer.subarray(0, bytesRead)))
       if (stopped) break
     }
-    if (!stopped && part.length) finishLine()
+    if (!stopped && (part.length || pendingCR)) finishLine()
     if (stopped === 'byte_limit' && !lines.length && part.length) lines.push(part)
     signal?.throwIfAborted()
     const text = lines.join('\n')

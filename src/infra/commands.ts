@@ -257,7 +257,7 @@ export class Commands {
       return validItems(item, await this.pagewise(resource), tally)
     }
   }
-  /** Reads a list endpoint one page per subprocess call (same gh account, same repository-scoped path), so memory is bounded by one page. */
+  /** Reads a list endpoint with a bounded output per subprocess. The returned list still accumulates every page in memory. */
   private async pagewise(resource: string): Promise<unknown[]> {
     const [base = '', query = ''] = resource.split('?', 2)
     const params = new URLSearchParams(query)
@@ -288,7 +288,20 @@ export class Commands {
     if (!bot) throw new Error('The Feishu Source has no working bot CLI')
     const output = await this.run(bot.cli, [...args, '--as', 'bot', '--format', 'json'], cwd, { errorEnvelope: true })
       .catch((error: unknown) => { throw membership(error) })
-    const result = JSON.parse(output) as { ok: boolean; data: T; error?: { code?: number; message?: string } }
+    let result: { ok: boolean; data: T; error?: { code?: number; message?: string } }
+    try {
+      const parsed: unknown = JSON.parse(output)
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || typeof (parsed as { ok?: unknown }).ok !== 'boolean')
+        throw new Error('Invalid CLI response envelope')
+      result = parsed as typeof result
+    }
+    catch {
+      // A truncated provider response is a transport observation, not a permanent programming fault.
+      // Keep raw response content out of diagnostics, as with the GitHub JSON boundary above.
+      const failure = new CliError('lark-cli returned an unreadable JSON response envelope')
+      failure.unreadable = true
+      throw failure
+    }
     const code = result.error?.code
     if (!result.ok) throw membership(new CliError(`${result.error?.message ?? 'Feishu command failed'}${code ? ` (${code})` : ''}`, code))
     return result.data

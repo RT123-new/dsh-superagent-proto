@@ -13,8 +13,8 @@ it('an interrupted assistant surface is a failed interval, not a successful mode
  expect(metrics.snapshot().failedDurations['step_to_settlement|internal']?.count).toBe(1)
 })
 it('duplicate sent receipts and withdrawn receipts create no pending response timer',()=>{
- const metrics=new Metrics(), receipts={add:vi.fn(()=>false),withdraw:vi.fn(()=>true)}
- const outbox=new Outbox({store:{atomic:(f:()=>void)=>f(),afterCommit:(f:()=>void)=>f(),receipts},effects:{handle:()=>{},enqueue:()=>{},cancel:()=>{}},sources:{instance:()=>undefined,channelAllowed:()=>false,channelIdempotency:()=>undefined,channelIdempotencyWindow:()=>undefined,send:async()=>'sent'},probe:new Probe(metrics)} as never)
+ const metrics=new Metrics(), receipts={add:vi.fn(()=>false),withdraw:vi.fn(()=>true),get:()=>({status:'pending'})}
+ const outbox=new Outbox({store:{atomic:(f:()=>void)=>f(),afterCommit:(f:()=>void)=>f(),receipts},effects:{handle:()=>{},enqueue:()=>{},cancel:()=>{},attemptUnsettled:()=>false},sources:{instance:()=>undefined,channelAllowed:()=>false,channelIdempotency:()=>undefined,channelIdempotencyWindow:()=>undefined,send:async()=>'sent'},probe:new Probe(metrics)} as never)
  const message={id:'sent',kind:'acknowledgement',channel:{source:'github'},text:'ok'}
  outbox.send(message as never)
  expect((outbox as unknown as {queued:Map<string,number>}).queued.size).toBe(0)

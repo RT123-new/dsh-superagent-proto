@@ -12,8 +12,8 @@ import { storeReads } from './store-read.ts'
 
 /** A Trigger's position on its thread timeline, ordered by timestamp and then `id` as tie-breaker. */
 export interface TimelinePlace { at: string; id: string }
-/** Why a message was dropped: its conversation can never receive it (`channelGone`), or its Source no longer listens to it (`channelIgnored`). */
-export type DropReason = 'channelGone' | 'channelIgnored'
+/** Why future delivery stopped; `withdrawnUnknown` retains a possible earlier send rather than claiming it was never delivered. */
+export type DropReason = 'channelGone' | 'channelIgnored' | 'withdrawnUnknown'
 /** Outbound message receipt tracked in the outbox from the moment it is queued (`pending`, `sent`, or `dropped`); delivery attempt counts live on its `reply` effect. */
 export interface Receipt extends OutboundMessage { status: ReplyStatus; queuedAt?: string; dropped?: { at: string; reason: DropReason }
   /** True once a delivery dispatch reached the point where the provider may have been invoked; SendNotAttempted failures never set it. */
@@ -300,14 +300,15 @@ export class Store implements Repositories {
       this.db.prepare("UPDATE outbox SET value = json_patch(value, ?) WHERE id = ? AND value ->> '$.status' = 'pending'").run(JSON.stringify({ providerContact: true }), id)
     },
     /**
-     * Marks a pending receipt as sent or dropped (with drop reason and timestamp), recreating the receipt if the message
-     * was withdrawn while being sent so its ID cannot be queued again.
+     * Marks a pending receipt as sent or dropped (with drop reason and timestamp). A late definitive outcome may replace
+     * a withdrawal tombstone, whose original payload is retained throughout; the ID can never be reused for new content.
      */
     settle: (message: OutboundMessage, outcome: 'sent' | DropReason): void => {
       const settled = outcome === 'sent' ? { status: 'sent' } : { status: 'dropped', dropped: { at: new Date().toISOString(), reason: outcome } }
       const { id, channel, text, kind, ticketId } = message
-      const updated = this.db.prepare("UPDATE outbox SET value = json_patch(value, ?) WHERE id = ? AND value ->> '$.status' = 'pending'")
-        .run(JSON.stringify(settled), id)
+      const updated = this.db.prepare(`UPDATE outbox SET value = json_patch(value, ?) WHERE id = ? AND
+        (value ->> '$.status' = 'pending' OR (value ->> '$.status' = 'dropped' AND value ->> '$.dropped.reason' = 'withdrawnUnknown'))`)
+        .run(JSON.stringify({ ...settled, ...outcome === 'sent' ? { dropped: null } : {} }), id)
       if (!Number(updated.changes)) this.db.prepare('INSERT OR IGNORE INTO outbox (id, value) VALUES (?, ?)')
         .run(id, JSON.stringify({ id, channel, text, kind, ...ticketId ? { ticketId } : {}, ...settled }))
     },

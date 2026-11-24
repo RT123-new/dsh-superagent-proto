@@ -50,6 +50,29 @@ describe('ticket-scoped bounded source file reads', () => {
     expect(await readWorkspaceSlice(directory, 'exact.txt', 1, 2)).toMatchObject({ next_line: null, truncated_by: null })
   })
 
+  it.each(['\n', '\r\n'])('keeps the continuation when text exactly fills the budget before %j', async eol => {
+    const text = 'a'.repeat(MAX_SLICE_BYTES)
+    await writeFile(join(directory, 'exact-budget.txt'), text + eol + 'last' + eol)
+    const page = await readWorkspaceSlice(directory, 'exact-budget.txt')
+    expect(page).toMatchObject({ text, returned_bytes: MAX_SLICE_BYTES, lines: 1, next_line: 2, truncated_by: 'byte_limit' })
+    expect(await readWorkspaceSlice(directory, 'exact-budget.txt', page.next_line!)).toMatchObject({ text: 'last', lines: 1, next_line: null })
+    await writeFile(join(directory, 'exact-budget.txt'), text + eol)
+    expect(await readWorkspaceSlice(directory, 'exact-budget.txt')).toMatchObject({ text, next_line: null, truncated_by: null })
+  })
+
+  it('defers only a trailing CR and preserves embedded carriage returns at the budget boundary', async () => {
+    // CRLF itself spans a 4096-byte read boundary; it must not consume output budget.
+    const first = 'a'.repeat(4095), second = 'b'.repeat(MAX_SLICE_BYTES - first.length - 1)
+    await writeFile(join(directory, 'split-crlf.txt'), first + '\r\n' + second + '\r\nlast')
+    expect(await readWorkspaceSlice(directory, 'split-crlf.txt')).toMatchObject({
+      text: first + '\n' + second, returned_bytes: MAX_SLICE_BYTES, lines: 2, next_line: 3, truncated_by: 'byte_limit',
+    })
+    await writeFile(join(directory, 'embedded-cr.txt'), 'a'.repeat(MAX_SLICE_BYTES - 1) + '\rb\r\nlast')
+    expect(await readWorkspaceSlice(directory, 'embedded-cr.txt')).toMatchObject({
+      text: 'a'.repeat(MAX_SLICE_BYTES - 1) + '\r', returned_bytes: MAX_SLICE_BYTES, next_line: null, truncated_by: 'byte_limit',
+    })
+  })
+
   it('bounds prefix scanning even when the requested line is absent', async () => {
     const path = join(directory, 'sparse.txt')
     await writeFile(path, '')

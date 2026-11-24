@@ -204,6 +204,12 @@ export class Effects {
     const row = this.store.db.prepare('SELECT error FROM effect WHERE kind = ? AND key = ?').get(kind, key)
     return typeof row?.error === 'string' && hasMarker(row.error, ATTEMPT_UNKNOWN)
   }
+  /** A running or crash-uncertain attempt cannot be withdrawn as if its provider contact never happened. */
+  attemptUnsettled(kind: EffectKind, key: string): boolean {
+    const row = this.store.db.prepare('SELECT error FROM effect WHERE kind = ? AND key = ?').get(kind, key)
+    return [...this.tasks].some(task => task.kind === kind && task.key === key)
+      || (typeof row?.error === 'string' && (hasMarker(row.error, ATTEMPT_STARTED) || hasMarker(row.error, ATTEMPT_UNKNOWN)))
+  }
   kick(): void {
     if (this.scheduled) return
     this.scheduled = true

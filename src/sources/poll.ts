@@ -22,7 +22,7 @@ export const recoverySince = (cursor: string, started: string, reconcile: boolea
   reconcile ? new Date(Math.min(Date.parse(cursor), Date.parse(started) - horizonSeconds * 1000)).toISOString() : cursor
 /** Polls each subscribed Thread of `source` within the horizon independently; records failures on the Thread as `pollError` (unless `stopped()`) and clears `pollError` on success. */
 export async function pollThreads(ctx: SourceContext, source: string, stopped: () => boolean, poll: (thread: Thread) => Promise<void>,
-  skip: (thread: Thread) => boolean = () => false): Promise<void> {
+  skip: (thread: Thread) => boolean = () => false, haltOnError: (error: unknown) => boolean = () => false): Promise<void> {
   for (const thread of ctx.threads.subscribed(source)) {
     if (stopped()) return
     if (skip(thread) || !polled(ctx, thread)) continue
@@ -31,7 +31,11 @@ export async function pollThreads(ctx: SourceContext, source: string, stopped: (
       ctx.threads.patch(thread.key, { pollError: undefined })
     } catch (error) {
       if (stopped()) return
-      ctx.threads.patch(thread.key, { pollError: String(error) })
+      try { ctx.threads.patch(thread.key, { pollError: String(error) }) }
+      finally {
+        // A provider-wide limit must reach the caller even if saving its diagnostic fails.
+        if (haltOnError(error)) throw error
+      }
     }
   }
 }

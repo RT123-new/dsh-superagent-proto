@@ -21,6 +21,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The committed push/PR range is needed below; a working-tree diff is empty after checkout.
+          fetch-depth: 0
       - name: Record the exact tested SHA
         # After checkout: its default clean wipes untracked files, which dropped tested-sha.txt from the evidence artifact.
         run: echo "TESTED_SHA=${{ github.sha }}" | tee tested-sha.txt
@@ -42,7 +45,15 @@ jobs:
       - name: Build
         run: pnpm build
       - name: Whitespace and conflict check
-        run: git diff --check HEAD
+        env:
+          VALIDATION_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          base="$VALIDATION_BASE"
+          if [[ -z "$base" || "$base" =~ ^0+$ ]]; then
+            # A branch's first push has no previous remote head. Check the tested commit against its parent.
+            base="$(git rev-parse HEAD^)"
+          fi
+          git diff --check "$base" HEAD
       - name: Preserve test evidence
         if: always()
         uses: actions/upload-artifact@v4

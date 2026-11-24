@@ -415,6 +415,10 @@ Some generic modules still refer directly to GitHub or Feishu:
 
 | Test | Covers |
 | --- | --- |
+| `tests/review-second-pass-outbox.spec.ts` | Withdrawal during uncertain delivery, immutable receipt content, late success, and invalid idempotency timestamps |
+| `tests/review-second-worker-boundaries.spec.ts` | Report cancellation and deferred worker error ownership across assignment replacement |
+| `tests/second-pass-poll-embargo.spec.ts`, `tests/second-pass-embargo-persistence.spec.ts` | Provider embargo propagation through all polling lanes and failing local persistence |
+| `tests/second-pass-lark-response.spec.ts` | Malformed Feishu response classification and acknowledgement envelope validation |
 | `tests/core-engine.spec.ts` | Domain rules on in-memory repositories: receiving, Eval, fan-out, resume and stop, interrupted Assignments, the pause, Policy changes, reports and outcomes, attaching, replies, failed deliveries and dismissed problems |
 | `tests/stage.spec.ts` | The Ticket stages, row by row |
 | `tests/policy.spec.ts` | Source scope, the gate, the admission table, Mandate revalidation, the Policy version, settings migrations and assessment outcomes |

@@ -10,7 +10,7 @@ import type { Probe } from '../infra/metrics-probe.ts'
 
 export interface OutboxHost {
   readonly store: Pick<Store, 'atomic' | 'afterCommit' | 'receipts'>
-  readonly effects: Pick<Effects, 'enqueue' | 'cancel' | 'handle' | 'idle'> & Partial<Pick<Effects, 'attemptUnknown'>>
+  readonly effects: Pick<Effects, 'enqueue' | 'cancel' | 'handle' | 'idle' | 'attemptUnsettled'> & Partial<Pick<Effects, 'attemptUnknown'>>
   readonly sources: Pick<SourceRegistry, 'instance' | 'channelAllowed' | 'send' | 'channelIdempotency' | 'channelIdempotencyWindow'>
   readonly commands: Commands
   paused(): boolean
@@ -47,15 +47,26 @@ export class Outbox implements OutboxPort {
   status(id: string): ReplyStatus | undefined { return this.host.store.receipts.get(id)?.status }
   /** `attempted-unknown` when a send began and the host stopped before recording its outcome: a retry may duplicate the remote message. */
   outcome(id: string): 'sent' | 'pending' | 'attempted-unknown' | 'other' | undefined {
-    const status = this.status(id)
-    if (status === undefined) return undefined
-    if (status === 'sent') return 'sent'
-    if (status !== 'pending') return 'other'
+    const receipt = this.host.store.receipts.get(id)
+    if (receipt === undefined) return undefined
+    if (receipt.status === 'sent') return 'sent'
+    if (receipt.dropped?.reason === 'withdrawnUnknown') return 'attempted-unknown'
+    if (receipt.status !== 'pending') return 'other'
     return this.host.effects.attemptUnknown?.('reply', id) ? 'attempted-unknown' : 'pending'
   }
+  /** Stop future delivery; preserve an immutable tombstone if a previous or in-flight send may have succeeded. */
   withdraw(id: string): void {
     const { store, effects } = this.host
-    store.atomic(() => { if (store.receipts.withdraw(id)) { effects.cancel('reply', id); store.afterCommit(() => this.queued.delete(id)) } })
+    store.atomic(() => {
+      const receipt = store.receipts.get(id)
+      if (receipt?.status !== 'pending') return
+      // Deleting this receipt would allow the same key to be reused, erase an unknown outcome, or let a late success
+      // falsely settle a replacement payload. Cancellation cannot undo provider contact, so retain that evidence.
+      if (receipt.providerContact || effects.attemptUnsettled('reply', id)) store.receipts.settle(receipt, 'withdrawnUnknown')
+      else if (!store.receipts.withdraw(id)) return
+      effects.cancel('reply', id)
+      store.afterCommit(() => this.queued.delete(id))
+    })
   }
   sent(): Promise<void> { return this.host.effects.idle('reply') }
   private async deliver(id: string): Promise<void> {
@@ -71,8 +82,12 @@ export class Outbox implements OutboxPort {
     // bounds the first key use conservatively), another invocation could duplicate that accepted send, so the refusal
     // must happen BEFORE the next provider contact; parking only after a failed dispatch would be too late.
     const window = sources.channelIdempotencyWindow(receipt.channel.source)
-    if (window !== undefined && receipt.providerContact && (!receipt.queuedAt || Date.now() - Date.parse(receipt.queuedAt) >= window))
-      throw new AttemptUnknownError(new Error('the provider idempotency window may have expired after a possibly-accepted attempt'))
+    if (window !== undefined && receipt.providerContact) {
+      const queuedAt = receipt.queuedAt ? Date.parse(receipt.queuedAt) : Number.NaN, now = Date.now()
+      // Missing, invalid, or future timestamps cannot establish that a previous key use remains inside its window.
+      if (!Number.isFinite(queuedAt) || queuedAt > now || now - queuedAt >= window)
+        throw new AttemptUnknownError(new Error('the provider idempotency window may have expired after a possibly-accepted attempt'))
+    }
     if (!sources.channelAllowed(receipt.channel)) { store.receipts.settle(receipt, 'channelIgnored'); this.queued.delete(id); return }
     // A permanently unreachable target (such as a recalled message or deleted Issue) settles as `channelGone` so its receipt prevents retries.
     let result: 'sent' | 'gone' | 'waiting'

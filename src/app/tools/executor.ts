@@ -110,6 +110,7 @@ export function executorTools(host: ExecutorToolsHost, ticket: Ticket): Tool[] {
         reply_to_trigger_id: z.string().optional().describe('The explicit human question this report answers; never for ordinary progress.'),
       }).strict(),
       execute: async (args, signal) => {
+        signal?.throwIfAborted()
         const current = host.store.tickets.get(ticketId)
         if (!current || !liveTicket(current)) throw new Error('Ticket ended (PR was closed or work finished); do not resume it')
         // The PR lookup awaits: a report started by one assignment must not land on the one that replaced it meanwhile.
@@ -119,6 +120,7 @@ export function executorTools(host: ExecutorToolsHost, ticket: Ticket): Tool[] {
         const pull = args.pr_number != null ? await readPull(host.github, args.pr_number, signal) : undefined
         // Claim the PR, record the report, and queue the relay atomically so a rejected PR claim or invalid report leaves no partial state, and a recorded report always reaches the main Session.
         return host.store.atomic(() => {
+          signal?.throwIfAborted()
           const now = host.store.tickets.get(ticketId)
           if (!now || !liveTicket(now) || runningAssignment(now)?.id !== assignmentId) throw new Error('Assignment replaced or ticket ended; this report was not recorded')
           const refused = pull && claimPull(host.github, ticketId, pull)
