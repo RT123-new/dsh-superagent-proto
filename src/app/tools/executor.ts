@@ -30,7 +30,7 @@ export function executorTools(host: ExecutorToolsHost, ticket: Ticket): Tool[] {
       true, (resource, offset, limit, signal) => readResource(host.resources, resource, offset, limit, ticketId, signal)),
     tool({
       name: 'orchestrator_file_slice',
-      description: 'Read only a small range of a source file inside this ticket workspace. Search with grep/glob first; follow next_line when present. Truncated-by-byte single lines need a narrower search.',
+      description: 'Read only a small range of a source file inside this ticket workspace. Search with grep/glob first; follow next_line when present. A byte-limited page may have next_line; an individually oversized line or scan-limit error needs a narrower search.',
       schema: z.object({
         path: z.string().min(1).max(1024).describe('Relative file path inside the ticket workspace (never an absolute path).'),
         start_line: z.number().int().min(1).default(1),
@@ -38,8 +38,15 @@ export function executorTools(host: ExecutorToolsHost, ticket: Ticket): Tool[] {
       }).strict(),
       execute: async (args, signal) => {
         const current = host.store.tickets.get(ticketId)
-        if (!current || !liveTicket(current) || !runningAssignment(current)) throw new Error('Ticket is not currently assigned')
-        const slice = await readWorkspaceSlice(current.execution?.directory, args.path, args.start_line, args.max_lines, signal)
+        const assignmentId = current && liveTicket(current) ? runningAssignment(current)?.id : undefined
+        if (!assignmentId) throw new Error('Ticket is not currently assigned')
+        const directory = current?.execution?.directory
+        const slice = await readWorkspaceSlice(directory, args.path, args.start_line, args.max_lines, signal)
+        // The asynchronous read may have overlapped cancellation or replacement.
+        signal?.throwIfAborted()
+        const latest = host.store.tickets.get(ticketId)
+        if (!latest || !liveTicket(latest) || runningAssignment(latest)?.id !== assignmentId
+          || latest.execution?.directory !== directory) throw new Error('Assignment replaced or ticket ended; file slice discarded')
         host.probe?.count('worker_slice_reads')
         host.probe?.count('worker_slice_bytes', slice.returned_bytes)
         return slice
@@ -103,6 +110,7 @@ export function executorTools(host: ExecutorToolsHost, ticket: Ticket): Tool[] {
         reply_to_trigger_id: z.string().optional().describe('The explicit human question this report answers; never for ordinary progress.'),
       }).strict(),
       execute: async (args, signal) => {
+        signal?.throwIfAborted()
         const current = host.store.tickets.get(ticketId)
         if (!current || !liveTicket(current)) throw new Error('Ticket ended (PR was closed or work finished); do not resume it')
         // The PR lookup awaits: a report started by one assignment must not land on the one that replaced it meanwhile.
@@ -112,6 +120,7 @@ export function executorTools(host: ExecutorToolsHost, ticket: Ticket): Tool[] {
         const pull = args.pr_number != null ? await readPull(host.github, args.pr_number, signal) : undefined
         // Claim the PR, record the report, and queue the relay atomically so a rejected PR claim or invalid report leaves no partial state, and a recorded report always reaches the main Session.
         return host.store.atomic(() => {
+          signal?.throwIfAborted()
           const now = host.store.tickets.get(ticketId)
           if (!now || !liveTicket(now) || runningAssignment(now)?.id !== assignmentId) throw new Error('Assignment replaced or ticket ended; this report was not recorded')
           const refused = pull && claimPull(host.github, ticketId, pull)

@@ -70,6 +70,11 @@ it('reports Feishu failures with their code and without command arguments', () =
   expect(membership).toMatchObject({ message: 'operator is not in the chat (232011)', code: 232011 })
   expect(commandError({stderr:JSON.stringify({error:{code:999,message:'scope missing'}})}).message).toBe('scope missing (999)')
 })
+it('preserves maxBuffer classification when stderr contains diagnostics', () => {
+  const failure = commandError({ code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER', stderr: 'warning: truncated output' }, 'gh')
+  expect(failure).toMatchObject({ oversized: true })
+  expect(classifyError(failure)).toBe('permanent')
+})
 describe('Channels', () => {
   const commands = () => new Commands(() => deployment, {}, new AbortController().signal)
   const feishu = { ...reply, channel: feishuChannel('oc_1', 'om_1') }
@@ -270,6 +275,24 @@ describe('trusted transport metadata: real provider Retry-After at the gh bounda
     const notBefore = serverNotBeforeOf(failure)
     expect(notBefore).toBeGreaterThanOrEqual(before + 30_000)
     expect(notBefore).toBeLessThanOrEqual(Date.now() + 30_000)
+  })
+  it('does not inherit Retry-After from an earlier successful page', async () => {
+    const cli = failingGh("HTTP/2.0 200 OK\r\nRetry-After: 600\r\n\r\n[]\nHTTP/2.0 429 Too Many Requests\r\n\r\n{}", 'gh: HTTP 429')
+    const failure = await commandsFor(cli).gh(['api', 'repos/acme/widgets/issues', '--paginate', '--slurp']).catch((error: unknown) => error)
+    expect(classifyError(failure)).toBe('rate_limited')
+    expect(serverNotBeforeOf(failure)).toBeUndefined()
+  })
+  it('does not classify an incomplete paginated request using an earlier successful status', async () => {
+    const cli = failingGh("HTTP/2.0 200 OK\r\n\r\n[]", 'gh: Not Found (HTTP 404)')
+    const failure = await commandsFor(cli).gh(['api', 'repos/acme/widgets/issues', '--paginate', '--slurp']).catch((error: unknown) => error)
+    expect(classifyError(failure)).toBe('permanent')
+  })
+  it('captures typed Retry-After on raw include calls used by pollers', async () => {
+    const cli = failingGh("HTTP/2.0 429 Too Many Requests\r\nRetry-After: 20\r\n\r\n{}", 'gh: HTTP 429')
+    const before = Date.now()
+    const failure = await commandsFor(cli).api('issues', '--include').catch((error: unknown) => error)
+    expect(classifyError(failure)).toBe('rate_limited')
+    expect(serverNotBeforeOf(failure)).toBeGreaterThanOrEqual(before + 20_000)
   })
   /** A stand-in lark-cli that prints a typed error envelope on stderr (lark-cli >= 1.0.84 contract) and fails. */
   const failingLark = (envelope: string): string => {

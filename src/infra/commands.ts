@@ -52,7 +52,7 @@ function splitResponseHeaders(output: string): { status?: number; retryAfter?: s
       }
       const head = normalized.slice(position, end)
       status = Number(/^HTTP\/\S+ (\d{3})\b/.exec(head)?.[1]) || status
-      retryAfter = /^Retry-After:[ \t]*(.*?)[ \t]*$/im.exec(head)?.[1] ?? retryAfter
+      retryAfter = /^Retry-After:[ \t]*(.*?)[ \t]*$/im.exec(head)?.[1]
       position = end + 2
       continue
     }
@@ -102,6 +102,13 @@ function larkRetryMetadata(stderr: string): { status?: number; retryAfter?: numb
 export function commandError(error: unknown, program = 'command'): Error {
   if (error instanceof Error && error.name === 'AbortError') return error
   const exitCode = error && typeof error === 'object' && 'code' in error && typeof error.code === 'number' ? error.code : undefined
+  // execFile can supply stderr alongside a maxBuffer failure. Do not lose the
+  // output-cap classification by treating that diagnostic as an ordinary CLI error.
+  if (error && typeof error === 'object' && 'code' in error && error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') {
+    const failure = new CliError(`${basename(program)} printed more output than it may`, undefined, exitCode)
+    failure.oversized = true
+    return failure
+  }
   if (error && typeof error === 'object' && 'stderr' in error && typeof error.stderr === 'string') {
     const stderr = error.stderr.trim()
     let parsed: { error?: { code?: number; message?: string } } | undefined
@@ -113,7 +120,6 @@ export function commandError(error: unknown, program = 'command'): Error {
     if (stderr) return new CliError(stderr.slice(0, 2000), Number(/\bHTTP (\d{3})\b/.exec(stderr)?.[1]) || undefined, exitCode)
   }
   const failure = new CliError(`${basename(program)} ${ended(error)}`, undefined, exitCode)
-  if (error && typeof error === 'object' && 'code' in error && error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') failure.oversized = true
   return failure
 }
 function ended(error: unknown): string {
@@ -192,7 +198,12 @@ export class Commands {
       if (transport?.responseHeaders && failure instanceof CliError) {
         const stdout = error && typeof error === 'object' && 'stdout' in error && typeof error.stdout === 'string' ? error.stdout : ''
         const { status, retryAfter } = splitResponseHeaders(stdout)
-        if (status !== undefined || retryAfter !== undefined) failure.transportFailure = new TransportFailure(failure.message, { status: status ?? failure.code, retryAfter })
+        // A completed successful page is not the response to a later failed request.
+        // Only the final error/304 header, or the actual CLI error code, may classify it.
+        const finalErrorHeader = status !== undefined && (status >= 400 || status === 304)
+        const errorStatus = finalErrorHeader ? status : failure.code
+        const errorRetryAfter = finalErrorHeader ? retryAfter : undefined
+        if (errorStatus !== undefined || errorRetryAfter !== undefined) failure.transportFailure = new TransportFailure(failure.message, { status: errorStatus, retryAfter: errorRetryAfter })
       }
       // lark-cli >= 1.0.84 renders a typed error envelope on stderr; only this boundary turns its retry fields into scheduling metadata.
       if (transport?.errorEnvelope && failure instanceof CliError) {
@@ -225,7 +236,12 @@ export class Commands {
   async api<T>(schema: z.ZodType<T>, path: string, ...flags: string[]): Promise<T>
   async api(path: string, ...flags: string[]): Promise<string>
   async api<T>(schema: z.ZodType<T> | string, ...rest: string[]): Promise<T | string> {
-    if (typeof schema === 'string') return this.run(this.deployment.github.cli, ['api', this.path(schema), ...rest])
+    if (typeof schema === 'string') {
+      const args = ['api', this.path(schema), ...rest]
+      // Pollers using raw --include responses also need trusted retry metadata on failure.
+      return rest.includes('--include') ? this.run(this.deployment.github.cli, args, undefined, { responseHeaders: true })
+        : this.run(this.deployment.github.cli, args)
+    }
     const [path = '', ...flags] = rest
     return schema.parse(await this.gh(['api', this.path(path), ...flags]))
   }
@@ -241,7 +257,7 @@ export class Commands {
       return validItems(item, await this.pagewise(resource), tally)
     }
   }
-  /** Reads a list endpoint one page per subprocess call (same gh account, same repository-scoped path), so memory is bounded by one page. */
+  /** Reads a list endpoint with a bounded output per subprocess. The returned list still accumulates every page in memory. */
   private async pagewise(resource: string): Promise<unknown[]> {
     const [base = '', query = ''] = resource.split('?', 2)
     const params = new URLSearchParams(query)
@@ -272,7 +288,20 @@ export class Commands {
     if (!bot) throw new Error('The Feishu Source has no working bot CLI')
     const output = await this.run(bot.cli, [...args, '--as', 'bot', '--format', 'json'], cwd, { errorEnvelope: true })
       .catch((error: unknown) => { throw membership(error) })
-    const result = JSON.parse(output) as { ok: boolean; data: T; error?: { code?: number; message?: string } }
+    let result: { ok: boolean; data: T; error?: { code?: number; message?: string } }
+    try {
+      const parsed: unknown = JSON.parse(output)
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || typeof (parsed as { ok?: unknown }).ok !== 'boolean')
+        throw new Error('Invalid CLI response envelope')
+      result = parsed as typeof result
+    }
+    catch {
+      // A truncated provider response is a transport observation, not a permanent programming fault.
+      // Keep raw response content out of diagnostics, as with the GitHub JSON boundary above.
+      const failure = new CliError('lark-cli returned an unreadable JSON response envelope')
+      failure.unreadable = true
+      throw failure
+    }
     const code = result.error?.code
     if (!result.ok) throw membership(new CliError(`${result.error?.message ?? 'Feishu command failed'}${code ? ` (${code})` : ''}`, code))
     return result.data

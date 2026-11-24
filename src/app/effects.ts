@@ -44,7 +44,8 @@ type Options<K extends EffectKind> = Partial<Pick<Handler<K>, 'limit' | 'retry' 
  * Durable attempt markers, kept as a SUFFIX of the existing `error` column so they compose with failure text and never hide
  * the `blocked:` prefix. `[attempt-started]`: an attempt is in flight (or the host died in it). `[attempt-unknown]`: an
  * attempt began and the host stopped before its outcome was recorded, so the remote effect may have happened. Unknown is sticky:
- * later failures keep it, and only a recorded success (row deleted) or an explicit re-enqueue (new payload) clears it.
+ * later failures keep it. For replies, a recorded success removes the row; ordinary re-enqueue cannot erase an
+ * attempt marker, because the key identifies an immutable outbox receipt. Other kinds may replace their payload.
  */
 export const ATTEMPT_STARTED = '[attempt-started]'
 export const ATTEMPT_UNKNOWN = '[attempt-unknown]'
@@ -81,13 +82,18 @@ export class Effects {
     private readonly closing: () => boolean = () => false) {
     this.seq = Number(store.db.prepare('SELECT IFNULL(MAX(seq), 0) AS seq FROM effect').get()?.seq ?? 0)
   }
-  /** Upserts an effect in the caller's transaction, coalescing with any waiting row of the same kind and key while keeping its queue position. */
+  /** Upserts an effect in the caller's transaction, coalescing mutable payloads while preserving in-flight or uncertain reply receipts. */
   enqueue<K extends EffectKind>(kind: K, key: string, payload: EffectPayloads[K]): void {
     // A crash-uncertain reply recovers only through explicit operator rearm: an ordinary enqueue (such as a coalesced
     // upsert) must never silently clear its block and make it automatically retryable. Other kinds keep coalescing.
     if (kind === 'reply') {
       const existing = this.store.db.prepare("SELECT error FROM effect WHERE kind = 'reply' AND key = ?").get(key) as { error: string } | undefined
-      if (typeof existing?.error === 'string' && existing.error.startsWith('blocked:unknown_outcome')) { this.kick(); return }
+      if (typeof existing?.error === 'string' && (existing.error.startsWith('blocked:unknown_outcome')
+        || hasMarker(existing.error, ATTEMPT_STARTED) || hasMarker(existing.error, ATTEMPT_UNKNOWN))) {
+        // An identical receipt has no new payload. Never erase the durable marker
+        // while a send is in flight or after an operator acknowledged uncertainty.
+        this.kick(); return
+      }
     }
     this.store.db.prepare(`INSERT INTO effect (kind, key, value, seq, due, since) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(kind, key) DO UPDATE
       SET value = excluded.value, generation = generation + 1, attempts = 0, error = '', due = excluded.due`)
@@ -197,6 +203,12 @@ export class Effects {
   attemptUnknown(kind: EffectKind, key: string): boolean {
     const row = this.store.db.prepare('SELECT error FROM effect WHERE kind = ? AND key = ?').get(kind, key)
     return typeof row?.error === 'string' && hasMarker(row.error, ATTEMPT_UNKNOWN)
+  }
+  /** A running or crash-uncertain attempt cannot be withdrawn as if its provider contact never happened. */
+  attemptUnsettled(kind: EffectKind, key: string): boolean {
+    const row = this.store.db.prepare('SELECT error FROM effect WHERE kind = ? AND key = ?').get(kind, key)
+    return [...this.tasks].some(task => task.kind === kind && task.key === key)
+      || (typeof row?.error === 'string' && (hasMarker(row.error, ATTEMPT_STARTED) || hasMarker(row.error, ATTEMPT_UNKNOWN)))
   }
   kick(): void {
     if (this.scheduled) return

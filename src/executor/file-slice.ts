@@ -1,11 +1,13 @@
-/** Bounded, workspace-contained file reads for worker models. Not an OS sandbox against concurrent filesystem mutation. */
+/** Bounded, workspace-contained file reads. Not an OS sandbox against concurrent filesystem mutation. */
 import { constants } from 'node:fs'
-import { open, realpath } from 'node:fs/promises'
+import { open, realpath, stat } from 'node:fs/promises'
 import { isAbsolute, join, relative, sep, win32 } from 'node:path'
 import { StringDecoder } from 'node:string_decoder'
 
 export const MAX_SLICE_LINES = 200
 export const MAX_SLICE_BYTES = 12 * 1024
+/** Bound disk I/O as well as returned text; use a targeted search for very deep/large files. */
+export const MAX_SLICE_SCAN_BYTES = 16 * 1024 * 1024
 
 export interface FileSlice {
   path: string
@@ -18,11 +20,10 @@ export interface FileSlice {
 }
 
 /**
- * Return a small, line-addressable piece of a file. A 4-KiB buffer and UTF-8 decoder keep
- * memory bounded even for long single-line inputs; no entire file enters model context.
- * The canonical workspace root is checked before opening. Like the existing workspace
- * containment, this is an application-level check, not a defense against an attacker
- * swapping ancestor directories between the realpath and open operations.
+ * Return a small line-addressable piece of a regular file. The output byte budget
+ * includes line separators. When a subsequent line does not fit, do not return
+ * its incomplete prefix: retry that line as the first line of the next page.
+ * An individually oversized first line returns a bounded prefix without a cursor.
  */
 export async function readWorkspaceSlice(directory: string | undefined, path: string,
   startLine = 1, maxLines = 160, signal?: AbortSignal): Promise<FileSlice> {
@@ -40,46 +41,80 @@ export async function readWorkspaceSlice(directory: string | undefined, path: st
   if (!inside || inside === '..' || inside.startsWith('..' + sep) || isAbsolute(inside)) {
     throw new Error('File is outside the ticket workspace')
   }
-  const handle = await open(target, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0))
+  // Opening a FIFO for reading can block indefinitely before fstat or cancellation.
+  // Precheck, then use nonblocking/no-follow open and verify the opened descriptor.
+  if (!(await stat(target)).isFile()) throw new Error('Not a regular file')
+  signal?.throwIfAborted()
+  const handle = await open(target, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0))
   try {
     if (!(await handle.stat()).isFile()) throw new Error('Not a regular file')
     const buffer = Buffer.allocUnsafe(4096), decoder = new StringDecoder('utf8')
     const lines: string[] = []
-    let line = 1, part = '', bytes = 0, stopped: FileSlice['truncated_by'] = null
-    let lastLine = startLine - 1
+    let line = 1, part = '', partBytes = 0, bytes = 0, scanned = 0, pendingCR = false
+    let stopped: FileSlice['truncated_by'] = null
+    let next: number | null = null
+    const separator = () => lines.length ? 1 : 0
+    const byteLimit = () => {
+      stopped = 'byte_limit'
+      // Completed lines are safe to return; retry the unreturned line on its own.
+      next = lines.length ? line : null
+    }
+    const finishLine = (): void => {
+      const size = Buffer.byteLength(part, 'utf8')
+      if (bytes + separator() + size > MAX_SLICE_BYTES) { byteLimit(); return }
+      bytes += separator() + size
+      lines.push(part)
+      part = ''
+      partBytes = 0
+      pendingCR = false
+      line++
+    }
+    const append = (char: string): void => {
+      const size = Buffer.byteLength(char, 'utf8')
+      if (bytes + separator() + partBytes + size > MAX_SLICE_BYTES) { byteLimit(); return }
+      partBytes += size
+      part += char
+    }
     const visit = (piece: string): void => {
-      for (const char of piece) {
+      // Avoid iterating over every character of a skipped prefix.
+      let offset = 0
+      while (line < startLine) {
+        const newline = piece.indexOf('\n', offset)
+        if (newline < 0) return
+        offset = newline + 1
+        line++
+      }
+      for (const char of piece.slice(offset)) {
         if (stopped) break
-        if (char === '\n') {
-          if (line >= startLine) {
-            lines.push(part.endsWith('\r') ? part.slice(0, -1) : part)
-            lastLine = line
-            if (lines.length >= maxLines) { stopped = 'line_limit'; break }
-          }
-          part = ''
-          line++
-        } else if (line >= startLine) {
-          const size = Buffer.byteLength(char, 'utf8')
-          if (bytes + size > MAX_SLICE_BYTES) { stopped = 'byte_limit'; break }
-          bytes += size
-          part += char
-        }
+        // Observe one more character before advertising a next page. Exactly-full
+        // files ending at the line cap must not expose a phantom continuation.
+        if (lines.length >= maxLines) { stopped = 'line_limit'; next = line; break }
+        if (char === '\n') { finishLine(); continue }
+        // A trailing CR is stripped at LF/EOF, including across read buffers. Defer
+        // counting it until another non-LF character proves it belongs to the text.
+        if (pendingCR) { append('\r'); pendingCR = false; if (stopped) break }
+        if (char === '\r') pendingCR = true
+        else append(char)
       }
     }
     for (;;) {
       signal?.throwIfAborted()
-      const { bytesRead } = await handle.read(buffer, 0, buffer.length, null)
+      // One extra byte distinguishes exact EOF at the scan ceiling from a deeper file.
+      const length = Math.min(buffer.length, MAX_SLICE_SCAN_BYTES - scanned + 1)
+      const { bytesRead } = await handle.read(buffer, 0, length, null)
+      signal?.throwIfAborted()
       if (!bytesRead) { visit(decoder.end()); break }
+      scanned += bytesRead
+      if (scanned > MAX_SLICE_SCAN_BYTES) throw new Error('File slice scan limit exceeded; use a narrower search')
       visit(decoder.write(buffer.subarray(0, bytesRead)))
       if (stopped) break
     }
-    if ((stopped === 'byte_limit' || !stopped) && line >= startLine && part.length) { lines.push(part); lastLine = line }
-    // The continuation cursor is line-addressable. A byte-capped single line needs a
-    // narrower query or a different tool; do not offer a cursor that cannot progress.
-    return { path, start_line: startLine, lines: lines.length, text: lines.join('\n'),
-      returned_bytes: Buffer.byteLength(lines.join('\n'), 'utf8'),
-      next_line: stopped === 'line_limit' ? lastLine + 1 : null,
-      truncated_by: stopped }
+    if (!stopped && (part.length || pendingCR)) finishLine()
+    if (stopped === 'byte_limit' && !lines.length && part.length) lines.push(part)
+    signal?.throwIfAborted()
+    const text = lines.join('\n')
+    return { path, start_line: startLine, lines: lines.length, text,
+      returned_bytes: Buffer.byteLength(text, 'utf8'), next_line: next, truncated_by: stopped }
   } finally {
     await handle.close()
   }

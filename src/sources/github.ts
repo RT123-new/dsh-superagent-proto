@@ -148,6 +148,8 @@ export function pollPauseSeconds(configured: number, failures: number, error: un
   const backoff = decision.retry ? Math.ceil(decision.delay / 1000) : 0
   return Math.max(base, backoff, server)
 }
+/** Preserve the original transport error and stop further provider reads as soon as a limit or trusted embargo is observed. */
+const mustPause = (error: unknown): boolean => classifyError(error) === 'rate_limited' || (serverNotBeforeOf(error) ?? 0) > Date.now()
 /** Clears a stored embargo once a round has succeeded; a failed write leaves the older, longer-or-equal value, which at worst waits once more. */
 function clearEmbargo(ctx: SourceContext): void {
   try { if (ctx.state.get(KV.github.notBefore) !== undefined) ctx.state.set(KV.github.notBefore, undefined) } catch { /* retained until the next success */ }
@@ -242,7 +244,12 @@ function failed(ctx: SourceContext, round: Round, number: number, error: unknown
   if (deleted(error)) round.dropped.push(number)
   else if (parked) round.parked.push(number)
   else round.failures.push(`#${number}: ${String(error)}`)
-  ctx.threads.patch(`github:${number}`, { pollError: String(error) })
+  try { ctx.threads.patch(`github:${number}`, { pollError: String(error) }) }
+  catch (writeError) {
+    // A failed diagnostic write cannot erase the provider's trusted embargo before watch sees it.
+    if (mustPause(error)) throw error
+    throw writeError
+  }
 }
 function included(raw: string): { headers: string; body: string } {
   const split = raw.search(/\r?\n\r?\n/)
@@ -264,7 +271,11 @@ async function pollRepository(ctx: SourceContext, round: Round): Promise<void> {
     if (stopped(ctx, round)) return
     if (!stream.observed(config)) { ctx.state.set(KV.github.stream(stream.id), undefined); continue }
     try { await readStream(ctx, round, stream.id, stream.path, config) }
-    catch (error) { if (!stopped(ctx, round)) round.failures.push(`${stream.id}: ${String(error)}`) }
+    catch (error) {
+      if (stopped(ctx, round)) return
+      if (mustPause(error)) throw error
+      round.failures.push(`${stream.id}: ${String(error)}`)
+    }
   }
   // When CI observation is turned off, clear the failure baseline but preserve the revision counter so future triggers have unique IDs.
   if (!config.observeCi) {
@@ -273,7 +284,11 @@ async function pollRepository(ctx: SourceContext, round: Round): Promise<void> {
     return
   }
   try { await pollBranchCi(ctx, round) }
-  catch (error) { if (!stopped(ctx, round)) round.failures.push(`default branch CI: ${String(error)}`) }
+  catch (error) {
+    if (stopped(ctx, round)) return
+    if (mustPause(error)) throw error
+    round.failures.push(`default branch CI: ${String(error)}`)
+  }
 }
 /**
  * Polls one repository-wide event stream (oldest first) since its cursor, following every pagination page before the
@@ -365,7 +380,7 @@ async function pollBranchCi(ctx: SourceContext, round: Round): Promise<void> {
 }
 /**
  * One polling round: notifications, then observed repository streams, then the PRs of open tickets with their CI, then
- * subscribed Threads. Each step and each Issue, PR, or Thread fails independently so all steps run before the round fails.
+ * subscribed Threads. Ordinary failures are independent; a provider limit or trusted retry embargo stops the round immediately.
  * Other read failures (including 404) fail the round toward the error threshold, whereas deleted (410) or abandoned
  * (24h+) threads are recorded only on the thread and in health detail.
  * A notifications lane parked on the documented fine-grained-token limitation is skipped between reconciliation-cadence
@@ -384,6 +399,7 @@ export async function pollRound(ctx: SourceContext, signal?: AbortSignal): Promi
   const notified = skipped
     ? { value: { count: 0, interval: Math.max(60, config?.pollSeconds ?? 60), reconciled: 0 } }
     : await pollNotifications(ctx, round).then(value => ({ value }), (error: unknown) => ({ error }))
+  if ('error' in notified && mustPause(notified.error)) throw notified.error
   await pollRepository(ctx, round)
   await pollTicketPulls(ctx, signal, round)
   await pollThreads(ctx, signal, round)
@@ -489,6 +505,7 @@ async function pollNotifications(ctx: SourceContext, round: Round): Promise<{ co
       reconciled = enqueue(wide.notifications, wideSince, true)
       lastReconciliation = round.started
     } catch (error) {
+      if (mustPause(error)) throw error
       if (!stopped(ctx, round)) round.failures.push(`notification reconciliation: ${String(error)}`)
     }
   }
@@ -505,8 +522,13 @@ async function pollNotifications(ctx: SourceContext, round: Round): Promise<{ co
       // Abandon notification retries after 24 hours of failures so a permanently unreadable thread does not hold source health in error; its cursor stays so a later notification or thread poll still reads what was missed.
       const parked = !deleted(error) && Date.parse(round.started) - Date.parse(retry.failedAt) >= RETRY_WINDOW_MS
       failed(ctx, round, number, error, parked)
-      if (!deleted(error)) { retries[number] = parked ? { ...retry, parked: true } : retry; continue }
-      delete retries[number]
+      if (!deleted(error)) retries[number] = parked ? { ...retry, parked: true } : retry
+      else delete retries[number]
+      if (mustPause(error)) {
+        // Keep retry ownership, but leave the scan cursor untouched so unvisited notifications replay after the embargo.
+        try { state.set(KV.github.retries, retries) }
+        finally { throw error } // Preserve the embargo even if the retry checkpoint cannot be written.
+      }
     }
   }
   // The checkpoint advances only after every notified item is durably processed, atomically with the retry and scan records.
@@ -585,7 +607,11 @@ export async function pollTicketPulls(ctx: SourceContext, signal?: AbortSignal, 
     try {
       const pr = await pull(ctx, round, number)
       if (pr.state !== 'closed' && !pr.merged) await pollChecks(ctx, round, number, pr)
-    } catch (error) { if (!stopped(ctx, round)) failed(ctx, round, number, error) }
+    } catch (error) {
+      if (stopped(ctx, round)) return
+      failed(ctx, round, number, error)
+      if (mustPause(error)) throw error
+    }
   }
 }
 /** Polls a PR's CI checks; only changes after the first baseline observation become Triggers. */
@@ -612,7 +638,7 @@ export async function pollThreads(ctx: SourceContext, signal?: AbortSignal, roun
       if (deleted(error)) round.dropped.push(Number(thread.ref.id)); else round.failures.push(`${thread.key}: ${String(error)}`)
       throw error
     }
-  }, thread => round.read.has(Number(thread.ref.id)))
+  }, thread => round.read.has(Number(thread.ref.id)), mustPause)
 }
 async function pollThread(ctx: SourceContext, round: Round, thread: Thread): Promise<void> {
   // The default branch's CI Thread has no Issue or PR to read; its CI arrives as Triggers.
