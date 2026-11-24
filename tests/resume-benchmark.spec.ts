@@ -52,6 +52,15 @@ describe('resume benchmark calculation', () => {
       expect(run([{ ...original, snapshot }]).status).not.toBe(0)
     }
   })
+  it('cannot pass a cohort of entirely incorrect recoveries even if faster and cheaper', () => {
+    const wrong = Array.from({ length: 30 }, (_, i) => ({ ...pair(i),
+      baseline: { ...pair(i).baseline, correct: false }, snapshot: { ...pair(i).snapshot, correct: false } }))
+    expect(run(wrong).value).toMatchObject({ verdict: 'targets_not_met',
+      correctness: { baselineCorrect: 0, snapshotCorrect: 0 },
+      cost: { baselinePerCorrect: null, snapshotPerCorrect: null } })
+    expect(run(Array.from({ length: 30 }, (_, i) => pair(i))).value?.cost)
+      .toMatchObject({ baselinePerCorrect: 1, snapshotPerCorrect: .75 })
+  })
   it('rejects malformed or duplicate trial records', () => {
     const duplicate = run([pair(1), pair(1)])
     expect(duplicate.status).not.toBe(0)

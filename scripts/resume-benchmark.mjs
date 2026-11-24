@@ -62,8 +62,10 @@ export function evaluate(pairs) {
     snapshotP95Ms: percentile(pairs.map(p => p.snapshot.endToEndMs), .95) }
   const token = { baselineMedian: median(pairs.map(p => p.baseline.tokens)),
     snapshotMedian: median(pairs.map(p => p.snapshot.tokens)), medianRelativeImprovement: median(tokenPairs) }
-  const correctness = { baselineRate: sum(pairs.map(p => Number(p.baseline.correct))) / pairs.length,
-    snapshotRate: sum(pairs.map(p => Number(p.snapshot.correct))) / pairs.length,
+  const baselineCorrect = pairs.filter(p => p.baseline.correct).length
+  const snapshotCorrect = pairs.filter(p => p.snapshot.correct).length
+  const correctness = { baselineCorrect, snapshotCorrect, baselineRate: baselineCorrect / pairs.length,
+    snapshotRate: snapshotCorrect / pairs.length,
     regressedPairs: pairs.filter(p => p.baseline.correct && !p.snapshot.correct).map(p => p.id) }
   // Missing telemetry is unknown, not a measured zero. Report totals/rates only
   // for completely observed candidate cohorts; a feature never used cannot pass.
@@ -78,11 +80,14 @@ export function evaluate(pairs) {
   const cost = costsKnown ? (() => {
     const baseline = sum(pairs.map(p => p.baseline.totalCost))
     const snapshot = sum(pairs.map(p => p.snapshot.totalCost))
-    return { baseline, snapshot, saving: baseline - snapshot, savingFraction: baseline > 0 ? (baseline - snapshot) / baseline : null }
+    return { baseline, snapshot, saving: baseline - snapshot, savingFraction: baseline > 0 ? (baseline - snapshot) / baseline : null,
+      baselinePerCorrect: baselineCorrect ? baseline / baselineCorrect : null,
+      snapshotPerCorrect: snapshotCorrect ? snapshot / snapshotCorrect : null }
   })() : null
   const latencyOK = latency.snapshotP95Ms <= latency.baselineP95Ms * 1.1
   const pass = pairs.length >= 30 && latency.medianRelativeImprovement >= 0.2 && latency.confidence95?.lower > 0 &&
-    token.medianRelativeImprovement >= 0.2 && correctness.snapshotRate >= correctness.baselineRate &&
+    // A faster wrong answer is not a successful recovery; zero correct completions cannot pass.
+    token.medianRelativeImprovement >= 0.2 && snapshotCorrect > 0 && correctness.snapshotRate >= correctness.baselineRate &&
     correctness.regressedPairs.length === 0 && telemetryKnown && usedSnapshots > 0 && safetyFailures === 0 && staleErrors === 0 &&
     latencyOK && cost !== null && cost.saving > 0
   return { n: pairs.length, latency, token, correctness, safety: { failures: safetyFailures, staleErrors,
