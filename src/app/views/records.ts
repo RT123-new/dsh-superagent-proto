@@ -50,8 +50,11 @@ export function snapshot(host: ViewHost): Snapshot {
   const threadsOf = (ticketId: string) => {
     if (!subscribed) {
       subscribed = new Map()
-      for (const thread of store.read.subscribedThreads()) for (const id of thread.subscriptions) subscribed.set(id,
-        [...subscribed.get(id) ?? [], thread])
+      for (const thread of store.read.subscribedThreads()) for (const id of thread.subscriptions) {
+        let group = subscribed.get(id)
+        if (!group) { group = []; subscribed.set(id, group) }
+        group.push(thread)
+      }
     }
     return subscribed.get(ticketId) ?? []
   }

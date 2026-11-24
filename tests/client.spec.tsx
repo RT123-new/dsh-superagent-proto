@@ -143,3 +143,72 @@ it('tells a dsh-superagent that does not answer from a record it does not have, 
   expect(await failure(async () => Response.json({ error: 'Unknown ticket', code: 'unknownTicket' }, { status: 404 }))).toEqual({
     message: 'user unknownTicket', status: 404, missing: true, unreachable: false })
 })
+
+
+it('coalesces an arbitrary burst of reloads into one trailing request and settles after it', async () => {
+  const calls: ((value: string) => void)[] = []
+  let reload!: () => Promise<void>
+  function Harness() { reload = usePoll(() => new Promise<string>(done => calls.push(done)), [], 1000).reload; return null }
+  const root = createRoot(document.createElement('div'))
+  try {
+    await act(async () => { root.render(<Harness />) })
+    expect(calls).toHaveLength(1)
+    const waiters = Array.from({ length: 200 }, () => reload())
+    let done = false
+    void Promise.all(waiters).then(() => { done = true })
+    await act(async () => { calls[0]!('initial') })
+    expect(calls).toHaveLength(2)
+    expect(done).toBe(false)
+    await act(async () => { calls[1]!('fresh'); await Promise.all(waiters) })
+    expect(done).toBe(true)
+    expect(calls).toHaveLength(2)
+  } finally { act(() => root.unmount()) }
+})
+
+it('does not dispatch a queued reload after unmount', async () => {
+  const calls: ((value: string) => void)[] = []
+  let reload!: () => Promise<void>
+  function Harness() { reload = usePoll(() => new Promise<string>(done => calls.push(done)), []).reload; return null }
+  const root = createRoot(document.createElement('div'))
+  await act(async () => { root.render(<Harness />) })
+  const trailing = reload()
+  act(() => root.unmount())
+  await trailing
+  await act(async () => { calls[0]!('late') })
+  expect(calls).toHaveLength(1)
+})
+
+it('rejects malformed success bodies and does not pretend a mutation was acknowledged', async () => {
+  const messages = { offline: 'offline', notRunning: 'not running', serverError: (status: number) => String(status),
+    requestFailed: (status: number) => String(status), setup: () => 'setup', user: () => 'user',
+    invalidResponse: 'invalid read', mutationUnknown: 'unknown mutation', readTimeout: 'read timed out' }
+  const call = caller(() => messages)
+  for (const body of ['', '<html>not json</html>', 'null', 'true', '"string"']) {
+    const fetcher = vi.fn(async () => new Response(body, { status: 200 }))
+    vi.stubGlobal('fetch', fetcher)
+    await expect(call('GET state')).rejects.toThrow('invalid read')
+    await expect(call('POST executor/pause', { body: { paused: true } })).rejects.toThrow('unknown mutation')
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  }
+})
+
+it('aborts a stalled management read and labels an unacknowledged write unknown without retry', async () => {
+  vi.useFakeTimers()
+  try {
+    const messages = { offline: 'offline', notRunning: 'not running', serverError: (status: number) => String(status),
+      requestFailed: (status: number) => String(status), setup: () => 'setup', user: () => 'user',
+      mutationUnknown: 'unknown mutation', readTimeout: 'read timed out' }
+    const fetcher = vi.fn((_url: string, options: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      options.signal!.addEventListener('abort', () => reject(new Error('aborted')), { once: true })
+    }))
+    vi.stubGlobal('fetch', fetcher)
+    const call = caller(() => messages)
+    const read = expect(call('GET state')).rejects.toThrow('read timed out')
+    await vi.advanceTimersByTimeAsync(30_000)
+    await read
+    const write = expect(call('POST executor/pause', { body: { paused: true } })).rejects.toThrow('unknown mutation')
+    await vi.advanceTimersByTimeAsync(60_000)
+    await write
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  } finally { vi.useRealTimers() }
+})

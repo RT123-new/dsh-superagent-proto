@@ -78,16 +78,16 @@ export function ConfirmButton({ label, title, message, onConfirm, variant = 'gho
   const { t } = usePanel()
   // Freeze the approval target at the moment the operator opens the dialog: a background refresh must not retarget
   // an open confirmation (e.g. a rearm's expectedGeneration) to state the operator never reviewed.
-  const [armed, setArmed] = useState<(() => Promise<unknown>) | null>(null)
-  const close = () => setArmed(null)
-  const confirm = useAction(armed ?? onConfirm)
+  const [armed, setArmed] = useState<{ title: string; message: string; execute: () => Promise<unknown> } | null>(null)
+  const confirm = useAction(armed?.execute ?? onConfirm)
+  const close = () => { if (!confirm.busy) setArmed(null) }
   return <>
-    <Button variant={variant} size="sm" icon={icon && <Icon name={icon} size={14} />} onClick={() => setArmed(() => onConfirm)}>{label}</Button>
-    <Modal open={armed !== null} onClose={close} title={title} closeLabel={t('close')} description={message}
+    <Button variant={variant} size="sm" icon={icon && <Icon name={icon} size={14} />} disabled={confirm.busy} onClick={() => setArmed({ title, message, execute: onConfirm })}>{label}</Button>
+    <Modal open={armed !== null} onClose={close} title={armed?.title ?? title} closeLabel={t('close')} description={armed?.message ?? message} closeDisabled={confirm.busy}
       footer={<>
-        <Button variant="ghost" onClick={close}>{t('cancel')}</Button>
+        <Button variant="ghost" disabled={confirm.busy} onClick={close}>{t('cancel')}</Button>
         <Button variant="primary" disabled={confirm.busy}
-          onClick={() => { void confirm.run().then(done => { if (done) close() }) }}>{t('confirm')}</Button>
+          onClick={() => { void confirm.run().then(done => { if (done) setArmed(null) }) }}>{t('confirm')}</Button>
       </>} />
   </>
 }

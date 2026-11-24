@@ -58,6 +58,7 @@ export function useAction<A extends unknown[]>(action: (...args: A) => Promise<u
 const messages = (t: T): ApiMessages => ({
   offline: t('offline'), notRunning: t('hostNotRunning'), serverError: status => t('serverError', { status }),
     requestFailed: status => t('requestFailed', { status }),
+  invalidResponse: t('invalidResponse'), readTimeout: t('readTimeout'), mutationUnknown: t('mutationUnknown'),
   setup: problem => problem.values.output ? `${setupText(t, problem)}\n${problem.values.output}` : setupText(t, problem),
   // A refusal names a prompt part by its label.
   user: ({ code, values }) => t(`userError.${code}`, values.part ? { ...values, part: valueLabel(t, 'promptPart', values.part) } : values),

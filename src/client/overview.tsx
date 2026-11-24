@@ -9,6 +9,18 @@ import { TicketLine } from './rows.tsx'
 import { healthText, localized, reasonLabel, valueLabel, readableMarkers } from './text.ts'
 import { CheckSetupButton, ConfirmButton, Hint, LoadState, Section, SetupMessage } from './widgets.tsx'
 
+function problemKey(problem: Problem): string {
+  switch (problem.kind) {
+    case 'setup': return JSON.stringify([problem.kind, problem.place])
+    case 'runtime-error': return JSON.stringify([problem.kind, problem.name])
+    case 'source-error': return JSON.stringify([problem.kind, problem.source.id, problem.source.health.name])
+    case 'eval-overdue': return JSON.stringify([problem.kind, problem.thread.key])
+    case 'eval-unavailable': return JSON.stringify([problem.kind, problem.decisionId])
+    case 'outgoing': return JSON.stringify([problem.kind, problem.outgoing.id])
+    default: return problem.kind
+  }
+}
+
 function ProblemLine({ problem, onChanged }: { problem: Problem; onChanged: () => Promise<void> }) {
   const { t, call, navigate } = usePanel()
   const post = useAction((request: () => Promise<unknown>) => request(), { reload: onChanged })
@@ -72,14 +84,14 @@ export function OverviewPage() {
   const more = (route: Route) => <button type="button" className="dt-textlink dt-more-link"
     onClick={() => navigate(route)}>{t('details')}</button>
   return <>
-    {error && <LoadState error={error} loading={false} />}
+    {error && <><p className="dt-hint" role="status">{t('staleData')}</p><LoadState error={error} loading={false} /></>}
     <Section title={t('pendingTickets')} count={data.person.length}>
       {data.person.length ? <ul className="dt-list dt-cards">{data.person.map(ticket => <TicketLine key={ticket.id} ticket={ticket} question
         onChanged={reload} />)}</ul>
         : <Hint>{t('needsYouNone')}</Hint>}
     </Section>
     {data.problems.length > 0 && <Section title={t('problems')} count={data.problems.length}>
-      <ul className="dt-list dt-cards">{data.problems.map((problem, index) => <ProblemLine key={index} problem={problem}
+      <ul className="dt-list dt-cards">{data.problems.map(problem => <ProblemLine key={problemKey(problem)} problem={problem}
         onChanged={reload} />)}</ul>
     </Section>}
     <Section title={t('lastDay')} action={more({ page: 'trigger', query: { filter: 'recent' } })}>
@@ -94,11 +106,18 @@ export function OverviewPage() {
     </Section>
     <Section title={t('term.executor')} action={more({ page: 'execution' })}>
       {/* Pauses surface in `problems` above, so Executor counts render the same in both states; while setup waits, nothing runs. */}
-      {setup?.problem ? <Hint>{t('executorWaitingSetup')}</Hint> : <div className="dt-stats">
+      {setup?.problem ? <Hint>{t('executorWaitingSetup')}</Hint> : <><div className="dt-stats">
         {stat(t('executingLabel'), `${data.executor.running} / ${data.executor.maxWorkers}`)}
         {stat(t('queuedLabel'), data.executor.queued)}
         {stat(t('idleLabel'), data.executor.idle)}
-      </div>}
+      </div>
+      {Number.isFinite(data.executor.running) && data.executor.maxWorkers > 0 && Number.isFinite(data.executor.maxWorkers) &&
+        <div className="dt-capacity">
+          <span>{t('capacityLabel')}{data.executor.running > data.executor.maxWorkers ? ' · ' + t('capacityOver') : ''}</span>
+          <div className="dt-capacity-track" aria-hidden="true"><span className="dt-capacity-fill" data-over={data.executor.running > data.executor.maxWorkers}
+            style={{ width: Math.min(100, Math.max(0, 100 * data.executor.running / data.executor.maxWorkers)) + '%' }} /></div>
+        </div>}
+      </>}
     </Section>
     {data.metrics && <MetricsPanel metrics={data.metrics} t={t} />}
     {!data.metrics && data.metricsState === 'failed' && <Section title={t('metricsTitle')}><Hint>{t('metricsSnapshotFailed')}</Hint></Section>}

@@ -2,7 +2,7 @@
  * Context-free UI primitives styled with `--dsw-alias-*` tokens.
  * Mirrors DSH ui-primitives markup and keyboard behavior without coupling to its internal package API.
  */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type KeyboardEvent,
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type KeyboardEvent,
   type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
@@ -80,7 +80,66 @@ function walk<V extends string>(event: KeyboardEvent, values: readonly V[], valu
   const list = event.currentTarget as HTMLElement
   requestAnimationFrame(() => list.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.focus())
 }
-interface TabItem<V extends string> { value: V; label: string; id: string; panelId: string }
+/* Navigation artwork from Lucide (https://lucide.dev), vendored SVG subset; no runtime dependency.
+ISC License
+
+Copyright (c) 2026 Lucide Icons and Contributors
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+---
+
+The following Lucide icons are derived from the Feather project:
+
+airplay, alert-circle, alert-octagon, alert-triangle, aperture, arrow-down-circle, arrow-down-left, arrow-down-right, arrow-down, arrow-left-circle, arrow-left, arrow-right-circle, arrow-right, arrow-up-circle, arrow-up-left, arrow-up-right, arrow-up, at-sign, calendar, cast, check, chevron-down, chevron-left, chevron-right, chevron-up, chevrons-down, chevrons-left, chevrons-right, chevrons-up, circle, clipboard, clock, code, columns, command, compass, corner-down-left, corner-down-right, corner-left-down, corner-left-up, corner-right-down, corner-right-up, corner-up-left, corner-up-right, crosshair, database, divide-circle, divide-square, dollar-sign, download, external-link, feather, frown, hash, headphones, help-circle, info, italic, key, layout, life-buoy, link-2, link, loader, lock, log-in, log-out, maximize, meh, minimize, minimize-2, minus-circle, minus-square, minus, monitor, moon, more-horizontal, more-vertical, move, music, navigation-2, navigation, octagon, pause-circle, percent, plus-circle, plus-square, plus, power, radio, rss, search, server, share, shopping-bag, sidebar, smartphone, smile, square, table-2, tablet, target, terminal, trash-2, trash, triangle, tv, type, upload, x-circle, x-octagon, x-square, x, zoom-in, zoom-out
+
+The MIT License (MIT) (for the icons listed above)
+
+Copyright (c) 2013-present Cole Bemis
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+*/
+const NAV_ICONS = {
+  overview: <><rect width="7" height="9" x="3" y="3" rx="1" /><rect width="7" height="5" x="14" y="3" rx="1" /><rect width="7" height="9" x="14" y="12" rx="1" /><rect width="7" height="5" x="3" y="16" rx="1" /></>,
+  source: <><path d="M16.247 7.761a6 6 0 0 1 0 8.478" /><path d="M19.075 4.933a10 10 0 0 1 0 14.134" /><path d="M4.925 19.067a10 10 0 0 1 0-14.134" /><path d="M7.753 16.239a6 6 0 0 1 0-8.478" /><circle cx="12" cy="12" r="2" /></>,
+  trigger: <><path d="M15 6a9 9 0 0 0-9 9V3" /><circle cx="18" cy="6" r="3" /><circle cx="6" cy="18" r="3" /></>,
+  eval: <><path d="M13 5h8M13 12h8M13 19h8" /><path d="m3 17 2 2 4-4m-6-6 2 2 4-4" /></>,
+  execution: <><rect width="8" height="8" x="3" y="3" rx="2" /><path d="M7 11v4a2 2 0 0 0 2 2h4" /><rect width="8" height="8" x="13" y="13" rx="2" /></>,
+  settings: <><path d="M14 17H5M19 7h-9" /><circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" /></>,
+} as const
+export function NavigationIcon({ name }: { name: keyof typeof NAV_ICONS }) {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{NAV_ICONS[name]}</svg>
+}
+
+interface TabItem<V extends string> { value: V; label: string; id: string; panelId: string; icon?: ReactNode }
 /** Page-level tab bar that re-emits `onChange` when clicking the active tab so callers can reset to the tab root. */
 export function SegmentedTabs<V extends string>({ items, value, onChange, label, className }: {
   items: readonly TabItem<V>[]; value: V; onChange: (next: V) => void; label: string; className?: string
@@ -107,7 +166,7 @@ export function SegmentedTabs<V extends string>({ items, value, onChange, label,
       items.map(item => item.value), value, onChange)}>
     {items.map(item => <button key={item.value} type="button" role="tab" id={item.id} aria-controls={item.panelId}
       aria-selected={item.value === value}
-      tabIndex={item.value === value ? 0 : -1} className="dt-tab" onClick={() => onChange(item.value)}>{item.label}</button>)}
+      tabIndex={item.value === value ? 0 : -1} className="dt-tab" onClick={() => onChange(item.value)}>{item.icon}{item.label}</button>)}
   </div>
 }
 export function SegmentedControl<V extends string>({ options, value, onChange, label, disabled, className }: {
@@ -180,14 +239,15 @@ function trapTab(event: globalThis.KeyboardEvent, dialog: HTMLElement) {
   }
 }
 /** Accessible modal dialog with focus trapping, Escape/backdrop dismissal, and focus restoration. */
-export function Modal({ open, onClose, title, closeLabel, description, footer, className, children }: {
+export function Modal({ open, onClose, title, closeLabel, description, footer, className, children, closeDisabled = false }: {
   open: boolean; onClose: () => void; title: string; closeLabel: string; description?: string; footer?: ReactNode; className?: string
-  children?: ReactNode
+  children?: ReactNode; closeDisabled?: boolean
 }) {
+  const descriptionId = useId()
   const dialog = useRef<HTMLDivElement>(null)
   // Keep `onClose` in a ref so parent re-renders (e.g., background polls) do not re-run the effect and reset focus.
   const close = useRef(onClose)
-  close.current = onClose
+  close.current = () => { if (!closeDisabled) onClose() }
   useEffect(() => {
     if (!open) return
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : undefined
@@ -201,13 +261,13 @@ export function Modal({ open, onClose, title, closeLabel, description, footer, c
   }, [open])
   if (!open) return null
   return createPortal(<div className="dt-modal-root" role="presentation">
-    <div className="dt-modal-mask" aria-hidden="true" onClick={onClose} />
-    <div ref={dialog} className={cx('dt-modal', className)} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}>
+    <div className="dt-modal-mask" aria-hidden="true" onClick={() => close.current()} />
+    <div ref={dialog} className={cx('dt-modal', className)} role="dialog" aria-modal="true" aria-label={title} aria-describedby={description ? descriptionId : undefined} aria-busy={closeDisabled || undefined} tabIndex={-1}>
       <div className="dt-modal-header">
         <h2>{title}</h2>
-        <button type="button" className="dt-modal-close" aria-label={closeLabel} onClick={onClose}><Icon name="close" size={14} /></button>
+        <button type="button" className="dt-modal-close" aria-label={closeLabel} disabled={closeDisabled} onClick={onClose}><Icon name="close" size={14} /></button>
       </div>
-      {description && <p className="dt-modal-description">{description}</p>}
+      {description && <p id={descriptionId} className="dt-modal-description">{description}</p>}
       {children !== undefined && <div className="dt-modal-body">{children}</div>}
       {footer !== undefined && <div className="dt-modal-footer">{footer}</div>}
     </div>

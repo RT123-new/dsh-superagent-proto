@@ -4,7 +4,7 @@ import { backfillChat, consumerRetry, feishuKind, feishuTriggerId, feishuRef, fe
   from '../src/sources/feishu.ts'
 import { KV } from '../src/kv.ts'
 import { apply as applyFeishu, pollThreads as pollFeishuThreads } from '../src/sources/feishu.ts'
-import { runFeishu } from '../src/sources/feishu-loops.ts'
+import { boundedEventLines, runFeishu } from '../src/sources/feishu-loops.ts'
 import { commentTrigger, githubAddress, githubChannel, issueTrigger, type GithubComment, type GithubIssue } from '../src/sources/github-trigger.ts'
 import { claimPull, observePull, pullEndNotices, pullOf, ticketBranch, type Pull } from '../src/sources/github-pull.ts'
 import { ciCounts, ciFact, ciSummary } from '../src/sources/github-read.ts'
@@ -1748,4 +1748,24 @@ describe('github notifications lane parking (fine-grained token)', () => {
     expect(laneOf(h)).toBeUndefined()
     h.store.close()
   })
+})
+
+it('frames UTF-8 events across chunks, discards overlong frames, then resumes at the next newline', async () => {
+  const chunks = [Buffer.from([0xe4, 0xbd]), Buffer.from([0xa0, 13, 10]), Buffer.from('1234'), Buffer.from('56789\nok\nlast')]
+  async function* input() { yield* chunks }
+  const actual = []
+  for await (const line of boundedEventLines(input(), 8)) actual.push(line)
+  expect(actual).toEqual(['你', undefined, 'ok', 'last'])
+})
+
+it('pulls no further event chunks while the consumer is processing a yielded frame', async () => {
+  let reads = 0
+  async function* input() { for (const line of ['a\n', 'b\n', 'c']) { reads++; yield Buffer.from(line) } }
+  const frames = boundedEventLines(input(), 8)
+  expect(await frames.next()).toEqual({ value: 'a', done: false })
+  expect(reads).toBe(1)
+  expect(await frames.next()).toEqual({ value: 'b', done: false })
+  expect(reads).toBe(2)
+  expect(await frames.next()).toEqual({ value: 'c', done: false })
+  expect(await frames.next()).toMatchObject({ done: true })
 })

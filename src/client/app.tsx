@@ -1,7 +1,7 @@
 /** Root panel shell: header with global search and glossary, top-level navigation tabs, and active route view. */
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import type { SearchView } from './api.ts'
-import { Button, Dot, Icon, Input, Modal, SegmentedTabs } from './controls.tsx'
+import { Button, Dot, Icon, Input, Modal, NavigationIcon, SegmentedTabs } from './controls.tsx'
 import type { DeploymentForm } from './deployment.tsx'
 import { EvalStatus } from './eval.tsx'
 import { ExecutionStatus } from './execution.tsx'
@@ -89,7 +89,7 @@ function SearchResults({ result, query, onClose }: { result: SearchView; query: 
       {/* Filtered triggers have no Thread and display their filter reason instead of a link. */}
       {result.items.map(item => <Result key={item.id} name={<Highlight text={readableMarkers(t, item.preview) || t('empty')}
         query={query} />}
-        open={item.filtered === undefined ? go({ page: 'trigger', id: item.threads[0]!, query: { trigger: item.id } }) : undefined}>
+        open={item.filtered === undefined && item.threads.length > 0 ? go({ page: 'trigger', id: item.threads[0]!, query: { trigger: item.id } }) : undefined}>
         <span>{valueLabel(t, 'source', item.source)}</span><span>{actorName(t, item.actor)}</span><When at={item.at} />
         {item.threadTitle && <span className="dt-ellipsis">{t('inThread', { thread: readableMarkers(t, item.threadTitle) })}</span>}
         {item.filtered !== undefined && <span>{t('searchFiltered', { reason: reasonLabel(t, item.filtered) })}</span>}
@@ -100,33 +100,46 @@ function SearchResults({ result, query, onClose }: { result: SearchView; query: 
 
 function Header({ masterId }: { masterId: string | undefined }) {
   const { t, call, openSession, notify } = usePanel()
+  const { state, error } = usePanelData()
+  const connection = error ? state ? 'stale' : 'offline' : !state ? 'pending' : state.paused ? 'paused' : 'ready'
+  const connectionKey = ({ ready: 'connectionReady', paused: 'connectionPaused', stale: 'connectionStale', offline: 'connectionOffline', pending: 'connectionPending' } as const)[connection]
   const [glossary, setGlossary] = useState(false)
   const [query, setQuery] = useState('')
   const [result, setResult] = useState<{ query: string; value: SearchView }>()
-  // Ignore responses from superseded or cleared search requests.
+  const [searching, setSearching] = useState(false)
+  // Ignore responses from superseded, edited or dismissed search requests.
   const latest = useRef(0)
-  const show = (value?: { query: string; value: SearchView }) => { latest.current++; setResult(value) }
+  const show = (value?: { query: string; value: SearchView }) => { latest.current++; setResult(value); setSearching(false) }
   const search = useRef<HTMLFormElement>(null)
   useEffect(() => {
-    if (!result) return
+    if (!result && !searching) return
     const close = (event: PointerEvent) => { if (!search.current?.contains(event.target as Node)) show() }
     document.addEventListener('pointerdown', close)
     return () => { document.removeEventListener('pointerdown', close) }
-  }, [result])
+  }, [result, searching])
   const submit = (event: FormEvent) => {
     event.preventDefault()
     const text = query.trim()
     if (!text) { show(); return }
     const request = ++latest.current
-    call('GET search', { query: { q: text } }).then(value => { if (request === latest.current) setResult({ query: text, value }) },
-      failure => { if (request === latest.current) notify(errorText(failure)) })
+    setResult(undefined); setSearching(true)
+    call('GET search', { query: { q: text } }).then(value => {
+      if (request === latest.current) { setResult({ query: text, value }); setSearching(false) }
+    }, failure => {
+      if (request === latest.current) { setSearching(false); notify(errorText(failure)) }
+    })
   }
   return <header className="dt-head">
-    <div className="dt-head-title"><h1 className="dt-title">{t('title')}</h1></div>
+    <div className="dt-head-title"><div className="dt-brand-mark" aria-hidden="true"><NavigationIcon name="execution" /></div>
+      <div><p className="dt-head-kicker">{t('opsSubtitle')}</p><h1 className="dt-title">{t('title')}</h1></div>
+      <span className="dt-status-badge" data-connection={connection} role="status"><span className="dt-status-indicator" aria-hidden="true" />{t(connectionKey)}</span>
+    </div>
     <div className="dt-toolbar">
-      <form ref={search} className="dt-search" role="search" onSubmit={submit} onKeyDown={event => { if (event.key === 'Escape') show() }}>
+      <form ref={search} className="dt-search" role="search" aria-busy={searching} onSubmit={submit} onKeyDown={event => { if (event.key === 'Escape') show() }}>
         <Input type="search" icon={<Icon name="search" />} value={query} placeholder={t('searchPlaceholder')} aria-label={t('searchLabel')}
-          onChange={event => { setQuery(event.target.value); if (!event.target.value) show() }} />
+          onChange={event => { setQuery(event.target.value); show() }} />
+        <Button type="submit" className="dt-search-submit" size="sm" variant="ghost" disabled={!query.trim() || searching}>{t('searchLabel')}</Button>
+        {searching && <div className="dt-search-progress" role="status">{t('searchPending')}</div>}
         {result && <SearchResults result={result.value} query={result.query} onClose={() => { show() }} />}
       </form>
       <Button variant="ghost" size="sm" icon={<Icon name="question" />} aria-label={t('glossary')} title={t('glossary')} aria-haspopup="dialog"
@@ -161,10 +174,10 @@ function Pages({ route, openTab, deploymentForm }: { route: Route; openTab: (tab
   return <div className="dt-page">
     <div className="dt-column">
       <Header masterId={state?.masterId} />
-      {error && state && <p className="dt-error" role="status">{error.message}</p>}
+      {error && state && <p className="dt-error" role="status">{t('staleData')} {error.message}</p>}
       <SegmentedTabs className="dt-tabs" label={t('pagesLabel')} value={route.page} onChange={openTab}
-        items={TABS.map(value => ({ value, label: t(`tab.${value}`), id: `dt-tab-${value}`, panelId: 'dt-page' }))} />
-      <main id="dt-page" role="tabpanel" aria-labelledby={`dt-tab-${route.page}`} className="dt-main">{page}</main>
+        items={TABS.map(value => ({ value, label: t(`tab.${value}`), icon: <NavigationIcon name={value} />, id: `dt-tab-${value}`, panelId: 'dt-page' }))} />
+      <main id="dt-page" role="tabpanel" aria-labelledby={`dt-tab-${route.page}`} className={route.page === 'overview' ? 'dt-main dt-ops-overview' : 'dt-main'}>{page}</main>
     </div>
   </div>
 }
